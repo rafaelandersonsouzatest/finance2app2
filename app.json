@@ -27,7 +27,10 @@
     },
     "extra": {
       "env": "prod",
-      "APP_ENV": "prod"
+      "APP_ENV": "prod",
+      "eas": {
+        "projectId": "559b4f2b-514f-42d8-bf1c-fca02444f277"
+      }
     },
     "owner": "rafael.anderson.souza",
     "projectId": "559b4f2b-514f-42d8-bf1c-fca02444f277"
