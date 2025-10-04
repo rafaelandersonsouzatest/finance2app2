@@ -37,23 +37,19 @@ export default ({ config }) => {
 
   return {
     ...config,
-
     name: appEnv === "prod" ? "Meu App" : "Meu App Teste",
     slug: appEnv === "prod" ? "meu-app" : "meu-app-teste",
     icon: appEnv === "prod" ? "./assets/icon.png" : "./assets/icon-test.png",
 
-    ios: {
-      ...config.ios,
-    },
-    android: {
-      ...config.android,
-    },
-    web: {
-      ...config.web,
-    },
+    ios: { ...config.ios },
+    android: { ...config.android },
+    web: { ...config.web },
 
     extra: {
-      APP_ENV: appEnv, // 👈 aqui fica o valor disponível dentro do app
+      APP_ENV: appEnv,
+      eas: {
+        projectId: "559b4f2b-514f-42d8-bf1c-fca02444f277",
+      },
     },
   };
 };

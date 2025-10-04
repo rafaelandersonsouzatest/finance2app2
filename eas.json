@@ -3,10 +3,11 @@
     "version": ">= 3.0.0"
   },
   "build": {
-    "production": {
-      "distribution": "store",
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
       "env": {
-        "APP_ENV": "prod"
+        "APP_ENV": "dev"
       }
     },
     "preview": {
@@ -14,6 +15,15 @@
       "env": {
         "APP_ENV": "test"
       }
+    },
+    "production": {
+      "distribution": "store",
+      "env": {
+        "APP_ENV": "prod"
+      }
     }
+  },
+  "submit": {
+    "production": {}
   }
 }
