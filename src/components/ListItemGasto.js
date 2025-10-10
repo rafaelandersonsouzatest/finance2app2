@@ -25,8 +25,6 @@ export default function ListItemGasto({ item, onPressItem, onToggleStatus }) {
 
   // ✨ CORREÇÃO: Função segura para formatar a data
 const formatarDataSegura = (dataString) => {
-  // ✨ ARMADILHA DE DEBUG: Mostra o que estamos recebendo
-  console.log(`Tentando formatar a data: '${dataString}' (Tipo: ${typeof dataString})`);
 
   if (!dataString || typeof dataString !== 'string' || dataString.trim() === '') {
     return 'N/D';

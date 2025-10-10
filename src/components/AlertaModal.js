@@ -121,12 +121,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   botao: {
-    paddingVertical: 14,
+    minHeight: 54, // ✅ altura consistente, mesmo quando quebra linha
+    paddingHorizontal: 10,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 2,
-    width: '100%', // Garante que o botão único ocupe todo o espaço
+    flex: 1, // ✅ mantém botões do mesmo tamanho lado a lado
   },
   botaoPrimary: {
     backgroundColor: colors.primary,
@@ -136,7 +137,12 @@ const styles = StyleSheet.create({
   },
   textoBotao: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
+    textAlign: 'center', // ✅ garante centralização horizontal
+    textAlignVertical: 'center', // ✅ melhora no Android
+    lineHeight: 20, // ✅ evita desalinhamento em textos longos
+    flexShrink: 1, // ✅ evita quebra forçada que empurra o botão
+    width: '100%', // ✅ centraliza mesmo em textos de 2 linhas
   },
 });

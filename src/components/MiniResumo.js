@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, Text } from 'react-native';
 import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';

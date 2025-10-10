@@ -1,20 +1,17 @@
 import { useState, useEffect } from 'react';
-import { getFirestore, doc, getDoc, getDocs, collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch, orderBy, where } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch, orderBy, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { datasPadraoPorDescricao } from '../utils/datasPadrao';
 import { gerarDataComDia } from '../utils/gerarDataComDia';
 import { colors } from '../styles/colors';
 import { vencimentoCartaoPorNome } from '../utils/datasPadrao';
+import { normalizarParaISO } from '../utils/formatarData';
+
 
 
 // ================================
 // 🔹 HOOK: ENTRADAS
 // ================================
-  // const fixedIncomes = [
-  //   { nome: 'Salário Rafael', categoria: 'Renda', membro: 'Rafael', valor: 2300.20, pago: false, recorrente: true },
-  //   { nome: 'Salário Kézzia', categoria: 'Renda', membro: 'Kézzia', valor: 4500.00, pago: false, recorrente: true },
-  //   { nome: 'Atendimento Particular - Tânia', categoria: 'Extra', membro: 'Kézzia', valor: 400.00, pago: false, recorrente: true },
-  // ];
 export const useIncomes = (month, year) => {
   const [incomes, setIncomes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,76 +20,108 @@ export const useIncomes = (month, year) => {
   useEffect(() => {
     if (!month || !year) return;
     setLoading(true);
-    const q = query(collection(db, 'entradas'), where('mes', '==', month), where('ano', '==', year));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      let dados = snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-        valor: parseFloat(docSnap.data().valor) || 0,
-        pago: docSnap.data().pago === true,
-      }));
-      dados.sort((a, b) => (a.data || '').localeCompare(b.data || ''));
-      setIncomes(dados);
-      setLoading(false);
-    }, (err) => {
-      console.error('Erro ao buscar entradas:', err);
-      setError(err.message);
-      setLoading(false);
-    });
+
+    const q = query(
+      collection(db, 'entradas'),
+      where('mes', '==', month),
+      where('ano', '==', year)
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        let dados = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+          valor: parseFloat(docSnap.data().valor) || 0,
+          pago: docSnap.data().pago === true,
+        }));
+
+        // ✅ Ordenar por data (recebimento)
+        dados.sort((a, b) => {
+          const dataA = new Date(a.data || '2100-12-31');
+          const dataB = new Date(b.data || '2100-12-31');
+          return dataA - dataB;
+        });
+
+        setIncomes(dados);
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Erro ao buscar entradas:', err);
+        setError(err.message);
+        setLoading(false);
+      }
+    );
+
     return () => unsubscribe();
   }, [month, year]);
 
-const gerarFixasDoMes = async () => {
-  try {
-    const qEntradas = query(collection(db, 'entradas'), where('mes', '==', month), where('ano', '==', year));
-    const snapshotEntradas = await getDocs(qEntradas);
-    const jaGerou = snapshotEntradas.docs.some(doc => doc.data().origemModelo === true);
-    if (jaGerou) {
-      console.log('Entradas fixas já foram geradas para este mês.');
-      return 'JA_GERADO';
+  // ✅ Nome padronizado e coerente com os outros hooks
+  const gerarFixosDoMes = async () => {
+    try {
+      const qEntradas = query(
+        collection(db, 'entradas'),
+        where('mes', '==', month),
+        where('ano', '==', year)
+      );
+      const snapshotEntradas = await getDocs(qEntradas);
+      const jaGerou = snapshotEntradas.docs.some((doc) => doc.data().origemModelo === true);
+      if (jaGerou) {
+        console.log('Entradas fixas já foram geradas para este mês.');
+        return 'JA_GERADO';
+      }
+
+      const qModelos = query(collection(db, 'modelosDeEntrada'), where('ativo', '==', true));
+      const modelosSnapshot = await getDocs(qModelos);
+      if (modelosSnapshot.empty) {
+        console.log('Nenhum modelo de entrada ativo encontrado.');
+        return 'SEM_MODELOS';
+      }
+
+      const novas = modelosSnapshot.docs.map((doc) => {
+        const modelo = doc.data();
+        return {
+          descricao: modelo.descricao,
+          categoria: modelo.categoria,
+          membro: modelo.membro || '',
+          valor: parseFloat(modelo.valor),
+          data: gerarDataComDia(modelo.diaDoMes, month, year),
+          mes: month,
+          ano: year,
+          pago: false,
+          origemModelo: true,
+          criadoEm: serverTimestamp(),
+        };
+      });
+
+      const batch = writeBatch(db);
+      novas.forEach((i) => {
+        const docRef = doc(collection(db, 'entradas'));
+        batch.set(docRef, i);
+      });
+      await batch.commit();
+      return 'SUCESSO';
+    } catch (err) {
+      console.error('Erro ao gerar entradas fixas a partir dos modelos:', err);
+      setError(err.message);
+      return 'ERRO';
     }
-
-    const qModelos = query(collection(db, 'modelosDeEntrada'), where('ativo', '==', true));
-    const modelosSnapshot = await getDocs(qModelos);
-    if (modelosSnapshot.empty) {
-      console.log('Nenhum modelo de entrada ativo encontrado.');
-      return 'SEM_MODELOS';
-    }
-
-    const novas = modelosSnapshot.docs.map((doc) => {
-      const modelo = doc.data();
-      return {
-        descricao: modelo.descricao,
-        categoria: modelo.categoria,
-        membro: modelo.membro || '',
-        valor: parseFloat(modelo.valor),
-        data: gerarDataComDia(modelo.diaDoMes, month, year),
-        mes: month,
-        ano: year,
-        pago: false,
-        origemModelo: true,
-        criadoEm: serverTimestamp(),
-      };
-    });
-
-    const batch = writeBatch(db);
-    novas.forEach((i) => {
-      const docRef = doc(collection(db, 'entradas'));
-      batch.set(docRef, i);
-    });
-    await batch.commit();
-    return 'SUCESSO';
-  } catch (err) {
-    console.error('Erro ao gerar entradas fixas a partir dos modelos:', err);
-    setError(err.message);
-    return 'ERRO';
-  }
-};
+  };
 
   const addIncome = async (income) => {
     try {
-      const diaPadrao = datasPadraoPorDescricao[income.nome || income.descricao] || 1;
-      const dataFinal = income.data || gerarDataComDia(diaPadrao, income.mes || month, income.ano || year);
+      let dataFinal;
+        if (income.data) {
+          dataFinal = normalizarParaISO(income.data);
+        } else {
+          const diaPadrao = datasPadraoPorDescricao[income.descricao] || 1;
+          const ano = income.ano || year;
+          const mes = income.mes || month;
+          dataFinal = normalizarParaISO(`${diaPadrao}-${mes}-${ano}`);
+        }
+
+
 
       const docRef = await addDoc(collection(db, 'entradas'), {
         ...income,
@@ -139,21 +168,22 @@ const gerarFixasDoMes = async () => {
     }
   };
 
-  return { incomes, loading, error, addIncome, updateIncome, deleteIncome, gerarFixasDoMes };
+  // ✅ Retorno padronizado e consistente
+  return {
+    incomes,
+    loading,
+    error,
+    addIncome,
+    updateIncome,
+    deleteIncome,
+    gerarFixosDoMes,
+  };
 };
 
 
 // ================================
 // 🔹 HOOK: GASTOS FIXOS
 // ================================
-//   { descricao: 'Auxilio Creche', categoria: 'Conhecimento', valor: 60, fixo: true, pago: false },
-//   { descricao: 'Seguro Prisma', categoria: 'Transporte', valor: 127, fixo: true, pago: false },
-//   { descricao: 'Aluguel', categoria: 'Moradia', valor: 900, fixo: true, pago: false },
-//   { descricao: 'Internet', categoria: 'Utilidades', valor: 104.30, fixo: true, pago: false },
-//   { descricao: 'Energia', categoria: 'Moradia', valor: 124, fixo: true, pago: false },
-//   { descricao: 'Água', categoria: 'Moradia', valor: 115, fixo: true, pago: false },
-// ];
-
 export const useFixedExpenses = (month, year) => {
   const [fixedExpenses, setFixedExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -162,41 +192,42 @@ export const useFixedExpenses = (month, year) => {
   useEffect(() => {
     if (!month || !year) return;
     setLoading(true);
+
     const q = query(collection(db, 'gastosFixos'), where('mes', '==', month), where('ano', '==', year));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setFixedExpenses(snapshot.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-        valor: parseFloat(d.data().valor) || 0,
-      })));
-      setLoading(false);
-    }, (err) => {
-      console.error('Erro ao carregar gastos fixos:', err);
-      setError(err.message);
-      setLoading(false);
-    });
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const dados = snapshot.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+          valor: parseFloat(d.data().valor) || 0,
+        }));
+        // ✅ Ordenar por data de vencimento
+        dados.sort((a, b) => new Date(a.dataVencimento) - new Date(b.dataVencimento));
+        setFixedExpenses(dados);
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Erro ao carregar gastos fixos:', err);
+        setError(err.message);
+        setLoading(false);
+      }
+    );
+
     return () => unsubscribe();
   }, [month, year]);
 
-const gerarFixosDoMes = async () => {
+  const gerarFixosDoMes = async () => {
     try {
-      // 1. Verifica se já existem gastos gerados por um modelo
       const qGastos = query(collection(db, 'gastosFixos'), where('mes', '==', month), where('ano', '==', year));
       const snapshotGastos = await getDocs(qGastos);
-      const jaGerou = snapshotGastos.docs.some(doc => doc.data().origemModelo === true);
-      if (jaGerou) {
-        console.log('Gastos fixos já foram gerados para este mês.');
-        return 'JA_GERADO'; // ✨ RETORNO ESPECÍFICO
-      }
+      const jaGerou = snapshotGastos.docs.some((doc) => doc.data().origemModelo === true);
+      if (jaGerou) return 'JA_GERADO';
 
-      // 2. Busca os modelos de gasto cadastrados pelo usuário
       const qModelos = query(collection(db, 'modelosDeGasto'), where('ativo', '==', true));
       const modelosSnapshot = await getDocs(qModelos);
-      if (modelosSnapshot.empty) {
-        return 'SEM_MODELOS'; // ✨ RETORNO ESPECÍFICO
-      }
+      if (modelosSnapshot.empty) return 'SEM_MODELOS';
 
-      // 3. Mapeia e salva os novos gastos (lógica de sucesso)
       const novosGastos = modelosSnapshot.docs.map((doc) => {
         const modelo = doc.data();
         return {
@@ -213,28 +244,23 @@ const gerarFixosDoMes = async () => {
       });
 
       const batch = writeBatch(db);
-      novosGastos.forEach((gasto) => {
-        const docRef = doc(collection(db, 'gastosFixos'));
-        batch.set(docRef, gasto);
-      });
+      novosGastos.forEach((g) => batch.set(doc(collection(db, 'gastosFixos')), g));
       await batch.commit();
-      
-      return 'SUCESSO'; // ✨ RETORNO ESPECÍFICO
+      return 'SUCESSO';
     } catch (err) {
-      console.error('Erro ao gerar gastos fixos a partir dos modelos:', err);
+      console.error('Erro ao gerar gastos fixos:', err);
       setError(err.message);
-      return 'ERRO'; // Retorno em caso de falha na execução
+      return 'ERRO';
     }
   };
-  
+
   const addFixedExpense = async (expense) => {
     try {
       const diaPadrao = datasPadraoPorDescricao[expense.descricao] || 1;
       const dataFinal = expense.dataVencimento || gerarDataComDia(diaPadrao, expense.mes || month, expense.ano || year);
-
       await addDoc(collection(db, 'gastosFixos'), {
         ...expense,
-        dataVencimento: dataFinal,
+        dataVencimento: normalizarParaISO(dataFinal),
         valor: parseFloat(expense.valor),
         criadoEm: serverTimestamp(),
       });
@@ -247,12 +273,9 @@ const gerarFixosDoMes = async () => {
   const updateFixedExpense = async (id, expense) => {
     try {
       const dadosAtualizados = { ...expense };
-
-      if (dadosAtualizados.pago === true && !dadosAtualizados.dataPagamento) {
+      if (dadosAtualizados.pago === true && !dadosAtualizados.dataPagamento)
         dadosAtualizados.dataPagamento = new Date().toISOString().split('T')[0];
-      } else if (dadosAtualizados.pago === false && dadosAtualizados.dataPagamento) {
-        dadosAtualizados.dataPagamento = null;
-      }
+      if (dadosAtualizados.pago === false) dadosAtualizados.dataPagamento = null;
 
       await updateDoc(doc(db, 'gastosFixos', id), {
         ...dadosAtualizados,
@@ -277,6 +300,7 @@ const gerarFixosDoMes = async () => {
   return { fixedExpenses, loading, error, addFixedExpense, updateFixedExpense, deleteFixedExpense, gerarFixosDoMes };
 };
 
+
 // ================================
 // 🔹 HOOK: EMPRÉSTIMOS
 // ================================
@@ -291,11 +315,19 @@ export const useLoans = (month, year) => {
       setLoading(false);
       return;
     }
+
     const q = query(collection(db, 'emprestimos'), where('mes', '==', month), where('ano', '==', year));
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        setLoans(snapshot.docs.map((d) => ({ id: d.id, ...d.data(), valor: parseFloat(d.data().valor) || 0 })));
+        const dados = snapshot.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+          valor: parseFloat(d.data().valor) || 0,
+        }));
+        // ✅ Ordenar por data de vencimento
+        dados.sort((a, b) => new Date(a.dataVencimento) - new Date(b.dataVencimento));
+        setLoans(dados);
         setLoading(false);
       },
       (err) => {
@@ -307,24 +339,12 @@ export const useLoans = (month, year) => {
     return () => unsubscribe();
   }, [month, year]);
 
-  const converterDataParaISO = (dataStr) => {
-    if (!dataStr || typeof dataStr !== 'string') return null;
-    const separador = dataStr.includes('/') ? '/' : '-';
-    const partes = dataStr.split(separador);
-    if (partes.length !== 3) {
-      console.error("Formato de data inválido recebido:", dataStr);
-      return dataStr;
-    }
-    const [dia, mes, ano] = partes;
-    return `${ano}-${mes}-${dia}`;
-  };
-
   const addLoan = async (loan) => {
     try {
       const { descricao, valorTotal, totalParcelas, dataInicio, pessoa, categoria } = loan;
       const valorParcela = parseFloat(valorTotal) / totalParcelas;
 
-      const dataBaseISO = converterDataParaISO(dataInicio);
+      const dataBaseISO = normalizarParaISO(dataInicio);
       if (!dataBaseISO) {
         throw new Error("Data de início inválida.");
       }
@@ -365,36 +385,74 @@ export const useLoans = (month, year) => {
     }
   };
 
-  const updateLoan = async (id, loan) => {
-    try {
-      const dadosAtualizados = { ...loan };
+const updateLoan = async (id, loan) => {
+  try {
+    const dadosAtualizados = { ...loan };
 
-      if (dadosAtualizados.pago === true && !dadosAtualizados.dataPagamento) {
-        dadosAtualizados.dataPagamento = new Date().toISOString().split('T')[0];
-      } else if (dadosAtualizados.pago === false && dadosAtualizados.dataPagamento) {
-        dadosAtualizados.dataPagamento = null;
-      }
+    // 🔹 Ajusta a data de pagamento conforme o status "pago"
+    if (dadosAtualizados.pago === true && !dadosAtualizados.dataPagamento) {
+      dadosAtualizados.dataPagamento = new Date().toISOString().split('T')[0];
+    } else if (dadosAtualizados.pago === false && dadosAtualizados.dataPagamento) {
+      dadosAtualizados.dataPagamento = null;
+    }
 
-      await updateDoc(doc(db, 'emprestimos', id), {
-        ...dadosAtualizados,
-        valor: parseFloat(dadosAtualizados.valor),
-        atualizadoEm: serverTimestamp(),
+    // 🔹 Atualiza a parcela editada
+    const docRef = doc(db, 'emprestimos', id);
+    await updateDoc(docRef, {
+      ...dadosAtualizados,
+      valor: parseFloat(dadosAtualizados.valor),
+      atualizadoEm: serverTimestamp(),
+    });
+
+ 
+    // 🔹 RECALCULAR TOTAL SOMANDO TODAS AS PARCELAS
+
+    if (dadosAtualizados.idCompra) {
+      const parcelasSnap = await getDocs(
+        query(collection(db, 'emprestimos'), where('idCompra', '==', dadosAtualizados.idCompra))
+      );
+
+      // ✅ Soma real das parcelas no Firestore
+      const parcelas = parcelasSnap.docs.map((d) => d.data());
+      const novoTotal = parcelas.reduce((soma, p) => soma + (parseFloat(p.valor) || 0), 0);
+
+      // ✅ Atualiza o valorTotal em todas as parcelas
+      const batch = writeBatch(db);
+      parcelasSnap.docs.forEach((docSnap) => {
+        batch.update(doc(db, 'emprestimos', docSnap.id), { valorTotal: novoTotal });
       });
-    } catch (err) {
-      setError(err.message);
-      throw err;
+      await batch.commit();
     }
-  };
 
-  const deleteLoan = async (id) => {
-    try {
-      await deleteDoc(doc(db, 'emprestimos', id));
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    }
-  };
+  } catch (err) {
+    console.error('Erro ao atualizar empréstimo:', err);
+    setError(err.message);
+    throw err;
+  }
+};
 
+
+    const deleteLoan = async (id, idCompra, excluirTudo = false) => {
+      try {
+        if (excluirTudo && idCompra) {
+          // Exclui todas as parcelas com o mesmo idCompra
+          const q = query(collection(db, 'emprestimos'), where('idCompra', '==', idCompra));
+          const snapshot = await getDocs(q);
+
+          if (!snapshot.empty) {
+            const batch = writeBatch(db);
+            snapshot.docs.forEach((d) => batch.delete(doc(db, 'emprestimos', d.id)));
+            await batch.commit();
+          }
+        } else {
+          // Exclui apenas a parcela individual
+          await deleteDoc(doc(db, 'emprestimos', id));
+        }
+      } catch (err) {
+        console.error('Erro ao excluir empréstimo:', err);
+        throw err;
+      }
+    };
   return { loans, loading, error, addLoan, updateLoan, deleteLoan };
 };
 
@@ -623,35 +681,31 @@ export const useCartoesEmprestados = (month, year) => {
       setLoading(false);
       return;
     }
-    const q = query(
-      collection(db, 'cartoesEmprestados'),
-      where('mes', '==', month),
-      where('ano', '==', year)
+
+    const q = query(collection(db, 'cartoesEmprestados'), where('mes', '==', month), where('ano', '==', year));
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const dados = snapshot.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+          valor: parseFloat(d.data().valor) || 0,
+          pago: d.data().pago === true,
+        }));
+        // ✅ Ordenar por data de vencimento
+        dados.sort((a, b) => new Date(a.dataVencimento) - new Date(b.dataVencimento));
+        setCartoes(dados);
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Erro no snapshot de cartões:', err);
+        setError(err.message);
+        setLoading(false);
+      }
     );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const dados = snapshot.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-        pago: d.data().pago === true,
-        valor: parseFloat(d.data().valor) || 0,
-      }));
-      setCartoes(dados);
-      setLoading(false);
-    }, (err) => {
-      console.error("Erro no snapshot de cartões:", err);
-      setError(err.message);
-      setLoading(false);
-    });
     return () => unsubscribe();
   }, [month, year]);
 
-  const converterDataParaISO = (dataDDMMYYYY) => {
-    if (!dataDDMMYYYY || typeof dataDDMMYYYY !== 'string') return null;
-    const partes = dataDDMMYYYY.split('-');
-    if (partes.length !== 3) return dataDDMMYYYY;
-    const [dia, mes, ano] = partes;
-    return `${ano}-${mes}-${dia}`;
-  };
 
   const getCorDoCartao = (nomeCartao) => {
     const nomeLimpo = typeof nomeCartao === 'string' ? nomeCartao.trim() : '';
@@ -667,7 +721,7 @@ export const useCartoesEmprestados = (month, year) => {
       
       const corDoCartao = getCorDoCartao(nomeCartao);
       const valorParcela = parseFloat(valorTotal) / parcelas;
-      const dataBaseISO = converterDataParaISO(dataCompra);
+      const dataBaseISO = normalizarParaISO(dataCompra);
       const dataBase = new Date(dataBaseISO + 'T00:00:00');
       const idCompra = `${descricao.replace(/\s+/g, '-')}-${dataBaseISO}`;
       const diaVencimento = vencimentoCartaoPorNome[nomeCartao] || vencimentoCartaoPorNome.Default;

@@ -1,13 +1,27 @@
-// components/ModalDetalhes.js
-
-import { Modal, View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { useState, useEffect } from 'react';
+import {
+  Modal,
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import { vibrarLeve } from '../utils/haptics';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+} from 'firebase/firestore';
+import { db } from '../config/firebase';
+import AlertaModal from './AlertaModal';
 
-
-// SEU COMPONENTE InfoRow - SEM ALTERAÇÕES
+// ------------------------------------------------------
+// 🔹 COMPONENTE DE LINHA DE INFORMAÇÃO
+// ------------------------------------------------------
 const InfoRow = ({ icon, label, value, color = colors.textPrimary }) => (
   <View style={globalStyles.infoRow}>
     <MaterialCommunityIcons
@@ -23,55 +37,136 @@ const InfoRow = ({ icon, label, value, color = colors.textPrimary }) => (
   </View>
 );
 
-// ✨ 1. NOVO COMPONENTE PARA O RESUMO FINANCEIRO (Totalmente novo e autocontido) ✨
-const ResumoFinanceiro = ({ item }) => {
-  const valorTotal = item.valorTotal || (item.valor * item.totalParcelas);
-  const totalPago = item.pago 
-    ? (item.parcelaAtual * item.valor) 
-    : ((item.parcelaAtual - 1) * item.valor);
-  const progressoQuitacao = valorTotal > 0 ? (totalPago / valorTotal) * 100 : 0;
+// ------------------------------------------------------
+// 🔹 RESUMO FINANCEIRO
+// ------------------------------------------------------
+const ResumoFinanceiro = ({ totalPago, totalReal, totalParcelas, parcelasPagas }) => {
+  const progresso = totalReal > 0 ? (totalPago / totalReal) * 100 : 0;
 
   return (
     <View style={globalStyles.resumoFinanceiroContainer}>
       <View style={globalStyles.rowBetween}>
         <Text style={globalStyles.resumoFinanceiroLabel}>Total Pago</Text>
-        <Text style={globalStyles.resumoFinanceiroLabel}>Valor Total da Dívida</Text>
+        <Text style={globalStyles.resumoFinanceiroLabel}>Valor Total</Text>
       </View>
+
       <View style={globalStyles.rowBetween}>
         <Text style={globalStyles.resumoFinanceiroValor}>
           R$ {totalPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
         </Text>
         <Text style={globalStyles.resumoFinanceiroValor}>
-          R$ {valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          R$ {totalReal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
         </Text>
       </View>
+
       <View style={[globalStyles.progressBackground, { marginTop: 8 }]}>
-        <View style={[globalStyles.progressFill, { width: `${progressoQuitacao}%`, backgroundColor: colors.balance }]} />
+        <View
+          style={[
+            globalStyles.progressFill,
+            { width: `${progresso}%`, backgroundColor: colors.balance },
+          ]}
+        />
       </View>
+
     </View>
   );
 };
 
-// SUA EXPORTAÇÃO DEFAULT - SEM ALTERAÇÕES NA ASSINATURA
-export default function ModalDetalhes({ visible, onClose, item, onEditPress, tipo, onHistoryPress }) {
-  if (!item) return null;
+// ------------------------------------------------------
+// 🔹 COMPONENTE PRINCIPAL
+// ------------------------------------------------------
+export default function ModalDetalhes({
+  visible,
+  onClose,
+  item,
+  onEditPress,
+  tipo,
+  onHistoryPress,
+}) {
+  const [totalReal, setTotalReal] = useState(0);
+  const [totalPago, setTotalPago] = useState(0);
+  const [parcelasPagas, setParcelasPagas] = useState(0);
+  const [totalParcelas, setTotalParcelas] = useState(0);
+  const [alerta, setAlerta] = useState({ visivel: false });
 
-  const statusCor = item.pago ? colors.balance : colors.pending;
+  // ------------------------------------------------------
+  // 🔹 CARREGAR TOTAIS PARA EMPRÉSTIMOS
+  // ------------------------------------------------------
+  useEffect(() => {
+    const carregarTotais = async () => {
+      if (tipo !== 'emprestimo' || !item?.idCompra) return;
 
-  // SUA FUNÇÃO renderContent - SEM ALTERAÇÕES
+      try {
+        const parcelasSnap = await getDocs(
+          query(collection(db, 'emprestimos'), where('idCompra', '==', item.idCompra))
+        );
+
+        if (parcelasSnap.empty) {
+          setTotalReal(0);
+          setTotalPago(0);
+          setParcelasPagas(0);
+          setTotalParcelas(0);
+          return;
+        }
+
+        const parcelas = parcelasSnap.docs.map((d) => d.data());
+
+        const somaTotal = parcelas.reduce((acc, p) => acc + (parseFloat(p.valor) || 0), 0);
+        const somaPagas = parcelas.reduce(
+          (acc, p) => acc + (p.pago || p.adiantada ? parseFloat(p.valor) || 0 : 0),
+          0
+        );
+        const pagas = parcelas.filter((p) => p.pago || p.adiantada).length;
+
+        setTotalReal(somaTotal);
+        setTotalPago(somaPagas);
+        setParcelasPagas(pagas);
+        setTotalParcelas(parcelas.length);
+      } catch (err) {
+        console.error('Erro ao calcular totais:', err);
+        setAlerta({
+          visivel: true,
+          titulo: 'Erro ao carregar dados',
+          mensagem: 'Não foi possível calcular os totais do empréstimo.',
+          icone: 'wifi-off',
+          corIcone: colors.error,
+          textoBotao: 'Entendi',
+        });
+      }
+    };
+
+    if (visible) carregarTotais();
+  }, [visible, item, tipo]);
+
+  if (!visible) return null;
+
+  const statusCor = item?.pago ? colors.balance : colors.pending;
+
+
+  // ------------------------------------------------------
+  // 🔹 CONTEÚDO PRINCIPAL DO MODAL
+  // ------------------------------------------------------
   const renderContent = () => {
+    const formatarData = (data1, data2) => {
+      const dataValida = data1 || data2;
+      if (!dataValida) return 'Não informada';
+      const dataObj = new Date(dataValida + 'T00:00:00');
+      return isNaN(dataObj) ? 'Não informada' : dataObj.toLocaleDateString('pt-BR');
+    };
+
     switch (tipo) {
       case 'entrada':
         return (
           <>
-            <InfoRow icon="cash" label="Valor" value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} color={colors.income} />
+            <InfoRow
+              icon="cash"
+              label="Valor"
+              value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+              color={colors.income}
+            />
             <InfoRow icon="shape-outline" label="Categoria" value={item.categoria || 'Não informada'} />
-            {item.pago && item.dataPagamento ? (
-              <InfoRow icon="calendar-check" label="Data do Pagamento" value={new Date(item.dataPagamento + 'T00:00:00').toLocaleDateString('pt-BR')} color={statusCor} />
-            ) : (
-              <InfoRow icon="calendar-arrow-left" label="Data do Recebimento" value={item.data ? new Date(item.data + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não informada'} />
-            )}
-            <InfoRow icon={item.pago ? "check-circle-outline" : "alert-circle-outline"} label="Status" value={item.pago ? "Recebido" : "Pendente"} color={statusCor} />
+            <InfoRow icon="calendar" label="Data de Recebimento" value={formatarData(item.data, item.dataPagamento)} />
+            <InfoRow icon={item.pago ? 'check-circle-outline' : 'alert-circle-outline'} label="Status" value={item.pago ? 'Recebido' : 'Pendente'} color={statusCor} />
           </>
         );
 
@@ -80,12 +175,21 @@ export default function ModalDetalhes({ visible, onClose, item, onEditPress, tip
           <>
             <InfoRow icon="cash" label="Valor" value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} color={colors.expense} />
             <InfoRow icon="shape-outline" label="Categoria" value={item.categoria || 'Não informada'} />
-            {item.pago && item.dataPagamento ? (
-              <InfoRow icon="calendar-check" label="Data do Pagamento" value={new Date(item.dataPagamento + 'T00:00:00').toLocaleDateString('pt-BR')} color={statusCor} />
-            ) : (
-              <InfoRow icon="calendar-arrow-right" label="Data de Vencimento" value={item.dataVencimento ? new Date(item.dataVencimento + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não informada'} />
-            )}
-            <InfoRow icon={item.pago ? "check-circle-outline" : "alert-circle-outline"} label="Status" value={item.pago ? "Pago" : "Pendente"} color={statusCor} />
+            <InfoRow icon="calendar" label="Data de Vencimento" value={formatarData(item.dataVencimento, item.dataPagamento)} />
+            <InfoRow icon={item.pago ? 'check-circle-outline' : 'alert-circle-outline'} label="Status" value={item.pago ? 'Pago' : 'Pendente'} color={statusCor} />
+          </>
+        );
+
+      case 'cartao':
+        return (
+          <>
+            <InfoRow icon="cash" label="Valor da Parcela" value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} color={colors.expense} />
+            <InfoRow icon="credit-card-outline" label="Cartão" value={item.cartao || 'Não informado'} />
+            <InfoRow icon="chart-donut" label="Progresso" value={`${item.parcelaAtual} de ${item.totalParcelas}`} />
+            <InfoRow icon="calendar" label="Vencimento da Parcela" value={formatarData(item.dataVencimento, item.dataPagamento)} />
+            <TouchableOpacity onPress={onHistoryPress}>
+              <InfoRow icon="history" label="Histórico da Compra" value="Ver todas as parcelas" color={colors.primary} />
+            </TouchableOpacity>
           </>
         );
 
@@ -94,42 +198,13 @@ export default function ModalDetalhes({ visible, onClose, item, onEditPress, tip
           <>
             <InfoRow icon="cash" label="Valor da Parcela" value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} color={colors.expense} />
             <InfoRow icon="account-group-outline" label="Pessoa/Instituição" value={item.pessoa || 'Não informada'} />
-            {item.pago && item.dataPagamento ? (
-              <InfoRow icon="calendar-check" label="Data do Pagamento" value={new Date(item.dataPagamento + 'T00:00:00').toLocaleDateString('pt-BR')} color={statusCor} />
-            ) : (
-              <InfoRow icon="calendar-arrow-right" label="Vencimento da Parcela" value={item.dataVencimento ? new Date(item.dataVencimento + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não informada'} />
-            )}
             <InfoRow icon="chart-donut" label="Progresso" value={`${item.parcelaAtual} de ${item.totalParcelas}`} />
-            <InfoRow icon={item.pago ? "check-circle-outline" : "alert-circle-outline"} label="Status" value={item.pago ? "Paga" : "Pendente"} color={statusCor} />
-            
+            <InfoRow icon={item.pago ? 'calendar-check' : 'calendar-arrow-right'} label={item.pago ? 'Data de Pagamento' : 'Vencimento da Parcela'} value={formatarData(item.dataPagamento, item.dataVencimento)} color={statusCor} />
+
             <TouchableOpacity onPress={onHistoryPress}>
               <InfoRow icon="history" label="Histórico da Dívida" value="Ver todas as parcelas" color={colors.primary} />
             </TouchableOpacity>
-          </>
-        );
 
-      case 'cartao':
-        const dataCompraFormatada = item.dataCompra ? new Date(item.dataCompra + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não informada';
-        const valorTotalCompra = item.valorTotal || (item.valor * item.totalParcelas);
-
-        return (
-          <>
-            <InfoRow icon="cash" label="Valor da Parcela" value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} color={colors.expense} />
-            <InfoRow icon="credit-card-outline" label="Cartão" value={item.cartao || 'Não informado'} />
-            <InfoRow icon="account-group-outline" label="Pessoa" value={item.pessoa || 'Não informada'} />
-            <InfoRow icon="chart-donut" label="Progresso" value={`${item.parcelaAtual} de ${item.totalParcelas}`} />
-            <InfoRow icon="calendar-star" label="Data da Compra" value={dataCompraFormatada} />
-            <InfoRow icon="cash-multiple" label="Valor Total da Compra" value={`R$ ${(Number(valorTotalCompra) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} />
-            {item.pago && item.dataPagamento ? (
-              <InfoRow icon="calendar-check" label="Data do Pagamento" value={new Date(item.dataPagamento + 'T00:00:00').toLocaleDateString('pt-BR')} color={statusCor} />
-            ) : (
-              <InfoRow icon="calendar-arrow-right" label="Vencimento da Parcela" value={item.dataVencimento ? new Date(item.dataVencimento + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não informada'} />
-            )}
-            <InfoRow icon={item.pago ? "check-circle-outline" : "alert-circle-outline"} label="Status da Parcela" value={item.pago ? "Paga" : "Pendente"} color={statusCor} />
-
-            <TouchableOpacity onPress={onHistoryPress}>
-              <InfoRow icon="history" label="Histórico da Compra" value="Ver todas as parcelas" color={colors.primary} />
-            </TouchableOpacity>
           </>
         );
 
@@ -138,61 +213,38 @@ export default function ModalDetalhes({ visible, onClose, item, onEditPress, tip
     }
   };
 
+  // ------------------------------------------------------
+  // 🔹 RENDERIZAÇÃO FINAL
+  // ------------------------------------------------------
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={globalStyles.modalOverlay}>
-        <View style={globalStyles.modalContainer}>
-          <View style={globalStyles.modalHeader}>
-            {/* ✨ 2. ADIÇÃO DO ÍCONE DA CATEGORIA NO CABEÇALHO ✨ */}
-            {item.categoria && (
-              <MaterialCommunityIcons
-                name={getIconePorCategoria(item.categoria, tipo)}
-                size={24}
-                color={colors.textSecondary}
-                style={{ marginRight: 12 }}
-              />
-            )}
-            <Text style={globalStyles.modalTitle} numberOfLines={1}>
-              {item.descricao || item.nome || 'Detalhes'}
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TouchableOpacity 
-              onPress={() => {
-                vibrarLeve(); // ✨ VIBRAÇÃO AQUI ✨
-                onEditPress();
-              }} 
-              style={{ marginRight: 15 }}
-            >
-              <MaterialCommunityIcons name="pencil-circle-outline" size={32} color={colors.textTertiary} />
-            </TouchableOpacity>
-              <TouchableOpacity onPress={onClose}>
-                <MaterialCommunityIcons name="close-circle" size={32} color={colors.textTertiary} />
-              </TouchableOpacity>
+    <>
+      <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+        <View style={globalStyles.modalOverlay}>
+          <View style={globalStyles.modalContainer}>
+            <View style={globalStyles.modalHeader}>
+              <Text style={globalStyles.modalTitle}>{item.descricao || item.nome || 'Detalhes'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TouchableOpacity onPress={() => { vibrarLeve(); onEditPress?.(item); }} style={{ marginRight: 15 }}>
+                  <MaterialCommunityIcons name="pencil-circle-outline" size={32} color={colors.textTertiary} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={onClose}>
+                  <MaterialCommunityIcons name="close-circle" size={32} color={colors.textTertiary} />
+                </TouchableOpacity>
+              </View>
             </View>
+
+            {tipo === 'emprestimo' && (
+              <ResumoFinanceiro totalPago={totalPago} totalReal={totalReal} parcelasPagas={parcelasPagas} totalParcelas={totalParcelas} />
+            )}
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {renderContent()}
+            </ScrollView>
           </View>
-
-          {/* ✨ 3. ADIÇÃO DO RESUMO FINANCEIRO (CONDICIONAL) ✨ */}
-          {(tipo === 'emprestimo' || tipo === 'cartao') && <ResumoFinanceiro item={item} />}
-
-          <ScrollView showsVerticalScrollIndicator={false}>{renderContent()}</ScrollView>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      <AlertaModal visible={alerta.visivel} onClose={() => setAlerta({ visivel: false })} {...alerta} />
+    </>
   );
 }
-
-// ✨ 4. FUNÇÃO AUXILIAR PARA OBTER O ÍCONE (Totalmente nova e isolada) ✨
-const getIconePorCategoria = (categoria, tipo) => {
-  const iconesEntrada = { Renda: 'briefcase-outline', Extra: 'credit-card', Investimentos: 'trending-up', Vendas: 'cart-outline' };
-  const iconesGasto = { Moradia: 'home', Utilidades: 'wifi', Saúde: 'healing', Transporte: 'car', Educação: 'school', Alimentação: 'restaurant', Lazer: 'movie' };
-  const iconesEmprestimo = { Financiamento: 'car', Pessoal: 'face-man', Eletrônicos: 'laptop' };
-  const iconesCartao = iconesGasto; // Reaproveita os ícones de gasto para categorias de compra
-
-  switch (tipo) {
-    case 'entrada': return iconesEntrada[categoria] || 'trending-up';
-    case 'gasto': return iconesGasto[categoria] || 'cash';
-    case 'emprestimo': return iconesEmprestimo[categoria] || 'wallet';
-    case 'cartao': return iconesCartao[categoria] || 'credit-card-outline';
-    default: return 'cash';
-  }
-};

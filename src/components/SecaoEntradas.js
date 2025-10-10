@@ -11,6 +11,8 @@ const memberImages = {
   rafael: require('../../assets/Rafael.png'),
   kezzia: require('../../assets/Kézzia.png'),
   default: require('../../assets/default.png'),
+  marina: require('../../assets/Marina.png'),
+  leo: require('../../assets/Léo.png'),
 };
 
 const normalize = (str = '') =>
@@ -141,7 +143,7 @@ segs.push({
   }, [groupedByMember, totalPrevisto, totalRealizado]);
 
   return (
-    <View style={globalStyles.card}>
+    <View style={[globalStyles.card, globalStyles.mb4]}>
       <Text style={globalStyles.subtitle}>Entradas</Text>
 
       <View style={globalStyles.donutWrapper}>

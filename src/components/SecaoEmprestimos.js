@@ -8,7 +8,7 @@ const SecaoEmprestimos = ({ loans = [] }) => {
   const { formatValue } = useVisibility(); // 👈 usar o contexto
 
   return (
-    <View style={globalStyles.card}>
+    <View style={[globalStyles.card, globalStyles.mb4]}>
       <Text style={globalStyles.subtitle}>Empréstimos</Text>
 
       <View style={globalStyles.gap12}>

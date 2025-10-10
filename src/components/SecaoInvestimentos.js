@@ -31,7 +31,7 @@ const SecaoInvestimentos = ({ investments = [] }) => {
   }
 
   return (
-    <View style={[globalStyles.card, globalStyles.mb20]}>
+    <View style={[globalStyles.card, globalStyles.mb4]}>
       <Text style={globalStyles.subtitle}>Investimentos</Text>
 
       <View style={globalStyles.gap16}>

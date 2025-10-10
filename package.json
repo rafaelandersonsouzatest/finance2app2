@@ -2,14 +2,19 @@
   "name": "meu-app",
   "version": "1.0.0",
   "main": "index.js",
-  "scripts": {
-    "start": "expo start",
-    "start:prod": "cross-env APP_ENV=prod expo start",
-    "start:test": "cross-env APP_ENV=test expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
-  },
+"scripts": {
+  "start": "expo start",
+  "android": "expo start --android",
+  "ios": "expo start --ios",
+  "web": "expo start --web",
+  "start:dev": "cross-env APP_ENV=meu-app expo start",
+  "start:rafael": "cross-env APP_ENV=rafael expo start",
+  "start:marina": "cross-env APP_ENV=marina expo start",
+
+  "publish:dev": "cross-env APP_ENV=meu-app eas update --branch dev --message \"Atualização DEV\"",
+  "publish:rafael": "cross-env APP_ENV=rafael eas update --branch rafael --message \"Versão Rafael atualizada\"",
+  "publish:marina": "cross-env APP_ENV=marina eas update --branch marina --message \"Versão Marina atualizada\""
+},
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-masked-view/masked-view": "0.3.2",
@@ -24,6 +29,7 @@
     "expo-constants": "~18.0.9",
     "expo-haptics": "~15.0.7",
     "expo-status-bar": "~3.0.8",
+    "expo-updates": "~29.0.12",
     "firebase": "^12.0.0",
     "react": "19.1.0",
     "react-native": "0.81.4",

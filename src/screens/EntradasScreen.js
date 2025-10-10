@@ -7,6 +7,7 @@ import AlertaModal from '../components/AlertaModal';
 import { useDateFilter } from '../contexts/DateFilterContext';
 import { useIncomes } from '../hooks/useFirestore';
 import { colors } from '../styles/colors';
+import { handleGerarFixosUtil } from '../utils/handleGerarFixos';
 
 export default function EntradasScreen() {
   // O estado do alerta agora precisa da prop 'botoes' para o caso de exclusão
@@ -20,7 +21,7 @@ export default function EntradasScreen() {
     addIncome,
     updateIncome,
     deleteIncome,
-    gerarFixasDoMes,
+    gerarFixosDoMes,
   } = useIncomes(selectedMonth, selectedYear);
 
   // Modais
@@ -90,47 +91,8 @@ export default function EntradasScreen() {
     }
   };
 
-  const handleGerarFixas = async () => {
-    const resultado = await gerarFixasDoMes();
-    let alertaConfig = {};
-
-    switch (resultado) {
-      case 'SUCESSO':
-        alertaConfig = {
-          titulo: 'Sucesso!',
-          mensagem: 'As entradas fixas para este mês foram geradas.',
-          icone: 'check-circle-outline',
-          corIcone: colors.balance,
-        };
-        break;
-      case 'JA_GERADO':
-        alertaConfig = {
-          titulo: 'Tudo Certo!',
-          mensagem: 'As entradas fixas deste mês já foram geradas.',
-          icone: 'information-outline',
-          corIcone: colors.primary,
-        };
-        break;
-      case 'SEM_MODELOS':
-        alertaConfig = {
-          titulo: 'Nenhum Modelo Encontrado',
-          mensagem: 'Cadastre modelos de entradas recorrentes em "Configurar Modelos".',
-          icone: 'file-document-edit-outline',
-          corIcone: colors.pending,
-        };
-        break;
-      default:
-        alertaConfig = {
-          titulo: 'Erro',
-          mensagem: 'Ocorreu um problema ao gerar as entradas. Tente novamente.',
-          icone: 'alert-circle-outline',
-          corIcone: colors.expense,
-        };
-        break;
-    }
-    setAlerta({ visivel: true, ...alertaConfig });
-  };
-
+  const handleGerarFixos = () =>
+    handleGerarFixosUtil(gerarFixosDoMes, setAlerta, 'entrada');
   const getIconePorCategoria = (categoria) => {
     const icones = {
       Renda: 'briefcase-outline',
@@ -152,7 +114,7 @@ export default function EntradasScreen() {
     {
       icon: 'autorenew',
       label: 'Gerar Entradas do Mês',
-      onPress: handleGerarFixas,
+      onPress: handleGerarFixos,
       name: 'bt_gerar',
     },
     {

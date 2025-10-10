@@ -1,55 +1,46 @@
-// import 'dotenv/config';
-
-// export default ({ config }) => {
-//   const appEnv = process.env.APP_ENV || "prod";
-
-//   return {
-//     ...config,
-
-//     // Nome e slug mudam conforme ambiente
-//     name: appEnv === "prod" ? "Meu App" : "Meu App Teste",
-//     slug: appEnv === "prod" ? "meu-app" : "meu-app-teste",
-
-//     // Ícones diferentes pra identificar rápido
-//     icon: appEnv === "prod" ? "./assets/icon.png" : "./assets/icon-test.png",
-
-//     // Mantém o resto igual ao app.json
-//     ios: {
-//       ...config.ios,
-//     },
-//     android: {
-//       ...config.android,
-//     },
-//     web: {
-//       ...config.web,
-//     },
-
-//     extra: {
-//       ...config.extra,
-//       APP_ENV: appEnv, // usado dentro do app (prod/test)
-//     },
-//   };
-// };
-
-
 export default ({ config }) => {
-  const appEnv = process.env.APP_ENV || "prod";
+  // 🔹 Define o ambiente atual — se não for passado nada, usa "meu-app" (dev)
+  const appEnv = process.env.APP_ENV || "meu-app";
+
+  // 🔹 Configurações específicas de cada app
+  const configs = {
+    "meu-app": {
+      name: "Financeiro DEV",
+      slug: "meu-app",
+      projectId: "559b4f2b-514f-42d8-bf1c-fca02444f277", // ID do projeto DEV no Expo
+      updatesUrl: "https://u.expo.dev/559b4f2b-514f-42d8-bf1c-fca02444f277",
+      icon: "./assets/icon.png",
+    },
+    rafael: {
+      name: "Financeiro Rafael",
+      slug: "rafael",
+      projectId: "f7f74c43-6005-4300-95e2-2754e86ce3bb", // ID do projeto Rafael no Expo
+      updatesUrl: "https://u.expo.dev/f7f74c43-6005-4300-95e2-2754e86ce3bb",
+      icon: "./assets/icon.png",
+    },
+    marina: {
+      name: "Financeiro Marina",
+      slug: "marina",
+      projectId: "ef2738e8-9756-4e34-9fd8-87e63b7cf9cd", // ID do projeto Marina no Expo
+      updatesUrl: "https://u.expo.dev/ef2738e8-9756-4e34-9fd8-87e63b7cf9cd",
+      icon: "./assets/icon.png",
+    },
+  };
+
+  const selected = configs[appEnv] || configs["meu-app"];
 
   return {
     ...config,
-    name: appEnv === "prod" ? "Meu App" : "Meu App Teste",
-    slug: appEnv === "prod" ? "meu-app" : "meu-app-teste",
-    icon: appEnv === "prod" ? "./assets/icon.png" : "./assets/icon-test.png",
-
+    name: selected.name,
+    slug: selected.slug,
+    icon: selected.icon,
     ios: { ...config.ios },
     android: { ...config.android },
     web: { ...config.web },
-
     extra: {
       APP_ENV: appEnv,
-      eas: {
-        projectId: "559b4f2b-514f-42d8-bf1c-fca02444f277",
-      },
+      eas: { projectId: selected.projectId },
     },
+    updates: { url: selected.updatesUrl },
   };
 };

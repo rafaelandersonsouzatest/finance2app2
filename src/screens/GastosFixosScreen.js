@@ -7,6 +7,7 @@ import { useDateFilter } from '../contexts/DateFilterContext';
 import { useFixedExpenses } from '../hooks/useFirestore';
 import AlertaModal from '../components/AlertaModal';
 import { colors } from '../styles/colors';
+import { handleGerarFixosUtil } from '../utils/handleGerarFixos';
 
 export default function GastosFixosScreen() {
   // O estado do alerta agora precisa da prop 'botoes'
@@ -92,47 +93,7 @@ export default function GastosFixosScreen() {
     }
   };
 
-  const handleGerarFixos = async () => {
-    const resultado = await gerarFixosDoMes();
-    let alertaConfig = {};
-
-    switch (resultado) {
-      case 'SUCESSO':
-        alertaConfig = {
-          titulo: 'Sucesso!',
-          mensagem: 'Os gastos fixos para este mês foram gerados.',
-          icone: 'check-circle-outline',
-          corIcone: colors.balance,
-        };
-        break;
-      case 'JA_GERADO':
-        alertaConfig = {
-          titulo: 'Tudo Certo!',
-          mensagem: 'Os gastos recorrentes para este mês já foram gerados anteriormente.',
-          icone: 'information-outline',
-          corIcone: colors.primary,
-        };
-        break;
-      case 'SEM_MODELOS':
-        alertaConfig = {
-          titulo: 'Nenhum Modelo Encontrado',
-          mensagem: 'Você ainda não cadastrou nenhum modelo de gasto recorrente. Vá em "Configurar Modelos" para começar.',
-          icone: 'file-document-edit-outline',
-          corIcone: colors.pending,
-        };
-        break;
-      default:
-        alertaConfig = {
-          titulo: 'Erro',
-          mensagem: 'Ocorreu um problema ao tentar gerar os gastos. Tente novamente.',
-          icone: 'alert-circle-outline',
-          corIcone: colors.expense,
-        };
-        break;
-    }
-    setAlerta({ visivel: true, ...alertaConfig });
-  };
-  
+const handleGerarFixos = () => handleGerarFixosUtil(gerarFixosDoMes, setAlerta, 'gasto');  
   const getIconePorCategoria = (categoria) => {
     const icones = {
       Moradia: 'home-variant-outline',

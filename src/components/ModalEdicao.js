@@ -74,13 +74,15 @@ export default function ModalEdicao({
         setValores(valoresFormatados);
 
         const descricao = item.descricao;
-        setOcultarCampoData(
-          descricao && datasPadraoPorDescricao.hasOwnProperty(descricao)
-        );
-      } else {
-        // 👇 garante que os campos aparecem mesmo sem item
-        setValores({});
-        setOcultarCampoData(false);
+        if (descricao && datasPadraoPorDescricao.hasOwnProperty(descricao)) {
+          const diaPadrao = datasPadraoPorDescricao[descricao];
+          if (!valoresFormatados.dataVencimento) {
+            const novaData = gerarDataComDia(diaPadrao);
+            valoresFormatados.dataVencimento = formatarDataParaExibicao(novaData);
+        }
+      }
+      setOcultarCampoData(false);
+
       }
     }
   }, [visivel, item, tipo]);
@@ -152,9 +154,12 @@ export default function ModalEdicao({
     aoSalvar(valoresParaSalvar);
   };
 
-  const handleExcluir = () => {
-    if (aoExcluir) aoExcluir(valores);
-  };
+const handleExcluir = () => {
+  if (aoExcluir) {
+    aoExcluir(valores);
+    aoFechar(); // 👈 fecha o modal imediatamente após excluir
+  }
+};
 
   const renderCamposPorTipo = () => {
     switch (tipo) {
@@ -194,7 +199,6 @@ export default function ModalEdicao({
                 placeholderTextColor={colors.textSecondary}
               />
             </View>
-            {!ocultarCampoData && (
               <View style={globalStyles.inputGroup}>
                 <Text style={globalStyles.label}>Data de Recebimento</Text>
                 <TextInput
@@ -205,7 +209,6 @@ export default function ModalEdicao({
                   placeholderTextColor={colors.textSecondary}
                 />
               </View>
-            )}
             <View style={globalStyles.inputGroup}>
               <Text style={globalStyles.label}>Categoria</Text>
               <TextInput
@@ -245,18 +248,29 @@ export default function ModalEdicao({
                 placeholderTextColor={colors.textSecondary}
               />
             </View>
-            {!ocultarCampoData && (
+            <View style={globalStyles.inputGroup}>
+              <Text style={globalStyles.label}>Data de Vencimento *</Text>
+              <TextInput
+                style={globalStyles.input}
+                value={valores.dataVencimento || ''}
+                onChangeText={(t) => handleChange('dataVencimento', t)}
+                placeholder="DD-MM-AAAA"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </View>
+            {valores.pago && (
               <View style={globalStyles.inputGroup}>
-                <Text style={globalStyles.label}>Data de Vencimento *</Text>
+                <Text style={globalStyles.label}>Data de Pagamento</Text>
                 <TextInput
                   style={globalStyles.input}
-                  value={valores.dataVencimento || ''}
-                  onChangeText={(t) => handleChange('dataVencimento', t)}
+                  value={valores.dataPagamento || ''}
+                  onChangeText={(t) => handleChange('dataPagamento', t)}
                   placeholder="DD-MM-AAAA"
                   placeholderTextColor={colors.textSecondary}
                 />
               </View>
             )}
+
             <View style={globalStyles.inputGroup}>
               <Text style={globalStyles.label}>Categoria</Text>
               <TextInput
@@ -306,6 +320,18 @@ export default function ModalEdicao({
                 placeholderTextColor={colors.textSecondary}
               />
             </View>
+            {valores.pago && (
+              <View style={globalStyles.inputGroup}>
+                <Text style={globalStyles.label}>Data de Pagamento</Text>
+                <TextInput
+                  style={globalStyles.input}
+                  value={valores.dataPagamento || ''}
+                  onChangeText={(t) => handleChange('dataPagamento', t)}
+                  placeholder="DD-MM-AAAA"
+                  placeholderTextColor={colors.textSecondary}
+              />
+            </View>
+            )}
             <View style={globalStyles.inputGroup}>
               <Text style={globalStyles.label}>Pessoa/Instituição</Text>
               <TextInput

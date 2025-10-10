@@ -3,23 +3,22 @@
     "version": ">= 3.0.0"
   },
   "build": {
-    "development": {
-      "developmentClient": true,
+    "meuapp": {
       "distribution": "internal",
       "env": {
-        "APP_ENV": "dev"
+        "APP_ENV": "meu-app"
       }
     },
-    "preview": {
-      "distribution": "internal",
-      "env": {
-        "APP_ENV": "test"
-      }
-    },
-    "production": {
+    "rafael": {
       "distribution": "store",
       "env": {
-        "APP_ENV": "prod"
+        "APP_ENV": "rafael"
+      }
+    },
+    "marina": {
+      "distribution": "internal",
+      "env": {
+        "APP_ENV": "marina"
       }
     }
   },

@@ -7,7 +7,7 @@ const SecaoCartoes = ({ cartoes = [] }) => {
 
   if (!cartoes || cartoes.length === 0) {
     return (
-      <View style={[globalStyles.card, globalStyles.mb16]}>
+      <View style={[globalStyles.card, globalStyles.mb4]}>
         <Text style={globalStyles.subtitle}>Cartões Emprestados</Text>
         <Text style={globalStyles.noDataText}>Nenhum cartão emprestado neste mês.</Text>
       </View>
@@ -15,7 +15,7 @@ const SecaoCartoes = ({ cartoes = [] }) => {
   }
 
   return (
-    <View style={[globalStyles.card, globalStyles.mb20]}>
+    <View style={[globalStyles.card, globalStyles.mb4]}>
       <Text style={globalStyles.subtitle}>Cartões Emprestados</Text>
 
       <View style={globalStyles.gap12}>

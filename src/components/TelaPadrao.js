@@ -297,7 +297,7 @@ export default function TelaPadrao({
   if (tipo === 'resumo') {
     return (
       <SafeAreaView style={globalStyles.container}>
-        <ScrollView style={globalStyles.scrollView} contentContainerStyle={{ paddingBottom: 24 }}>
+        <ScrollView style={globalStyles.scrollView} contentContainerStyle={{ paddingBottom: 40 }}>
           {renderHeader()}
           <View style={[globalStyles.sectionContainer, contentContainerStyle]}>{children}</View>
         </ScrollView>
@@ -519,19 +519,22 @@ export default function TelaPadrao({
         titulo={`Novo ${titulo}`}
       />
 
-      <ModalDetalhes
-        visible={modalDetalhesVisivel}
-        onClose={() => {
-          setModalDetalhesVisivel(false);
-          setItemSelecionado(null);
-        }}
-        onEditPress={handleAbrirEdicao}
-        item={itemSelecionado}
-        tipo={tipo}
-        onHistoryPress={onHistoryPress}
-      >
-        {renderModalDetailsContent()}
-      </ModalDetalhes>
+<ModalDetalhes
+  visible={modalDetalhesVisivel}
+  onClose={() => {
+    setModalDetalhesVisivel(false);
+    setItemSelecionado(null);
+  }}
+  onEditPress={handleAbrirEdicao}
+  item={itemSelecionado}
+  tipo={tipo}
+  // 👇 AQUI ESTÁ A CORREÇÃO
+  onHistoryPress={() => {
+    if (onHistoryPress && itemSelecionado) {
+      onHistoryPress(itemSelecionado);
+    }
+  }}
+/>
 
       {tipo !== 'investimento' && (
         <ModalEdicao

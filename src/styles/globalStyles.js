@@ -211,10 +211,11 @@ statusButtonText: {
   gap8: { gap: 8 },
   gap12: { gap: 12 },
   gap16: { gap: 16 },
-  mb12: { marginBottom: 8 },
-  mb16: { marginBottom: -10 },
-  mb20: { marginBottom: 30 },
-  mb30: { marginBottom: -25 },
+  mb4:  { marginBottom: -10 },
+  mb8:  { marginBottom: 8 },
+  mb12: { marginBottom: 12 },
+  mb16: { marginBottom: 16 },
+  mb20: { marginBottom: 20 },
   pl16: { paddingLeft: 16 },
   ml8: { marginLeft: 8 },
   ml12: { marginLeft: 12 },
@@ -426,26 +427,6 @@ donutWrapper: {
   alignItems: 'center',
   justifyContent: 'center',
 },
-// donutChartLarge: {
-//   height: 200,
-//   width: 200,
-// },
-// avatarWrapper: {
-//   position: 'absolute',
-//   alignItems: 'center',
-// },
-// avatarImage: {
-//   width: 40,
-//   height: 40,
-//   borderRadius: 20,
-//   borderWidth: 2,
-//   borderColor: '#fff',
-// },
-// avatarPercent: {
-//   fontSize: 10,
-//   marginTop: 2,
-//   color: colors.textPrimary,
-// },
 listAvatar: {
   width: 24,
   height: 24,
@@ -513,6 +494,7 @@ listAvatar: {
   miniResumoContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: -12
   },
   miniCard: {
     flex: 1,
@@ -526,6 +508,7 @@ listAvatar: {
     shadowOpacity: 0.1,
     shadowRadius: 2,
     borderLeftWidth: 4,
+    marginBottom: -12
   },
   miniCardTitle: {
     fontSize: 12,

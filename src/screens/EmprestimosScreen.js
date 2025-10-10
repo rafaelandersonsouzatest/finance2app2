@@ -43,6 +43,7 @@ export default function EmprestimosScreen() {
     const icones = { Financiamento: 'car', Pessoal: 'face-man', Eletrônicos: 'laptop' };
     return icones[categoria] || 'wallet';
   };
+  
 
   return (
     <View style={{ flex: 1 }}>
@@ -60,8 +61,10 @@ export default function EmprestimosScreen() {
         // ✨ 4. USAR 'onPressItem' PARA CAPTURAR O ITEM CLICADO ✨
         onPressItem={(item) => setItemSelecionado(item)}
         // ✨ 5. PASSAR A FUNÇÃO PARA ABRIR O HISTÓRICO ✨
-        onHistoryPress={() => setHistoricoModalVisivel(true)}
-        refreshing={loading}
+        onHistoryPress={(item) => {
+  setItemSelecionado(item);
+  setHistoricoModalVisivel(true);
+}}
       />
 
       {/* ✨ 6. RENDERIZAR O MODAL DE HISTÓRICO USANDO O ESTADO LOCAL ✨ */}

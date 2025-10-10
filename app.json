@@ -24,12 +24,17 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "extra": {
-      "eas": {
-        "projectId": "559b4f2b-514f-42d8-bf1c-fca02444f277"
-      },
-      "APP_ENV": "prod"
+"extra": {
+  "eas": {
+    "projectId": "559b4f2b-514f-42d8-bf1c-fca02444f277"
+  }
+},
+    "owner": "rafael.anderson.souza",
+    "runtimeVersion": {
+      "policy": "appVersion"
     },
-    "owner": "rafael.anderson.souza"
+    "updates": {
+      "url": "https://u.expo.dev/559b4f2b-514f-42d8-bf1c-fca02444f277"
+    }
   }
 }

@@ -14,21 +14,21 @@ import GerenciarModelosModal from '../components/GerenciarModelosModal';
 import AlertaModal from '../components/AlertaModal';
 import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
-// ✨ Faltava importar os modais de detalhes e edição
 import ModalDetalhes from '../components/ModalDetalhes';
 import ModalEdicao from '../components/ModalEdicao';
+import ModalHistoricoParcelas from '../components/ModalHistoricoParcelas';
+import { handleGerarFixosUtil } from '../utils/handleGerarFixos';
+import { useAdiantamento } from '../hooks/useAdiantamento';
+import ModalParcelasAdiantamento from '../components/ModalParcelasAdiantamento';
 
-// --- Componente para as Abas (sem alterações) ---
+// --- Componente para as Abas ---
 const TabSwitcher = ({ abaAtiva, setAbaAtiva }) => (
-  // 👇 Usando o novo nome de estilo para o container
-  <View style={globalStyles.topTabContainer}> 
+  <View style={globalStyles.topTabContainer}>
     <TouchableOpacity
-      // 👇 Usando os novos nomes de estilo para o botão
       style={[globalStyles.topTabButton, abaAtiva === 'gastos' && globalStyles.topTabButtonActive]}
       onPress={() => setAbaAtiva('gastos')}
     >
       <Text
-        // 👇 Usando os novos nomes de estilo para o texto
         style={[
           globalStyles.topTabButtonText,
           abaAtiva === 'gastos' && globalStyles.topTabButtonTextActive,
@@ -37,13 +37,12 @@ const TabSwitcher = ({ abaAtiva, setAbaAtiva }) => (
         Gastos Fixos
       </Text>
     </TouchableOpacity>
+
     <TouchableOpacity
-      // 👇 Usando os novos nomes de estilo para o botão
       style={[globalStyles.topTabButton, abaAtiva === 'emprestimos' && globalStyles.topTabButtonActive]}
       onPress={() => setAbaAtiva('emprestimos')}
     >
       <Text
-        // 👇 Usando os novos nomes de estilo para o texto
         style={[
           globalStyles.topTabButtonText,
           abaAtiva === 'emprestimos' && globalStyles.topTabButtonTextActive,
@@ -54,14 +53,16 @@ const TabSwitcher = ({ abaAtiva, setAbaAtiva }) => (
     </TouchableOpacity>
   </View>
 );
-// --- Componente para o Conteúdo da Aba (sem alterações) ---
+
+// --- Componente para o Conteúdo da Aba ---
 const ConteudoAba = ({ titulo, dados, total, renderItem, tipo }) => {
   const { formatValue } = useVisibility();
+
   return (
     <View>
       <Text style={globalStyles.sectionTitleModern}>{titulo}</Text>
 
-      {/* 🔽 card mais compacto apenas nesta tela */}
+      {/* Card de subtotal */}
       <View style={[globalStyles.card, { padding: 10, borderRadius: 12 }]}>
         <View
           style={{
@@ -71,22 +72,18 @@ const ConteudoAba = ({ titulo, dados, total, renderItem, tipo }) => {
           }}
         >
           <View>
-            <Text style={[globalStyles.cardTitle, { fontSize: 14 }]}>Sub-Total</Text>
+            <Text style={[globalStyles.cardTitle, { fontSize: 14 }]}>Subtotal</Text>
             <Text
               style={[
                 globalStyles.totalAmount,
-                { color: colors.expense, fontSize: 18 }, // menor que o padrão
+                { color: colors.expense, fontSize: 18 },
               ]}
             >
               {formatValue(total)}
             </Text>
           </View>
-
-          {/* Ícone menor */}
-          {/* <MaterialCommunityIcons name="cash-minus" size={22} color={colors.expense} /> */}
         </View>
       </View>
-
 
       <FlatList
         data={dados}
@@ -108,128 +105,197 @@ const ConteudoAba = ({ titulo, dados, total, renderItem, tipo }) => {
 };
 
 export default function SaidasScreen() {
-    // --- ESTADOS ---
-    const [abaAtiva, setAbaAtiva] = useState('gastos');
-    const { selectedMonth, selectedYear } = useDateFilter();
+  // --- ESTADOS ---
+  const [abaAtiva, setAbaAtiva] = useState('gastos');
+  const { selectedMonth, selectedYear } = useDateFilter();
 
-    // --- HOOKS DE DADOS ---
-    const { fixedExpenses, loading: loadingGastos, addFixedExpense, updateFixedExpense, deleteFixedExpense, gerarFixosDoMes } = useFixedExpenses(selectedMonth, selectedYear);
-    const { loans, loading: loadingEmprestimos, addLoan, updateLoan, deleteLoan } = useLoans(selectedMonth, selectedYear);
+  // --- HOOKS DE DADOS ---
+  const {
+    fixedExpenses,
+    loading: loadingGastos,
+    addFixedExpense,
+    updateFixedExpense,
+    deleteFixedExpense,
+    gerarFixosDoMes,
+  } = useFixedExpenses(selectedMonth, selectedYear);
 
-    // --- ESTADOS DE MODAIS ---
-    const [modalCriacaoVisivel, setModalCriacaoVisivel] = useState(false);
-    const [modalModelosVisivel, setModalModelosVisivel] = useState(false);
-    const [alerta, setAlerta] = useState({ visivel: false, titulo: '', mensagem: '', botoes: [] });
-    // ✨ Adicionar estados para os modais de detalhes e edição
-    const [itemSelecionado, setItemSelecionado] = useState(null);
-    const [modalDetalhesVisivel, setModalDetalhesVisivel] = useState(false);
-    const [modalEdicaoVisivel, setModalEdicaoVisivel] = useState(false);
+  const {
+    loans,
+    loading: loadingEmprestimos,
+    addLoan,
+    updateLoan,
+    deleteLoan,
+  } = useLoans(selectedMonth, selectedYear);
 
-    const loading = loadingGastos || loadingEmprestimos;
+  // --- HOOK DE ADIANTAMENTO ---
+  const {
+    modalAdiantamentoVisivel,
+    parcelasParaAdiantar,
+    iniciarAdiantamento,
+    confirmarAdiantamento,
+    fecharModalAdiantamento,
+  } = useAdiantamento('emprestimos');
 
-    // --- CÁLCULOS ---
-    const totalGastosPagos = useMemo(() => fixedExpenses.filter(g => g.pago).reduce((s, i) => s + i.valor, 0), [fixedExpenses]);
-    const totalEmprestimosPagos = useMemo(() => loans.filter(l => l.pago).reduce((s, i) => s + i.valor, 0), [loans]);
-    const totalSaidasGeral = totalGastosPagos + totalEmprestimosPagos;
+  // --- ESTADOS DE MODAIS ---
+  const [modalCriacaoVisivel, setModalCriacaoVisivel] = useState(false);
+  const [modalModelosVisivel, setModalModelosVisivel] = useState(false);
+  const [alerta, setAlerta] = useState({ visivel: false, titulo: '', mensagem: '', botoes: [] });
+  const [itemSelecionado, setItemSelecionado] = useState(null);
+  const [modalDetalhesVisivel, setModalDetalhesVisivel] = useState(false);
+  const [modalEdicaoVisivel, setModalEdicaoVisivel] = useState(false);
 
-    const dadosAtuais = abaAtiva === 'gastos' ? fixedExpenses : loans;
+  const loading = loadingGastos || loadingEmprestimos;
 
-    // --- ✨ HANDLERS COMPLETOS ---
-    const handleAdicionar = async (novoItem) => {
-        if (abaAtiva === 'gastos') {
-            await addFixedExpense({ ...novoItem, mes: selectedMonth, ano: selectedYear });
-        } else {
-            await addLoan(novoItem);
-        }
-        setModalCriacaoVisivel(false);
-    };
+  // --- CÁLCULOS ---
+  const totalGastosPagos = useMemo(
+    () => fixedExpenses.filter((g) => g.pago).reduce((s, i) => s + i.valor, 0),
+    [fixedExpenses]
+  );
+  const totalEmprestimosPagos = useMemo(
+    () => loans.filter((l) => l.pago).reduce((s, i) => s + i.valor, 0),
+    [loans]
+  );
+  const totalSaidasGeral = totalGastosPagos + totalEmprestimosPagos;
 
-    const handleEditar = async (itemEditado) => {
-        if (abaAtiva === 'gastos') {
-            await updateFixedExpense(itemSelecionado.id, itemEditado);
-        } else {
-            await updateLoan(itemSelecionado.id, itemEditado);
-        }
-        setModalEdicaoVisivel(false);
-        setItemSelecionado(null);
-    };
+  // --- HANDLERS ---
+  const handleAdicionar = async (novoItem) => {
+    if (abaAtiva === 'gastos') {
+      await addFixedExpense({ ...novoItem, mes: selectedMonth, ano: selectedYear });
+    } else {
+      await addLoan(novoItem);
+    }
+    setModalCriacaoVisivel(false);
+  };
 
-    const handleExcluir = () => {
-        const item = itemSelecionado;
-        const tipo = abaAtiva === 'gastos' ? 'Gasto' : 'Empréstimo';
-        setAlerta({
-            visivel: true,
-            titulo: `Excluir ${tipo}`,
-            mensagem: `Tem certeza que deseja excluir "${item.descricao}"?`,
-            botoes: [
-                { texto: 'Cancelar', onPress: () => setAlerta({ visivel: false }), style: 'primary' },
-                {
-                    texto: 'Excluir',
-                    onPress: async () => {
-                        if (abaAtiva === 'gastos') await deleteFixedExpense(item.id);
-                        else await deleteLoan(item.id);
-                        setAlerta({ visivel: false });
-                        setModalDetalhesVisivel(false); // Fecha o modal de detalhes também
-                        setItemSelecionado(null);
-                    },
-                    style: 'destructive',
-                },
-            ],
-        });
-    };
+  const handleEditar = async (itemEditado) => {
+    if (abaAtiva === 'gastos') {
+      await updateFixedExpense(itemSelecionado.id, itemEditado);
+    } else {
+      await updateLoan(itemSelecionado.id, itemEditado);
+    }
+    setModalEdicaoVisivel(false);
+    setItemSelecionado(null);
+  };
 
-    const handleToggleStatus = async (id) => {
-        if (abaAtiva === 'gastos') {
-            const item = fixedExpenses.find(i => i.id === id);
-            if (item) await updateFixedExpense(id, { ...item, pago: !item.pago });
-        } else {
-            const item = loans.find(i => i.id === id);
-            if (item) await updateLoan(id, { ...item, pago: !item.pago });
-        }
-    };
+const handleExcluir = () => {
+  const item = itemSelecionado;
+  const tipo = abaAtiva === 'gastos' ? 'Gasto' : 'Empréstimo';
 
-    const handleAbrirDetalhes = (item) => {
-        setItemSelecionado(item);
-        setModalDetalhesVisivel(true);
-    };
+  // Se for gasto fixo, mantém comportamento simples
+  if (abaAtiva === 'gastos') {
+    setAlerta({
+      visivel: true,
+      titulo: `Excluir ${tipo}`,
+      mensagem: `Tem certeza que deseja excluir "${item.descricao}"?`,
+      botoes: [
+        { texto: 'Cancelar', onPress: () => setAlerta({ visivel: false }), style: 'primary' },
+        {
+          texto: 'Excluir',
+          onPress: async () => {
+            await deleteFixedExpense(item.id);
+            setAlerta({ visivel: false });
+            setModalDetalhesVisivel(false);
+            setItemSelecionado(null);
+          },
+          style: 'destructive',
+        },
+      ],
+    });
+    return;
+  }
 
-    const handleAbrirEdicao = () => {
-        setModalDetalhesVisivel(false);
-        setModalEdicaoVisivel(true);
-    };
+  // Se for empréstimo, mostra opções extras
+  setAlerta({
+    visivel: true,
+    titulo: `Excluir ${tipo}`,
+    mensagem: `Você deseja excluir apenas esta parcela ou o empréstimo inteiro de "${item.descricao}"?`,
+    botoes: [
+      { texto: 'Cancelar', onPress: () => setAlerta({ visivel: false }), style: 'primary' },
+      {
+        texto: 'Somente esta parcela',
+        onPress: async () => {
+          await deleteLoan(item.id);
+          setAlerta({ visivel: false });
+          setModalDetalhesVisivel(false);
+          setItemSelecionado(null);
+        },
+        style: 'default',
+      },
+      {
+        texto: 'Excluir empréstimo inteiro',
+        onPress: async () => {
+          await deleteLoan(item.id, item.idCompra, true); // 👈 exclui todas as parcelas
+          setAlerta({ visivel: false });
+          setModalDetalhesVisivel(false);
+          setItemSelecionado(null);
+        },
+        style: 'destructive',
+      },
+    ],
+  });
+};
 
-    const handleGerarFixos = async () => { /* ... sua lógica de gerar fixos ... */ };
+  const handleToggleStatus = async (id) => {
+    if (abaAtiva === 'gastos') {
+      const item = fixedExpenses.find((i) => i.id === id);
+      if (item) await updateFixedExpense(id, { ...item, pago: !item.pago });
+    } else {
+      const item = loans.find((i) => i.id === id);
+      if (item) await updateLoan(id, { ...item, pago: !item.pago });
+    }
+  };
 
-    const fabActions = useMemo(() => {
-        const acoes = [
-            { icon: 'plus', label: `Adicionar ${abaAtiva === 'gastos' ? 'Gasto' : 'Empréstimo'}`, onPress: () => setModalCriacaoVisivel(true), name: 'bt_add' },
-        ];
-        if (abaAtiva === 'gastos') {
-            acoes.push(
-                { icon: 'autorenew', label: 'Gerar Gastos do Mês', onPress: handleGerarFixos, name: 'bt_gerar' },
-                { icon: 'cog-outline', label: 'Configurar Modelos', onPress: () => setModalModelosVisivel(true), name: 'bt_config' }
-            );
-        }
-        return acoes;
-    }, [abaAtiva]);
+  const handleAbrirDetalhes = (item) => {
+    setItemSelecionado(item);
+    setModalDetalhesVisivel(true);
+  };
 
-return (
-  <View style={{ flex: 1 }}>
-    <TelaPadrao
-      titulo="Saídas"
-      tipo="gasto"
-      total={totalSaidasGeral}
-      fabActions={fabActions}
-      disableDefaultList
-    >
-      <TabSwitcher abaAtiva={abaAtiva} setAbaAtiva={setAbaAtiva} />
+  const handleAbrirEdicao = () => {
+    setModalDetalhesVisivel(false);
+    setModalEdicaoVisivel(true);
+  };
 
-      {loading ? (
-        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 50 }} />
-      ) : (
-        abaAtiva === 'gastos' ? (
+  const handleGerarFixos = () =>
+    handleGerarFixosUtil(gerarFixosDoMes, setAlerta, 'gasto');
+
+  const fabActions = useMemo(() => {
+    const acoes = [
+      {
+        icon: 'plus',
+        label: `Adicionar ${abaAtiva === 'gastos' ? 'Gasto' : 'Empréstimo'}`,
+        onPress: () => setModalCriacaoVisivel(true),
+        name: 'bt_add',
+      },
+    ];
+    if (abaAtiva === 'gastos') {
+      acoes.push(
+        { icon: 'autorenew', label: 'Gerar Gastos do Mês', onPress: handleGerarFixos, name: 'bt_gerar' },
+        { icon: 'cog-outline', label: 'Configurar Modelos', onPress: () => setModalModelosVisivel(true), name: 'bt_config' }
+      );
+    }
+    return acoes;
+  }, [abaAtiva]);
+
+  // --- Histórico de parcelas ---
+  const [historicoModalVisivel, setHistoricoModalVisivel] = useState(false);
+  const [itemHistorico, setItemHistorico] = useState(null);
+
+  return (
+    <View style={{ flex: 1 }}>
+      <TelaPadrao
+        titulo="Saídas"
+        tipo="gasto"
+        total={totalSaidasGeral}
+        fabActions={fabActions}
+        disableDefaultList
+      >
+        <TabSwitcher abaAtiva={abaAtiva} setAbaAtiva={setAbaAtiva} />
+
+        {loading ? (
+          <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 50 }} />
+        ) : abaAtiva === 'gastos' ? (
           <ConteudoAba
-            tipo="gasto"                     
+            tipo="gasto"
             dados={fixedExpenses}
             total={totalGastosPagos}
             renderItem={({ item }) => (
@@ -242,7 +308,7 @@ return (
           />
         ) : (
           <ConteudoAba
-            tipo="empréstimo"               
+            tipo="empréstimo"
             dados={loans}
             total={totalEmprestimosPagos}
             renderItem={({ item }) => (
@@ -250,50 +316,78 @@ return (
                 item={item}
                 onToggleStatus={handleToggleStatus}
                 onPressItem={handleAbrirDetalhes}
-                onAdiantarParcelas={() => {}}
+                onAdiantarParcelas={() => iniciarAdiantamento(item)}
               />
             )}
           />
-        )
-      )}
-    </TelaPadrao>
+        )}
+      </TelaPadrao>
 
+      {/* --- Modais --- */}
+      <ModalCriacao
+        visivel={modalCriacaoVisivel}
+        aoFechar={() => setModalCriacaoVisivel(false)}
+        aoSalvar={handleAdicionar}
+        tipo={abaAtiva === 'gastos' ? 'gasto' : 'emprestimo'}
+        titulo={abaAtiva === 'gastos' ? 'Novo Gasto' : 'Novo Empréstimo'}
+      />
 
-            {/* Modais */}
-            <ModalCriacao
-                visivel={modalCriacaoVisivel}
-                aoFechar={() => setModalCriacaoVisivel(false)}
-                aoSalvar={handleAdicionar}
-                tipo={abaAtiva === 'gastos' ? 'gasto' : 'emprestimo'}
-                titulo={abaAtiva === 'gastos' ? 'Novo Gasto' : 'Novo Empréstimo'}
-            />
-            <GerenciarModelosModal
-                visible={modalModelosVisivel}
-                onClose={() => setModalModelosVisivel(false)}
-                tipo="gasto"
-            />
-            <AlertaModal
-                visible={alerta.visivel}
-                onClose={() => setAlerta({ visivel: false })}
-                {...alerta}
-            />
-            {/* ✨ Modais de Detalhes e Edição */}
-            <ModalDetalhes
-                visible={modalDetalhesVisivel}
-                onClose={() => setModalDetalhesVisivel(false)}
-                onEditPress={handleAbrirEdicao}
-                item={itemSelecionado}
-                tipo={abaAtiva === 'gastos' ? 'gasto' : 'emprestimo'}
-            />
-            <ModalEdicao
-                visivel={modalEdicaoVisivel}
-                aoFechar={() => setModalEdicaoVisivel(false)}
-                aoSalvar={handleEditar}
-                aoExcluir={handleExcluir}
-                item={itemSelecionado}
-                tipo={abaAtiva === 'gastos' ? 'gasto' : 'emprestimo'}
-                titulo={`Editar ${abaAtiva === 'gastos' ? 'Gasto' : 'Empréstimo'}`}
-            />
-        </View>
-    );
+      <GerenciarModelosModal
+        visible={modalModelosVisivel}
+        onClose={() => setModalModelosVisivel(false)}
+        tipo="gasto"
+      />
+
+      <AlertaModal
+        visible={alerta.visivel}
+        onClose={() => setAlerta({ visivel: false })}
+        {...alerta}
+      />
+
+      <ModalDetalhes
+        visible={modalDetalhesVisivel}
+        onClose={() => setModalDetalhesVisivel(false)}
+        onEditPress={handleAbrirEdicao}
+        item={itemSelecionado}
+        tipo={abaAtiva === 'gastos' ? 'gasto' : 'emprestimo'}
+        onHistoryPress={() => {
+          if (itemSelecionado) {
+            setItemHistorico(itemSelecionado);
+            setHistoricoModalVisivel(true);
+          }
+        }}
+      />
+
+      <ModalHistoricoParcelas
+        visible={historicoModalVisivel}
+        onClose={() => {
+          setHistoricoModalVisivel(false);
+          setItemHistorico(null);
+        }}
+        item={{
+          idCompra: itemHistorico?.idCompra,
+          descricao: itemHistorico?.descricao,
+          collectionName: 'emprestimos',
+        }}
+      />
+
+      <ModalEdicao
+        visivel={modalEdicaoVisivel}
+        aoFechar={() => setModalEdicaoVisivel(false)}
+        aoSalvar={handleEditar}
+        aoExcluir={handleExcluir}
+        item={itemSelecionado}
+        tipo={abaAtiva === 'gastos' ? 'gasto' : 'emprestimo'}
+        titulo={`Editar ${abaAtiva === 'gastos' ? 'Gasto' : 'Empréstimo'}`}
+      />
+
+      {/* --- Modal de Adiantamento --- */}
+      <ModalParcelasAdiantamento
+        visivel={modalAdiantamentoVisivel}
+        aoFechar={fecharModalAdiantamento}
+        parcelasFuturas={parcelasParaAdiantar}
+        aoConfirmar={confirmarAdiantamento}
+      />
+    </View>
+  );
 }
