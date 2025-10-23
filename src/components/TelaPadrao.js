@@ -362,7 +362,17 @@ export default function TelaPadrao({
         </View>
 
         {/* 👇 ADIÇÃO: agora os children aparecem antes da lista */}
-        {children && <View style={{ marginTop: 10 }}>{children}</View>}
+      {children && (
+        <View
+          style={{
+            marginTop: -4, // 🔹 aproxima as abas do header
+            backgroundColor: colors.background, // 🔹 garante que o fundo “tampe” o corte
+            zIndex: 2,
+          }}
+        >
+          {children}
+        </View>
+      )}
 
         {/* Lista de itens padrão */}
         {!disableDefaultList && (
@@ -423,7 +433,7 @@ export default function TelaPadrao({
                           : '⏳ Aguardando'
                         : tipo === 'emprestimo'
                         ? item.adiantada
-                          ? '🚀 Adiantada'
+                          ? '🚀 Antecipada'
                           : item.pago
                           ? '✓ Paga'
                           : '⏳ Aguardando'

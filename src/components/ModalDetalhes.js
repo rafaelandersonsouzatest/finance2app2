@@ -40,13 +40,15 @@ const InfoRow = ({ icon, label, value, color = colors.textPrimary }) => (
 // ------------------------------------------------------
 // 🔹 RESUMO FINANCEIRO
 // ------------------------------------------------------
-const ResumoFinanceiro = ({ totalPago, totalReal, totalParcelas, parcelasPagas }) => {
+const ResumoFinanceiro = ({ totalPago, totalReal, totalParcelas, parcelasPagas, totalDescontos = 0 }) => {
   const progresso = totalReal > 0 ? (totalPago / totalReal) * 100 : 0;
 
   return (
     <View style={globalStyles.resumoFinanceiroContainer}>
       <View style={globalStyles.rowBetween}>
-        <Text style={globalStyles.resumoFinanceiroLabel}>Total Pago</Text>
+      <Text style={globalStyles.resumoFinanceiroLabel}>
+        {totalDescontos > 0 ? 'Total Pago (com descontos)' : 'Total Pago'}
+      </Text>
         <Text style={globalStyles.resumoFinanceiroLabel}>Valor Total</Text>
       </View>
 
@@ -68,6 +70,24 @@ const ResumoFinanceiro = ({ totalPago, totalReal, totalParcelas, parcelasPagas }
         />
       </View>
 
+      {totalDescontos > 0 && (
+        <View style={[globalStyles.infoRow, { justifyContent: 'space-between' }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <MaterialCommunityIcons
+              name="cash-refund"
+              size={22}
+              color={colors.textTertiary}
+              style={{ marginRight: 8, marginTop: -10 }}
+            />
+            <Text style={[globalStyles.infoRowLabel, { color: colors.textTertiary }]}>
+              Total de Descontos
+            </Text>
+          </View>
+          <Text style={[globalStyles.infoRowValue, { color: colors.balance }]}>
+            - R$ {totalDescontos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -88,6 +108,8 @@ export default function ModalDetalhes({
   const [parcelasPagas, setParcelasPagas] = useState(0);
   const [totalParcelas, setTotalParcelas] = useState(0);
   const [alerta, setAlerta] = useState({ visivel: false });
+  const [totalDescontos, setTotalDescontos] = useState(0);
+
 
   // ------------------------------------------------------
   // 🔹 CARREGAR TOTAIS PARA EMPRÉSTIMOS
@@ -111,9 +133,16 @@ export default function ModalDetalhes({
 
         const parcelas = parcelasSnap.docs.map((d) => d.data());
 
+        const somaDescontos = parcelas.reduce(
+          (acc, p) => acc + (parseFloat(p.descontoAplicado) || 0),
+          0
+        );
+        setTotalDescontos(somaDescontos);
+
+
         const somaTotal = parcelas.reduce((acc, p) => acc + (parseFloat(p.valor) || 0), 0);
         const somaPagas = parcelas.reduce(
-          (acc, p) => acc + (p.pago || p.adiantada ? parseFloat(p.valor) || 0 : 0),
+          (acc, p) => acc + ((p.pago === true || p.adiantada === true) ? parseFloat(p.valor) || 0 : 0),
           0
         );
         const pagas = parcelas.filter((p) => p.pago || p.adiantada).length;
@@ -135,6 +164,7 @@ export default function ModalDetalhes({
       }
     };
 
+
     if (visible) carregarTotais();
   }, [visible, item, tipo]);
 
@@ -153,6 +183,10 @@ export default function ModalDetalhes({
       const dataObj = new Date(dataValida + 'T00:00:00');
       return isNaN(dataObj) ? 'Não informada' : dataObj.toLocaleDateString('pt-BR');
     };
+    const desconto = item?.descontoAplicado ? Number(item.descontoAplicado) : 0;
+const valorIcon = desconto > 0 ? 'cash-minus' : 'cash';
+const valorColor = desconto > 0 ? colors.warning : colors.expense;
+
 
     switch (tipo) {
       case 'entrada':
@@ -183,7 +217,21 @@ export default function ModalDetalhes({
       case 'cartao':
         return (
           <>
-            <InfoRow icon="cash" label="Valor da Parcela" value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} color={colors.expense} />
+<InfoRow
+  icon={valorIcon}
+  label={desconto > 0 ? 'Valor com Desconto' : 'Valor da Parcela'}
+  value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+  color={valorColor}
+/>
+
+{desconto > 0 && (
+  <InfoRow
+    icon="sale"
+    label="Desconto Aplicado"
+    value={`- R$ ${desconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+    color={colors.success}
+  />
+)}
             <InfoRow icon="credit-card-outline" label="Cartão" value={item.cartao || 'Não informado'} />
             <InfoRow icon="chart-donut" label="Progresso" value={`${item.parcelaAtual} de ${item.totalParcelas}`} />
             <InfoRow icon="calendar" label="Vencimento da Parcela" value={formatarData(item.dataVencimento, item.dataPagamento)} />
@@ -196,7 +244,21 @@ export default function ModalDetalhes({
       case 'emprestimo':
         return (
           <>
-            <InfoRow icon="cash" label="Valor da Parcela" value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} color={colors.expense} />
+<InfoRow
+  icon={valorIcon}
+  label={desconto > 0 ? 'Valor com Desconto' : 'Valor da Parcela'}
+  value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+  color={valorColor}
+/>
+
+{desconto > 0 && (
+  <InfoRow
+    icon="sale"
+    label="Desconto Aplicado"
+    value={`- R$ ${desconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+    color={colors.success}
+  />
+)}
             <InfoRow icon="account-group-outline" label="Pessoa/Instituição" value={item.pessoa || 'Não informada'} />
             <InfoRow icon="chart-donut" label="Progresso" value={`${item.parcelaAtual} de ${item.totalParcelas}`} />
             <InfoRow icon={item.pago ? 'calendar-check' : 'calendar-arrow-right'} label={item.pago ? 'Data de Pagamento' : 'Vencimento da Parcela'} value={formatarData(item.dataPagamento, item.dataVencimento)} color={statusCor} />
@@ -234,7 +296,13 @@ export default function ModalDetalhes({
             </View>
 
             {tipo === 'emprestimo' && (
-              <ResumoFinanceiro totalPago={totalPago} totalReal={totalReal} parcelasPagas={parcelasPagas} totalParcelas={totalParcelas} />
+<ResumoFinanceiro
+  totalPago={totalPago}
+  totalReal={totalReal}
+  parcelasPagas={parcelasPagas}
+  totalParcelas={totalParcelas}
+  totalDescontos={totalDescontos}
+/>
             )}
 
             <ScrollView showsVerticalScrollIndicator={false}>

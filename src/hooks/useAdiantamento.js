@@ -1,27 +1,56 @@
 import { useState } from 'react';
-import { collection, getDocs, query, where, writeBatch, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Alert } from 'react-native';
+import { useCartoesEmprestados, useLoans } from './useFirestore';
+import { useDateFilter } from '../contexts/DateFilterContext';
 
 export const useAdiantamento = (collectionName) => {
   const [modalVisivel, setModalVisivel] = useState(false);
   const [parcelasFuturas, setParcelasFuturas] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // 🔹 Estado do alerta modal padronizado
+  const [alerta, setAlerta] = useState({
+    visivel: false,
+    titulo: '',
+    mensagem: '',
+    icone: '',
+    corIcone: '',
+    botoes: [],
+  });
+
+  // 🔹 Mês/ano atuais
+  const { selectedMonth, selectedYear } = useDateFilter();
+
+  // 🔹 Hooks de Firestore
+  const { anteciparParcelas } = useCartoesEmprestados(selectedMonth, selectedYear);
+  const { anteciparParcelasEmprestimo } = useLoans(selectedMonth, selectedYear);
+
+  // ===============================================
+  // 🔹 Buscar parcelas futuras para antecipação
+  // ===============================================
   const iniciarAdiantamento = async (item) => {
     if (!item || !item.idCompra) {
-        Alert.alert("Erro", "Este item não pode ser adiantado pois não possui um ID de compra agrupador.");
-        return;
+      setAlerta({
+        visivel: true,
+        titulo: 'Erro',
+        mensagem: 'Este item não pode ser antecipado pois não possui um ID de compra agrupador.',
+        icone: 'alert-circle-outline',
+        corIcone: '#E53935',
+        botoes: [{ texto: 'Entendi', onPress: () => setAlerta({ visivel: false }) }],
+      });
+      return;
     }
+
     setLoading(true);
     try {
-      const q = query(
-        collection(db, collectionName),
-        where('idCompra', '==', item.idCompra)
-      );
+      const q = query(collection(db, collectionName), where('idCompra', '==', item.idCompra));
       const snapshot = await getDocs(q);
-      const todasAsParcelas = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      
+      const todasAsParcelas = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
       const futuras = todasAsParcelas
         .filter((p) => !p.pago)
         .sort((a, b) => a.parcelaAtual - b.parcelaAtual);
@@ -29,32 +58,61 @@ export const useAdiantamento = (collectionName) => {
       setParcelasFuturas(futuras);
       setModalVisivel(true);
     } catch (error) {
-      console.error("Erro ao buscar parcelas para adiantamento:", error);
-      Alert.alert("Erro", "Não foi possível buscar as parcelas futuras.");
+      console.error('Erro ao buscar parcelas para antecipação:', error);
+      setAlerta({
+        visivel: true,
+        titulo: 'Erro ao buscar parcelas',
+        mensagem: 'Não foi possível carregar as parcelas futuras. Tente novamente.',
+        icone: 'alert-circle-outline',
+        corIcone: '#E53935',
+        botoes: [{ texto: 'OK', onPress: () => setAlerta({ visivel: false }) }],
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const confirmarAdiantamento = async (idsSelecionados) => {
-    if (idsSelecionados.length === 0) return;
-
+  // ===============================================
+  // 🔹 Confirmar antecipação (cartões ou empréstimos)
+  // ===============================================
+  const confirmarAdiantamento = async (idsSelecionados, dataPagamento, valorComDesconto) => {
+    if (!idsSelecionados.length) return;
     setLoading(true);
+
     try {
-      const batch = writeBatch(db);
-      idsSelecionados.forEach((id) => {
-        const docRef = doc(db, collectionName, id);
-        batch.update(docRef, { 
-            pago: true, 
-            adiantada: true, 
-            atualizadoEm: serverTimestamp() 
-        });
+    if (collectionName === 'cartoesEmprestados') {
+      await anteciparParcelas(idsSelecionados, dataPagamento, valorComDesconto);
+      setAlerta({
+        visivel: true,
+        titulo: 'Parcelas Antecipadas',
+        mensagem: 'Parcelas de cartão antecipadas com sucesso!',
+        icone: 'check-circle-outline',
+        corIcone: '#4CAF50',
+        botoes: [{
+          texto: 'OK',
+          onPress: () => {
+            setAlerta({ visivel: false });
+            setModalVisivel(false); // 👈 fecha o modal junto
+          },
+        }],
       });
-      await batch.commit();
-      Alert.alert('Sucesso', 'Parcelas adiantadas com sucesso!');
-    } catch (error) {
-      console.error("Erro detalhado ao tentar adiantar parcelas:", error);
-      Alert.alert('Erro', 'Falha ao tentar adiantar as parcelas. Verifique o console para mais detalhes.');
+    } else if (collectionName === 'emprestimos') {
+      await anteciparParcelasEmprestimo(idsSelecionados, dataPagamento, valorComDesconto);
+      setAlerta({
+        visivel: true,
+        titulo: 'Parcelas Antecipadas',
+        mensagem: 'Parcelas de empréstimo antecipadas com sucesso!',
+        icone: 'check-circle-outline',
+        corIcone: '#4CAF50',
+        botoes: [{
+          texto: 'OK',
+          onPress: () => {
+            setAlerta({ visivel: false });
+            setModalVisivel(false); // 👈 fecha o modal junto
+          },
+        }],
+      });
+    }
     } finally {
       setLoading(false);
       setModalVisivel(false);
@@ -66,6 +124,9 @@ export const useAdiantamento = (collectionName) => {
     setParcelasFuturas([]);
   };
 
+  // ===============================================
+  // 🔹 Retorno unificado
+  // ===============================================
   return {
     modalAdiantamentoVisivel: modalVisivel,
     parcelasParaAdiantar: parcelasFuturas,
@@ -73,5 +134,7 @@ export const useAdiantamento = (collectionName) => {
     iniciarAdiantamento,
     confirmarAdiantamento,
     fecharModalAdiantamento: fecharModal,
+    alerta,
+    setAlerta,
   };
 };

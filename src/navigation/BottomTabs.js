@@ -64,14 +64,14 @@ export default function BottomTabs() {
           tabBarIcon: 'trending-up-outline',
         }}
       />
-      <Tab.Screen 
+      {/* <Tab.Screen 
         name="Cartão" 
         component={CartoesEmprestadosScreen}
         options={{
           tabBarLabel: 'Cartões',
           tabBarIcon: 'card-outline',
         }}
-      />
+      /> */}
     </Tab.Navigator>
   );
 }

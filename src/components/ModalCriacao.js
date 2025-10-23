@@ -16,7 +16,8 @@ import { vibrarSucesso } from '../utils/haptics';
 import { datasPadraoPorDescricao } from '../utils/datasPadrao';
 import { gerarDataComDia } from '../utils/gerarDataComDia';
 import AlertaModal from './AlertaModal';
-
+import SeletorData from './SeletorData';
+import { useCurrencyInput } from '../hooks/useCurrencyInput';
 
 const ModalCriacao = ({
   visivel,
@@ -29,7 +30,41 @@ const ModalCriacao = ({
 }) => {
   const [valores, setValores] = useState({});
   const [alerta, setAlerta] = useState({ visivel: false });
-  const [modoCalculo, setModoCalculo] = useState('null');
+  const [modoCalculo, setModoCalculo] = useState(null);
+  const {
+        texto: valorTexto,
+        handleChange: handleValorTextoChange
+      } = useCurrencyInput(valores.valor, (n) => handleChange('valor', n));
+
+      const {
+        texto: valorTotalTexto,
+        handleChange: handleValorTotalTextoChange
+      } = useCurrencyInput(valores.valorTotal, (n) => handleChange('valorTotal', n));
+
+      const {
+        texto: valorParcelaTexto,
+        handleChange: handleValorParcelaTextoChange
+      } = useCurrencyInput(valores.valorParcela, (n) => handleChange('valorParcela', n));
+
+      const {
+        texto: valorInicialTexto,
+        handleChange: handleValorInicialTextoChange
+      } = useCurrencyInput(valores.valorInicial, (n) => handleChange('valorInicial', n));
+
+      const {
+        texto: metaTexto,
+        handleChange: handleMetaTextoChange
+      } = useCurrencyInput(valores.meta, (n) => handleChange('meta', n));
+
+useEffect(() => {
+  if (!visivel) return;
+      handleValorTextoChange(String(valores.valor || ''));
+      handleValorTotalTextoChange(String(valores.valorTotal || ''));
+      handleValorParcelaTextoChange(String(valores.valorParcela || ''));
+      handleValorInicialTextoChange(String(valores.valorInicial || ''));
+      handleMetaTextoChange(String(valores.meta || ''));
+    }, [visivel]);
+
 
 
   const formatarDataParaExibicao = (data) => {
@@ -71,11 +106,12 @@ const ModalCriacao = ({
   };
 
 useEffect(() => {
-    if (visivel) {
-      setValores(getValoresIniciais());
-      setModoCalculo('null');
-    }
-  }, [visivel, tipo]);
+  if (visivel && !valores?.id) { // só limpa se for novo (sem id)
+    setValores(getValoresIniciais());
+    setModoCalculo(null);
+  }
+}, [visivel, tipo]);
+
   const getValoresIniciais = () => {
     const hoje = new Date();
     const hojeDDMMYYYY = gerarDataComDia(
@@ -104,23 +140,44 @@ useEffect(() => {
     setValores((prev) => ({ ...prev, [campo]: valor }));
 
   const handleSalvar = () => {
-    if (tipo === 'emprestimo' || tipo === 'cartao') {
-  const totalParcelas = parseInt(valores.totalParcelas || 1);
-  if (modoCalculo === 'total' && valores.valorTotal && totalParcelas > 0) {
-    valores.valorParcela = parseFloat(valores.valorTotal) / totalParcelas;
-  } else if (modoCalculo === 'parcela' && valores.valorParcela && totalParcelas > 0) {
-    valores.valorTotal = parseFloat(valores.valorParcela) * totalParcelas;
-  }
-}
+      if (tipo === 'emprestimo' || tipo === 'cartao') {
+        const totalParcelas =
+          parseInt(valores.totalParcelas || valores.parcelas || 1, 10);
+
+        if (modoCalculo === 'total' && valores.valorTotal && totalParcelas > 0) {
+          valores.valorParcela = Number(valores.valorTotal) / totalParcelas;
+        } else if (modoCalculo === 'parcela' && valores.valorParcela && totalParcelas > 0) {
+          valores.valorTotal = parseFloat(valores.valorParcela) * totalParcelas;
+        } else {
+          // impede salvar se nenhum modo foi selecionado
+          setAlerta({
+            visivel: true,
+            titulo: 'Selecione um modo de cálculo',
+            mensagem: 'Escolha entre "Valor Total" ou "Valor da Parcela" antes de salvar.',
+            icone: 'alert-circle-outline',
+            corIcone: colors.pending,
+            textoBotao: 'Entendi',
+          });
+          return;
+        }
+      }
 
     vibrarSucesso();
 
     const camposObrigatorios = getCamposObrigatorios();
     const camposFaltando = camposObrigatorios.filter((campo) => !valores[campo]);
     if (camposFaltando.length > 0) {
-      alert(`Preencha os campos obrigatórios: ${camposFaltando.join(', ')}`);
+      setAlerta({
+        visivel: true,
+        titulo: 'Campos obrigatórios',
+        mensagem: `Preencha os seguintes campos:\n${camposFaltando.join(', ')}`,
+        icone: 'alert-circle-outline',
+        corIcone: colors.expense,
+        textoBotao: 'Entendi',
+      });
       return;
-    }
+}
+
 
     const valoresProcessados = processarValores(valores);
     const descricaoItem =
@@ -164,7 +221,10 @@ useEffect(() => {
           mensagem = `Empréstimo registrado!\n${valores.descricao} - ${valores.totalParcelas}x de R$ ${Number(valores.valorParcela || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\nTotal: R$ ${Number(valores.valorTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
           break;
         case 'cartao':
-          mensagem = `Compra registrada!\n${valores.descricao} - ${valores.parcelas}x de R$ ${(valores.valor / valores.parcelas).toFixed(2)}\nCartão: ${valores.cartao}`;
+          const qtdParcelas = parseInt(valores.totalParcelas || valores.parcelas || 1, 10);
+          const valorParcelaNum = parseFloat(valores.valorParcela || 0);
+          const valorTotalNum = parseFloat(valores.valorTotal || 0);
+          mensagem = `Compra registrada!\n${valores.descricao} - ${qtdParcelas}x de R$ ${valorParcelaNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\nTotal: R$ ${valorTotalNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\nCartão: ${valores.cartao}`;
           break;
         case 'investimento':
           mensagem = `Investimento salvo!\n${valores.nome} - R$ ${Number(valores.valorInicial).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\nMeta: R$ ${Number(valores.meta || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
@@ -188,23 +248,12 @@ useEffect(() => {
   const processarValores = (vals) => {
     const processados = { ...vals };
 
-    if (processados.valor) {
-      processados.valor = parseFloat(String(processados.valor).replace(',', '.')) || 0;
-    }
-    if (processados.valorInicial) {
-      processados.valorInicial = parseFloat(String(processados.valorInicial).replace(',', '.')) || 0;
-    }
-    if (processados.meta) {
-      processados.meta = parseFloat(String(processados.meta).replace(',', '.')) || 0;
-    }
+    if (processados.valor) processados.valor = Number(processados.valor || 0);
+    if (processados.valorInicial) processados.valorInicial = Number(processados.valorInicial || 0);
+    if (processados.meta) processados.meta = Number(processados.meta || 0);
+    if (processados.valorTotal) processados.valorTotal = Number(processados.valorTotal || 0);
+    if (processados.valorParcela) processados.valorParcela = Number(processados.valorParcela || 0);
     if (processados.parcelas) processados.parcelas = parseInt(processados.parcelas, 10) || 1;
-    if (processados.valorTotal) {
-      processados.valorTotal = parseFloat(String(processados.valorTotal).replace(',', '.')) || 0;
-    }
-    if (processados.totalParcelas) {
-      processados.totalParcelas = parseInt(processados.totalParcelas, 10) || 1;
-    }
-
     if (processados.data) processados.data = formatarDataParaSalvar(processados.data);
     if (processados.dataVencimento) processados.dataVencimento = formatarDataParaSalvar(processados.dataVencimento);
     if (processados.dataCompra) processados.dataCompra = formatarDataParaSalvar(processados.dataCompra);
@@ -218,7 +267,7 @@ useEffect(() => {
       case 'entrada': return ['descricao', 'valor', 'data'];
       case 'gasto': return ['descricao', 'valor', 'dataVencimento'];
       case 'emprestimo': return ['descricao', 'valorTotal', 'totalParcelas', 'dataInicio'];
-      case 'cartao': return ['descricao', 'valor', 'dataCompra', 'pessoa', 'cartao'];
+      case 'cartao': return ['descricao', 'dataCompra', 'pessoa', 'cartao', modoCalculo === 'total' ? 'valorTotal' : 'valorParcela'];
       case 'investimento': return ['nome', 'valorInicial', 'instituicao'];
       default: return [];
     }
@@ -254,8 +303,8 @@ useEffect(() => {
               <Text style={globalStyles.label}>Valor *</Text>
               <TextInput
                 style={globalStyles.input}
-                value={valores.valor?.toString() || ''}
-                onChangeText={(texto) => handleChange('valor', texto)}
+                value={valorTexto}
+                onChangeText={handleValorTextoChange}
                 placeholder="R$ 0,00"
                 keyboardType="numeric"
                 placeholderTextColor={colors.textSecondary}
@@ -264,12 +313,9 @@ useEffect(() => {
             {!datasPadraoPorDescricao[valores.descricao] && (
               <View style={globalStyles.inputGroup}>
                 <Text style={globalStyles.label}>Data de Recebimento *</Text>
-                <TextInput
-                  style={globalStyles.input}
+                <SeletorData
                   value={valores.data || ''}
-                  onChangeText={(texto) => handleChange('data', texto)}
-                  placeholder="DD-MM-AAAA"
-                  placeholderTextColor={colors.textSecondary}
+                  onChangeText={(novaData) => handleChange('data', novaData)}
                 />
               </View>
             )}
@@ -304,8 +350,8 @@ useEffect(() => {
               <Text style={globalStyles.label}>Valor *</Text>
               <TextInput
                 style={globalStyles.input}
-                value={valores.valor?.toString() || ''}
-                onChangeText={(texto) => handleChange('valor', texto)}
+                value={valorTexto}
+                onChangeText={handleValorTextoChange}
                 placeholder="R$ 0,00"
                 keyboardType="numeric"
                 placeholderTextColor={colors.textSecondary}
@@ -314,12 +360,9 @@ useEffect(() => {
             {!datasPadraoPorDescricao[valores.descricao] && (
               <View style={globalStyles.inputGroup}>
                 <Text style={globalStyles.label}>Data de Vencimento *</Text>
-                <TextInput
-                  style={globalStyles.input}
+                <SeletorData
                   value={valores.dataVencimento || ''}
-                  onChangeText={(texto) => handleChange('dataVencimento', texto)}
-                  placeholder="DD-MM-AAAA"
-                  placeholderTextColor={colors.textSecondary}
+                  onChangeText={(novaData) => handleChange('dataVencimento', novaData)}
                 />
               </View>
             )}
@@ -422,8 +465,8 @@ useEffect(() => {
                         <Text style={globalStyles.label}>Valor Total *</Text>
                         <TextInput
                           style={globalStyles.input}
-                          value={valores.valorTotal?.toString() || ''}
-                          onChangeText={(texto) => handleChange('valorTotal', texto)}
+                          value={valorTotalTexto}
+                          onChangeText={handleValorTotalTextoChange}
                           placeholder="R$ 0,00"
                           keyboardType="numeric"
                           placeholderTextColor={colors.textSecondary}
@@ -450,8 +493,8 @@ useEffect(() => {
                         <Text style={globalStyles.label}>Valor da Parcela *</Text>
                         <TextInput
                           style={globalStyles.input}
-                          value={valores.valorParcela?.toString() || ''}
-                          onChangeText={(texto) => handleChange('valorParcela', texto)}
+                          value={valorParcelaTexto}
+                          onChangeText={handleValorParcelaTextoChange}
                           placeholder="R$ 0,00"
                           keyboardType="numeric"
                           placeholderTextColor={colors.textSecondary}
@@ -475,12 +518,9 @@ useEffect(() => {
                   {!datasPadraoPorDescricao[valores.descricao] && (
                     <View style={globalStyles.inputGroup}>
                       <Text style={globalStyles.label}>Data de Início *</Text>
-                      <TextInput
-                        style={globalStyles.input}
+                      <SeletorData
                         value={valores.dataInicio || ''}
-                        onChangeText={(texto) => handleChange('dataInicio', texto)}
-                        placeholder="DD-MM-AAAA"
-                        placeholderTextColor={colors.textSecondary}
+                        onChangeText={(novaData) => handleChange('dataInicio', novaData)}
                       />
                     </View>
                   )}
@@ -601,8 +641,8 @@ useEffect(() => {
                   <Text style={globalStyles.label}>Valor Total *</Text>
                   <TextInput
                     style={globalStyles.input}
-                    value={valores.valorTotal?.toString() || ''}
-                    onChangeText={(texto) => handleChange('valorTotal', texto)}
+                    value={valorTotalTexto}
+                    onChangeText={handleValorTotalTextoChange}
                     placeholder="R$ 0,00"
                     keyboardType="numeric"
                     placeholderTextColor={colors.textSecondary}
@@ -628,8 +668,8 @@ useEffect(() => {
                   <Text style={globalStyles.label}>Valor da Parcela *</Text>
                   <TextInput
                     style={globalStyles.input}
-                    value={valores.valorParcela?.toString() || ''}
-                    onChangeText={(texto) => handleChange('valorParcela', texto)}
+                    value={valorParcelaTexto}
+                    onChangeText={handleValorParcelaTextoChange}
                     placeholder="R$ 0,00"
                     keyboardType="numeric"
                     placeholderTextColor={colors.textSecondary}
@@ -653,12 +693,9 @@ useEffect(() => {
             {!datasPadraoPorDescricao[valores.descricao] && (
               <View style={globalStyles.inputGroup}>
                 <Text style={globalStyles.label}>Data da Compra *</Text>
-                <TextInput
-                  style={globalStyles.input}
+                <SeletorData
                   value={valores.dataCompra || ''}
-                  onChangeText={(texto) => handleChange('dataCompra', texto)}
-                  placeholder="DD-MM-AAAA"
-                  placeholderTextColor={colors.textSecondary}
+                  onChangeText={(novaData) => handleChange('dataCompra', novaData)}
                 />
               </View>
             )}
@@ -670,17 +707,6 @@ useEffect(() => {
                 value={valores.categoria || ''}
                 onChangeText={(texto) => handleChange('categoria', texto)}
                 placeholder="Ex: Alimentação"
-                placeholderTextColor={colors.textSecondary}
-              />
-            </View>
-            <View style={globalStyles.inputGroup}>
-              <Text style={globalStyles.label}>Parcelas</Text>
-              <TextInput
-                style={globalStyles.input}
-                value={valores.parcelas?.toString() || ''}
-                onChangeText={(texto) => handleChange('parcelas', texto)}
-                placeholder="1"
-                keyboardType="numeric"
                 placeholderTextColor={colors.textSecondary}
               />
             </View>
@@ -704,8 +730,8 @@ case 'investimento':
               <Text style={globalStyles.label}>Valor Inicial *</Text>
               <TextInput
                 style={globalStyles.input}
-                value={valores.valorInicial?.toString() || ''}
-                onChangeText={(t) => handleChange('valorInicial', t)}
+                value={valorInicialTexto}
+                onChangeText={handleValorInicialTextoChange}
                 placeholder="R$ 0,00"
                 keyboardType="numeric"
                 placeholderTextColor={colors.textSecondary}
@@ -725,8 +751,8 @@ case 'investimento':
               <Text style={globalStyles.label}>Definir uma meta? (Opcional)</Text>
               <TextInput
                 style={globalStyles.input}
-                value={valores.meta?.toString() || ''}
-                onChangeText={(texto) => handleChange('meta', texto)}
+                value={metaTexto}
+                onChangeText={handleMetaTextoChange}
                 placeholder="R$ 0,00"
                 keyboardType="numeric"
                 placeholderTextColor={colors.textSecondary}

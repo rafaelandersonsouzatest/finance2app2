@@ -1,8 +1,9 @@
+// src/styles/colors.js
 export const colors = {
   // --- Cores principais da interface ---
   background: '#1a1a1a',
   cardBackground: '#1E1E1E',
-  fundoCard: '#2a2a2a', // alias útil (ex: tab bar)
+  fundoCard: '#2a2a2a',
   shadowColor: '#000',
   primary: '#4FC3F7',
   error: '#EF5350',
@@ -14,13 +15,13 @@ export const colors = {
   textTertiary: '#BBBBBB',
 
   // --- Valores financeiros ---
-  income: '#4FC3F7',   // Receita / Recebido
-  expense: '#FF8A65',  // Despesa
-  balance: '#81C784',  // Saldo positivo
-  warning: '#AB47BC', // Adiantada
+  income: '#4FC3F7',
+  expense: '#FF8A65',
+  balance: '#81C784',
+  warning: '#AB47BC',
 
   // --- Status de pagamento ---
-  paid: '#4FC3F7',     // Sinônimo de income
+  paid: '#4FC3F7',
   pending: '#FFB74D',
 
   // --- Gráficos e ícones ---
@@ -45,12 +46,12 @@ export const colors = {
   },
 
   // --- Badges de status ---
-  badgePaid: '#55f74f20',     // Azul claro translúcido
-  badgePending: '#FFB74D20',  // Laranja translúcido
+  badgePaid: '#55f74f20',
+  badgePending: '#FFB74D20',
 
   // --- Extras para UI refinada ---
-  tabBarBackground: '#252525',      // fundo da barra inferior quando quiser variação
-  tabActiveBubble: '#4FC3F733',     // bolha leve do item ativo (primária translúcida)
+  tabBarBackground: '#252525',
+  tabActiveBubble: '#4FC3F733',
   inactiveIcon: '#888888',
   borderLight: '#333333',
   border: '#161616ff',

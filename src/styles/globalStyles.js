@@ -712,7 +712,7 @@ listAvatar: {
     color: colors.textPrimary,
     marginTop: 4,
   },
-// --- Botão de ação pequeno (ex: adiantar, editar, excluir)
+// --- Botão de ação pequeno (ex: antecipar, editar, excluir)
 iconButton: {
   flexDirection: 'row',
   alignItems: 'center',
@@ -967,7 +967,7 @@ cancelButton: {
   borderRadius: 8,
 },
 cancelButtonText: {
-  color: '#fff',
+  color: colors.textSecondary,
   fontSize: 16,
   fontWeight: '600',
 },
@@ -1015,6 +1015,149 @@ saveButtonText: {
   topTabButtonTextActive: { // Novo estilo para o texto ativo
     color: colors.textPrimary,
   },
+
+// =================================================
+// 🔹 ESTILOS PARA O SELETOR DE DATA (SeletorData.js)
+// =================================================
+dataContainer: {
+  marginVertical: 6,
+},
+dataLabel: {
+  fontSize: 14,
+  color: colors.textSecondary,
+  marginBottom: 6,
+},
+dataButton: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: colors.cardBackground,
+  borderRadius: 12,
+  borderWidth: 1,
+  borderColor: colors.borderLight,
+  paddingVertical: 12,
+  paddingHorizontal: 14,
+},
+dataIcon: {
+  marginRight: 8,
+},
+dataValue: {
+  fontSize: 16,
+  color: colors.textPrimary,
+},
+
+// Modal principal
+dataModalOverlay: {
+  flex: 1,
+  justifyContent: 'center',
+  backgroundColor: 'rgba(0,0,0,0.6)',
+},
+dataModalBox: {
+  backgroundColor: colors.background,
+  marginHorizontal: 25,
+  borderRadius: 16,
+  padding: 16,
+  elevation: 10,
+},
+
+// Botões do modal
+dataModalCloseButton: {
+  alignSelf: 'flex-end',
+  marginTop: 10,
+  paddingVertical: 6,
+  paddingHorizontal: 12,
+  borderRadius: 8,
+  backgroundColor: colors.primary,
+},
+dataModalCloseText: {
+  color: '#fff',
+  fontWeight: '600',
+},
+
+// 🔹 Scroll Picker (dia/mês/ano)
+datePickerRow: {
+  flexDirection: 'row',
+  justifyContent: 'space-evenly',
+  alignItems: 'center',
+  marginVertical: 12,
+},
+scrollPicker: {
+  width: '30%',
+  height: 220, // 🔹 fixo, não maxHeight
+},
+scrollItem: {
+  height: 44,
+  justifyContent: 'center',
+  alignItems: 'center',
+  borderRadius: 8,
+},
+scrollItemAtivo: {
+  backgroundColor: colors.primary + '25',
+},
+scrollItemTexto: {
+  fontSize: 18,
+  color: colors.textSecondary,
+},
+scrollItemTextoAtivo: {
+  color: colors.primary,
+  fontWeight: 'bold',
+},
+
+// 🔹 Linha indicadora (item central)
+scrollCenterLine: {
+  position: 'absolute',
+  top: '50%',
+  left: 0,
+  right: 0,
+  height: 44,
+  marginTop: -22,
+  borderTopWidth: 1,
+  borderBottomWidth: 1,
+  borderColor: colors.primary + '60',
+  zIndex: 3,
+},
+
+// 🔹 Botões dentro do modal
+modalButtons: {
+  flexDirection: 'row',
+  justifyContent: 'flex-end',
+  marginTop: 8,
+},
+confirmButtonText: {
+  fontSize: 16,
+  fontWeight: 'bold',
+  color: colors.primary,
+},
+// =================================================
+// 🔹 ESTILOS PARA ABAS (Top Tabs) - VERSÃO BOTÕES ANTIGOS
+// =================================================
+modernTabBarContainer: {
+  flexDirection: 'row',
+  marginBottom: 8,
+  backgroundColor: colors.background,
+},
+
+modernTabButton: {
+  flex: 1,
+  alignItems: 'center',
+  justifyContent: 'center',
+  paddingVertical: 10,
+  borderRadius: 10,
+  marginHorizontal: 4,
+  borderWidth: 1,
+  borderColor: 'transparent',
+},
+modernTabButtonActive: {
+  backgroundColor: colors.primary + '10',
+  borderColor: colors.primary,
+},
+modernTabText: {
+  fontSize: 14,
+  fontWeight: '600',
+  color: colors.textSecondary,
+  letterSpacing: 0.5,
+},
+modernTabTextActive: {
+  color: colors.textPrimary,
+},
+
 });
-
-

@@ -19,16 +19,17 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.rafael.anderson.souza.meuapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-"extra": {
-  "eas": {
-    "projectId": "559b4f2b-514f-42d8-bf1c-fca02444f277"
-  }
-},
+    "extra": {
+      "eas": {
+        "projectId": "559b4f2b-514f-42d8-bf1c-fca02444f277"
+      }
+    },
     "owner": "rafael.anderson.souza",
     "runtimeVersion": {
       "policy": "appVersion"

@@ -3,7 +3,7 @@ import { Animated, View, Text, StyleSheet, TouchableOpacity, ScrollView, Refresh
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // Componentes e Hooks
-import CartaoEmprestadoCard from '../components/CartaoEmprestadoCard';
+import GastoCartaoCard from '../components/GastoCartaoCard';
 import FiltroComponent from '../components/FiltroComponent';
 import EstatisticasComponent from '../components/EstatisticasComponent';
 import { useDateFilter } from '../contexts/DateFilterContext';
@@ -48,11 +48,20 @@ export default function CartoesEmprestadosScreen() {
   }, [cartoesEmprestados]);
 
   const dadosFiltrados = useMemo(() => {
-    return cartoesEmprestados.filter(
+    const filtrados = cartoesEmprestados.filter(
       item =>
         (filtroCartao === 'Todos' || item.cartao === filtroCartao) &&
         (filtroPessoa === 'Todos' || item.pessoa === filtroPessoa)
     );
+
+    // Ordenar por dataCompra (mais recente primeiro) e depois por nome
+    return filtrados.sort((a, b) => {
+      const dataA = new Date(a.dataCompra || a.dataVencimento || 0);
+      const dataB = new Date(b.dataCompra || b.dataVencimento || 0);
+
+      if (dataB - dataA !== 0) return dataB - dataA;
+      return (a.descricao || '').localeCompare(b.descricao || '');
+    });
   }, [cartoesEmprestados, filtroCartao, filtroPessoa]);
 
   const estatisticas = useMemo(() => {
@@ -171,7 +180,7 @@ export default function CartoesEmprestadosScreen() {
           dadosFiltrados.map((item) => (
             <TouchableOpacity key={item.id} onPress={() => { setCartaoSelecionado(item); setModalDetalhesVisivel(true); }}>
               <Animated.View style={{ opacity: fadeAnim }}>
-                <CartaoEmprestadoCard
+                <GastoCartaoCard
                   transacao={item}
                   corCartao={item.corCartao} 
                   onToggleStatus={() => handleToggleStatus(item)}

@@ -385,53 +385,82 @@ export const useLoans = (month, year) => {
     }
   };
 
-const updateLoan = async (id, loan) => {
-  try {
-    const dadosAtualizados = { ...loan };
+  const updateLoan = async (id, loan) => {
+    try {
+      const dadosAtualizados = { ...loan };
+      const docRef = doc(db, 'emprestimos', id);
+      const docSnap = await getDoc(docRef);
+      const atual = docSnap.data();
 
-    // 🔹 Ajusta a data de pagamento conforme o status "pago"
+      // 🔹 Caso o usuário desmarque uma parcela antecipada
+      if (atual?.adiantada && dadosAtualizados.pago === false) {
+        return new Promise((resolve, reject) => {
+          setTimeout(() => {
+            global.alertaGlobal?.({
+              titulo: 'Reverter antecipação?',
+              mensagem:
+                'Esta parcela foi antecipada. Deseja desfazer a antecipação e restaurar os dados originais?',
+              icone: 'history',
+              corIcone: colors.warning,
+              botoes: [
+                { texto: 'Cancelar', onPress: () => reject('Reversão cancelada.') },
+                {
+                  texto: 'Sim, reverter',
+                  style: 'destructive',
+                  onPress: async () => {
+                    const dadosRevertidos = {
+                      pago: false,
+                      adiantada: false,
+                      descontoAplicado: 0,
+                      valor: atual.valorOriginal || atual.valor,
+                      dataPagamento: null,
+                      mes: atual.mesOriginal || atual.mes,
+                      ano: atual.anoOriginal || atual.ano,
+                      atualizadoEm: serverTimestamp(),
+                    };
+                    await updateDoc(docRef, dadosRevertidos);
+                    resolve(true);
+                  },
+                },
+              ],
+            });
+          }, 100);
+        });
+      }
+
+    // 🔹 Ajusta data de pagamento se marcado como pago normalmente
     if (dadosAtualizados.pago === true && !dadosAtualizados.dataPagamento) {
       dadosAtualizados.dataPagamento = new Date().toISOString().split('T')[0];
     } else if (dadosAtualizados.pago === false && dadosAtualizados.dataPagamento) {
       dadosAtualizados.dataPagamento = null;
     }
 
-    // 🔹 Atualiza a parcela editada
-    const docRef = doc(db, 'emprestimos', id);
     await updateDoc(docRef, {
       ...dadosAtualizados,
       valor: parseFloat(dadosAtualizados.valor),
       atualizadoEm: serverTimestamp(),
     });
 
- 
-    // 🔹 RECALCULAR TOTAL SOMANDO TODAS AS PARCELAS
-
+    // 🔹 Recalcular total (mantém igual ao seu original)
     if (dadosAtualizados.idCompra) {
       const parcelasSnap = await getDocs(
         query(collection(db, 'emprestimos'), where('idCompra', '==', dadosAtualizados.idCompra))
       );
-
-      // ✅ Soma real das parcelas no Firestore
       const parcelas = parcelasSnap.docs.map((d) => d.data());
       const novoTotal = parcelas.reduce((soma, p) => soma + (parseFloat(p.valor) || 0), 0);
 
-      // ✅ Atualiza o valorTotal em todas as parcelas
       const batch = writeBatch(db);
       parcelasSnap.docs.forEach((docSnap) => {
         batch.update(doc(db, 'emprestimos', docSnap.id), { valorTotal: novoTotal });
       });
       await batch.commit();
     }
-
   } catch (err) {
     console.error('Erro ao atualizar empréstimo:', err);
     setError(err.message);
     throw err;
   }
 };
-
-
     const deleteLoan = async (id, idCompra, excluirTudo = false) => {
       try {
         if (excluirTudo && idCompra) {
@@ -453,7 +482,69 @@ const updateLoan = async (id, loan) => {
         throw err;
       }
     };
-  return { loans, loading, error, addLoan, updateLoan, deleteLoan };
+
+    // 🔹 Antecipar parcelas de empréstimos (com data e valor opcional)
+const anteciparParcelasEmprestimo = async (idsSelecionados, dataPagamento, valorComDesconto) => {
+  try {
+    const batch = writeBatch(db);
+
+    // ✅ Constrói a data de forma local (sem fuso)
+    const [ano, mes, dia] = dataPagamento.split('-').map(Number);
+    const data = new Date(ano, mes - 1, dia);
+    const mesPagamento = data.getMonth() + 1;
+    const anoPagamento = data.getFullYear();
+
+    for (const id of idsSelecionados) {
+      const ref = doc(db, 'emprestimos', id);
+      const docSnap = await getDoc(ref);
+      const atual = docSnap.data();
+      if (!atual) continue;
+
+      const mesOriginal = atual.mes;
+      const anoOriginal = atual.ano;
+      const valorOriginal = parseFloat(atual.valor) || 0;
+      const valorFinal = valorComDesconto || valorOriginal;
+      const descontoAplicado = valorOriginal - valorFinal;
+
+      const novosDados = {
+        ...atual,
+        pago: true,
+        adiantada: true,
+        valor: valorFinal,
+        valorOriginal,
+        descontoAplicado,
+        dataPagamento,
+        mesOriginal,
+        anoOriginal,
+        mes: mesPagamento,
+        ano: anoPagamento,
+      };
+
+      batch.update(ref, novosDados);
+    }
+
+    await batch.commit();
+
+    // 🔄 Atualiza imediatamente o estado local
+    setLoans((prev) => {
+      const outros = prev.filter((p) => !idsSelecionados.includes(p.id));
+      return [
+        ...outros,
+        ...idsSelecionados.map((id) => ({
+          ...prev.find((p) => p.id === id),
+          pago: true,
+          adiantada: true,
+        })),
+      ];
+    });
+  } catch (err) {
+    console.error('❌ Erro ao antecipar parcelas de empréstimo:', err);
+    setError(err.message);
+    throw err;
+  }
+};
+
+  return { loans, loading, error, addLoan, updateLoan, deleteLoan, anteciparParcelasEmprestimo  };
 };
 
 // ================================
@@ -682,7 +773,12 @@ export const useCartoesEmprestados = (month, year) => {
       return;
     }
 
-    const q = query(collection(db, 'cartoesEmprestados'), where('mes', '==', month), where('ano', '==', year));
+    const q = query(
+      collection(db, 'cartoesEmprestados'),
+      where('mes', '==', month),
+      where('ano', '==', year)
+    );
+
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
@@ -706,7 +802,6 @@ export const useCartoesEmprestados = (month, year) => {
     return () => unsubscribe();
   }, [month, year]);
 
-
   const getCorDoCartao = (nomeCartao) => {
     const nomeLimpo = typeof nomeCartao === 'string' ? nomeCartao.trim() : '';
     if (colors.byInstitution && colors.byInstitution[nomeLimpo]) {
@@ -715,19 +810,36 @@ export const useCartoesEmprestados = (month, year) => {
     return colors.byInstitution?.Default || '#888888';
   };
 
+  // ➕ Adicionar nova compra parcelada
   const addCartao = async (cartao) => {
     try {
-      const { descricao, valor: valorTotal, parcelas, dataCompra, pessoa, cartao: nomeCartao } = cartao;
-      
+      const {
+        descricao,
+        valorTotal,
+        valorParcela,
+        totalParcelas,
+        dataCompra,
+        pessoa,
+        cartao: nomeCartao,
+      } = cartao;
+
+      const parcelas = parseInt(totalParcelas || 1, 10);
+      const valorTotalNum = parseFloat(valorTotal) || 0;
+      const valorParcelaNum =
+        parseFloat(valorParcela) || (parcelas > 0 ? valorTotalNum / parcelas : 0);
+
       const corDoCartao = getCorDoCartao(nomeCartao);
-      const valorParcela = parseFloat(valorTotal) / parcelas;
       const dataBaseISO = normalizarParaISO(dataCompra);
       const dataBase = new Date(dataBaseISO + 'T00:00:00');
       const idCompra = `${descricao.replace(/\s+/g, '-')}-${dataBaseISO}`;
       const diaVencimento = vencimentoCartaoPorNome[nomeCartao] || vencimentoCartaoPorNome.Default;
 
-      const dataFechamentoEstimada = new Date(dataBase.getFullYear(), dataBase.getMonth(), diaVencimento - 7);
-      let mesOffset = dataBase > dataFechamentoEstimada ? 1 : 0;
+      const dataFechamentoEstimada = new Date(
+        dataBase.getFullYear(),
+        dataBase.getMonth(),
+        diaVencimento - 7
+      );
+      const mesOffset = dataBase > dataFechamentoEstimada ? 1 : 0;
 
       const loteParcelas = Array.from({ length: parcelas }, (_, i) => {
         const dataReferencia = new Date(dataBase);
@@ -740,8 +852,8 @@ export const useCartoesEmprestados = (month, year) => {
           pessoa,
           cartao: nomeCartao,
           corCartao: corDoCartao,
-          valor: parseFloat(valorParcela.toFixed(2)),
-          valorTotal: parseFloat(valorTotal),
+          valor: parseFloat(valorParcelaNum.toFixed(2)),
+          valorTotal: parseFloat(valorTotalNum.toFixed(2)),
           dataCompra: dataBaseISO,
           parcelaAtual: i + 1,
           totalParcelas: parcelas,
@@ -750,42 +862,85 @@ export const useCartoesEmprestados = (month, year) => {
           adiantada: false,
           mes: dataVencimentoFinal.getMonth() + 1,
           ano: dataVencimentoFinal.getFullYear(),
-          idCompra: idCompra,
+          idCompra,
           criadoEm: serverTimestamp(),
         };
       });
-      
+
       const batch = writeBatch(db);
       loteParcelas.forEach((p) => {
         const docRef = doc(collection(db, 'cartoesEmprestados'));
         batch.set(docRef, p);
       });
       await batch.commit();
-
     } catch (err) {
-      console.error("Erro ao adicionar compra parcelada:", err);
+      console.error('❌ Erro ao adicionar compra parcelada:', err);
       setError(err.message);
       throw err;
     }
   };
 
-  const updateCartao = async (id, cartao) => {
-    try {
-      const dadosAtualizados = { ...cartao };
+const updateCartao = async (id, cartao) => {
+  try {
+    const dadosAtualizados = { ...cartao };
+    const cartaoRef = doc(db, 'cartoesEmprestados', id);
+    const docSnap = await getDoc(cartaoRef);
+    const atual = docSnap.data();
 
-      if (dadosAtualizados.pago === true && !dadosAtualizados.dataPagamento) {
-        dadosAtualizados.dataPagamento = new Date().toISOString().split('T')[0];
-      } else if (dadosAtualizados.pago === false && dadosAtualizados.dataPagamento) {
-        dadosAtualizados.dataPagamento = null;
-      }
-
-      const cartaoRef = doc(db, 'cartoesEmprestados', id);
-      await updateDoc(cartaoRef, { ...dadosAtualizados, atualizadoEm: serverTimestamp() });
-    } catch (err) {
-      setError(err.message);
-      throw err;
+    // 🔹 Caso o usuário desmarque uma parcela antecipada
+    if (atual?.adiantada && dadosAtualizados.pago === false) {
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          global.alertaGlobal?.({
+            titulo: 'Reverter antecipação?',
+            mensagem:
+              'Esta parcela foi antecipada. Deseja desfazer a antecipação e restaurar os dados originais?',
+            icone: 'history',
+            corIcone: colors.warning,
+            botoes: [
+              { texto: 'Cancelar', onPress: () => reject('Reversão cancelada.') },
+              {
+                texto: 'Sim, reverter',
+                style: 'destructive',
+                onPress: async () => {
+                  const dadosRevertidos = {
+                    pago: false,
+                    adiantada: false,
+                    descontoAplicado: 0,
+                    valor: atual.valorOriginal || atual.valor,
+                    dataPagamento: null,
+                    mes: atual.mesOriginal || atual.mes,
+                    ano: atual.anoOriginal || atual.ano,
+                    atualizadoEm: serverTimestamp(),
+                  };
+                  await updateDoc(cartaoRef, dadosRevertidos);
+                  resolve(true);
+                },
+              },
+            ],
+          });
+        }, 100);
+      });
     }
-  };
+
+    // 🔹 Atualiza normalmente
+    if (dadosAtualizados.pago === true && !dadosAtualizados.dataPagamento) {
+      dadosAtualizados.dataPagamento = new Date().toISOString().split('T')[0];
+    } else if (dadosAtualizados.pago === false && dadosAtualizados.dataPagamento) {
+      dadosAtualizados.dataPagamento = null;
+    }
+
+    await updateDoc(cartaoRef, {
+      ...dadosAtualizados,
+      valor: parseFloat(dadosAtualizados.valor),
+      atualizadoEm: serverTimestamp(),
+    });
+  } catch (err) {
+    console.error('Erro ao atualizar cartão:', err);
+    setError(err.message);
+    throw err;
+  }
+};
 
   const deleteCartao = async (id) => {
     try {
@@ -818,7 +973,83 @@ export const useCartoesEmprestados = (month, year) => {
     }
   };
 
-  return { cartoes, loading, error, addCartao, updateCartao, deleteCartao, toggleCartaoStatus };
+  // 🔹 Antecipar parcelas (com data e valor opcional)
+const anteciparParcelas = async (idsSelecionados, dataPagamento, valorComDesconto = null) => {
+  if (!idsSelecionados || idsSelecionados.length === 0) return;
+  try {
+    const batch = writeBatch(db);
+
+    // ✅ Cria data local corretamente (sem UTC)
+    const [ano, mes, dia] = dataPagamento.split('-').map(Number);
+    const data = new Date(ano, mes - 1, dia);
+    const mesPagamento = data.getMonth() + 1;
+    const anoPagamento = data.getFullYear();
+
+    const atualizados = [];
+
+    for (const id of idsSelecionados) {
+      const docRef = doc(db, 'cartoesEmprestados', id);
+      const docSnap = await getDoc(docRef);
+      if (!docSnap.exists()) continue;
+
+      const atual = docSnap.data();
+      const valorOriginal = parseFloat(atual.valor) || 0;
+      const valorFinal = valorComDesconto ? parseFloat(valorComDesconto) : valorOriginal;
+      const descontoAplicado = valorOriginal - valorFinal;
+
+      const novosDados = {
+        pago: true,
+        adiantada: true,
+        dataPagamento,
+        mes: mesPagamento,
+        ano: anoPagamento,
+        valor: valorFinal,
+        descontoAplicado,
+        atualizadoEm: serverTimestamp(),
+      };
+
+      batch.update(docRef, novosDados);
+
+      atualizados.push({
+        id,
+        ...atual,
+        ...novosDados,
+      });
+    }
+
+    await batch.commit();
+    console.log('✅ Parcelas antecipadas com sucesso.');
+
+    // 🔄 Atualiza estado local
+    setCartoes((prev) => {
+      const outros = prev.filter((p) => !idsSelecionados.includes(p.id));
+      return [
+        ...outros,
+        ...atualizados.map((p) => ({
+          ...p,
+          valor: parseFloat(p.valor) || 0,
+          pago: true,
+          adiantada: true,
+        })),
+      ];
+    });
+  } catch (err) {
+    console.error('❌ Erro ao antecipar parcelas:', err);
+    setError(err.message);
+    throw err;
+  }
+};
+
+  return {
+    cartoes,
+    loading,
+    error,
+    addCartao,
+    updateCartao,
+    deleteCartao,
+    toggleCartaoStatus,
+    anteciparParcelas,
+  };
 };
 
 // ================================

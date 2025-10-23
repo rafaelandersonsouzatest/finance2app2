@@ -10,6 +10,7 @@ import { colors } from '../styles/colors';
 const ParcelaItem = ({ item }) => {
   const isPago = item.pago;
   const isAdiantada = item.adiantada;
+
   let statusIcon = "calendar-clock-outline";
   let statusColor = colors.pending;
   let statusText = "Pendente";
@@ -17,15 +18,29 @@ const ParcelaItem = ({ item }) => {
 
   if (isAdiantada) {
     statusIcon = "rocket-launch-outline";
-    statusColor = colors.chartPurple; // Usando uma cor roxa para adiantado
-    statusText = "Adiantada";
-    dateText = `Paga em: ${item.dataPagamento ? new Date(item.dataPagamento + 'T00:00:00').toLocaleDateString('pt-BR') : 'Data não registrada'}`;
+    statusColor = colors.chartPurple;
+    statusText = "Antecipada";
+    dateText = `Paga em: ${
+      item.dataPagamento
+        ? new Date(item.dataPagamento + 'T00:00:00').toLocaleDateString('pt-BR')
+        : 'Data não registrada'
+    }`;
   } else if (isPago) {
     statusIcon = "check-circle-outline";
     statusColor = colors.balance;
     statusText = "Paga";
-    dateText = `Paga em: ${item.dataPagamento ? new Date(item.dataPagamento + 'T00:00:00').toLocaleDateString('pt-BR') : 'Data não registrada'}`;
+    dateText = `Paga em: ${
+      item.dataPagamento
+        ? new Date(item.dataPagamento + 'T00:00:00').toLocaleDateString('pt-BR')
+        : 'Data não registrada'
+    }`;
   }
+
+  // 💰 Cálculo do desconto (se houver)
+  const valorOriginal = parseFloat(item.valorOriginal || item.valor || 0);
+  const valorPago = parseFloat(item.valorPago || item.valor || 0);
+  const desconto = valorOriginal - valorPago;
+  const descontoPercentual = valorOriginal > 0 ? (desconto / valorOriginal) * 100 : 0;
 
   return (
     <View style={[styles.parcelaItemContainer, { borderLeftColor: statusColor }]}>
@@ -34,7 +49,24 @@ const ParcelaItem = ({ item }) => {
           Parcela {item.parcelaAtual}/{item.totalParcelas}
         </Text>
         <Text style={styles.parcelaData}>{dateText}</Text>
+
+        {/* 💵 Exibir valores */}
+        {desconto > 0 ? (
+          <>
+            <Text style={[styles.parcelaValor, { color: colors.textPrimary }]}>
+              Valor Original: R$ {valorOriginal.toFixed(2)}
+            </Text>
+            <Text style={[styles.parcelaValor, { color: colors.balance }]}>
+              Pago com Desconto: R$ {valorPago.toFixed(2)} (-{descontoPercentual.toFixed(1)}%)
+            </Text>
+          </>
+        ) : (
+          <Text style={[styles.parcelaValor, { color: colors.textPrimary }]}>
+            Valor: R$ {valorPago.toFixed(2)}
+          </Text>
+        )}
       </View>
+
       <View style={styles.parcelaStatus}>
         <MaterialCommunityIcons name={statusIcon} size={20} color={statusColor} />
         <Text style={[styles.parcelaStatusText, { color: statusColor }]}>{statusText}</Text>
@@ -159,4 +191,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
+    parcelaValor: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+
 });

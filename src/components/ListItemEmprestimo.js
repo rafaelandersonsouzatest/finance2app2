@@ -54,7 +54,7 @@ export default function ListItemEmprestimo({ item, onPressItem, onToggleStatus, 
               { color: item.adiantada ? colors.warning : item.pago ? colors.income : colors.pending },
             ]}
           >
-            {item.adiantada ? '🚀 Adiantada' : item.pago ? '✓ Paga' : '⏳ Aguardando'}
+            {item.adiantada ? '🚀 Antecipada' : item.pago ? '✓ Paga' : '⏳ Aguardando'}
           </Text>
         </View>
       </View>
