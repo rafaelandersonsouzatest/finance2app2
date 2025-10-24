@@ -1,5 +1,8 @@
+// ==========================================================
+// 📅 SeletorData.js — Versão aprimorada e refinada
+// ==========================================================
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Modal, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, FlatList, Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { globalStyles } from '../styles/globalStyles';
@@ -7,8 +10,9 @@ import { colors } from '../styles/colors';
 
 export default function SeletorData({ label = 'Data', value, onChangeText }) {
   const [mostrarModal, setMostrarModal] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // 🔹 Converte string DD-MM-YYYY → Date
+  // 🔹 Converter string DD-MM-YYYY → Date
   const parseData = (str) => {
     if (!str) return new Date();
     const partes = str.split('-');
@@ -55,6 +59,19 @@ export default function SeletorData({ label = 'Data', value, onChangeText }) {
     setMes(data.getMonth() + 1);
     setAno(data.getFullYear());
   }, [value]);
+
+  // 🔹 Animação suave ao abrir
+  useEffect(() => {
+    if (mostrarModal) {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      fadeAnim.setValue(0);
+    }
+  }, [mostrarModal]);
 
   // 🔹 Centraliza corretamente o item ao abrir
   useEffect(() => {
@@ -140,14 +157,18 @@ export default function SeletorData({ label = 'Data', value, onChangeText }) {
                 : setValor(item)
             }
             style={[
-              globalStyles.scrollItem,
-              ativo && globalStyles.scrollItemAtivo,
+              {
+                height: ITEM_HEIGHT,
+                justifyContent: 'center',
+                alignItems: 'center',
+              },
+              ativo && { transform: [{ scale: 1.1 }] },
             ]}
           >
             <Text
               style={[
-                globalStyles.scrollItemTexto,
-                ativo && globalStyles.scrollItemTextoAtivo,
+                { fontSize: 16, color: colors.textSecondary },
+                ativo && { color: colors.primary, fontWeight: 'bold', fontSize: 18 },
               ]}
             >
               {tipo === 'mes' ? item : item.toString()}
@@ -175,8 +196,13 @@ export default function SeletorData({ label = 'Data', value, onChangeText }) {
         </Text>
       </TouchableOpacity>
 
-      <Modal visible={mostrarModal} transparent animationType="fade">
-        <View style={globalStyles.dataModalOverlay}>
+      <Modal visible={mostrarModal} transparent animationType="none">
+        <Animated.View
+          style={[
+            globalStyles.dataModalOverlay,
+            { opacity: fadeAnim },
+          ]}
+        >
           <View style={globalStyles.dataModalBox}>
             <Text
               style={[
@@ -200,9 +226,22 @@ export default function SeletorData({ label = 'Data', value, onChangeText }) {
                 }}
               />
 
-              <View style={globalStyles.scrollCenterLine} />
+              <View
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: 0,
+                  right: 0,
+                  height: ITEM_HEIGHT,
+                  marginTop: -ITEM_HEIGHT / 2,
+                  borderTopWidth: 1,
+                  borderBottomWidth: 1,
+                  borderColor: colors.borderLight,
+                  zIndex: 2,
+                }}
+              />
 
-              <View style={globalStyles.datePickerRow}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 {renderScroll(dias, dia, setDia, 'dia')}
                 {renderScroll(meses, mes, setMes, 'mes')}
                 {renderScroll(anos, ano, setAno, 'ano')}
@@ -234,7 +273,7 @@ export default function SeletorData({ label = 'Data', value, onChangeText }) {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </Animated.View>
       </Modal>
     </View>
   );

@@ -11,6 +11,10 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": [
+      "**/*",
+      "node_modules/@expo/vector-icons/fonts/*"
+    ],
     "ios": {
       "supportsTablet": true
     },
