@@ -274,25 +274,36 @@ export default function TelaPadrao({
     );
   }
 
-  const renderHeader = () => (
-    <View style={globalStyles.header}>
+const renderHeader = () => (
+  <View style={[globalStyles.header, { flexDirection: 'column', alignItems: 'stretch' }]}>
+    {/* Linha superior: título + olhinho */}
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
       <Text style={globalStyles.headerTitle}>{titulo}</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <ToggleVisibilidade size={20} />
-        {!hideDateFilter && (
-          <MonthYearPicker
-            selectedMonth={selectedMonth}
-            selectedYear={selectedYear}
-            onSelect={updateFilter}
-            compact
-            showNavigation
-            resetToCurrentMonth={resetToCurrentMonth}
-            isCurrentMonth={isCurrentMonth}
-          />
-        )}
-      </View>
+      <ToggleVisibilidade size={20} />
     </View>
-  );
+
+    {/* Linha inferior: seletor de mês/ano */}
+    {!hideDateFilter && (
+      <View
+        style={{
+          marginTop: -17,
+          alignSelf: 'center',
+          alignItems: 'center',
+        }}
+      >
+        <MonthYearPicker
+          selectedMonth={selectedMonth}
+          selectedYear={selectedYear}
+          onSelect={updateFilter}
+          compact
+          showNavigation
+          resetToCurrentMonth={resetToCurrentMonth}
+          isCurrentMonth={isCurrentMonth}
+        />
+      </View>
+    )}
+  </View>
+);
 
   if (tipo === 'resumo') {
     return (

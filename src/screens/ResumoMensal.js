@@ -1,6 +1,8 @@
-import React, { useEffect } from 'react';
-import { View, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View } from 'react-native';
 import { globalStyles } from '../styles/globalStyles';
+import { colors } from '../styles/colors';
+import AlertaModal from '../components/AlertaModal';
 import { useDateFilter } from '../contexts/DateFilterContext';
 import {
   useIncomes,
@@ -10,8 +12,6 @@ import {
   useCartoesEmprestados,
 } from '../hooks/useFirestore';
 import TelaPadrao from '../components/TelaPadrao';
-
-// Importações das Sections:
 import SecaoEntradas from '../components/SecaoEntradas';
 import SecaoGastosFixos from '../components/SecaoGastosFixos';
 import SecaoEmprestimos from '../components/SecaoEmprestimos';
@@ -19,7 +19,11 @@ import SecaoInvestimentos from '../components/SecaoInvestimentos';
 import SecaoCartoes from '../components/SecaoCartoes';
 import MiniResumo from '../components/MiniResumo';
 
+// ======================================================
+// 🔹 COMPONENTE PRINCIPAL
+// ======================================================
 const ResumoMensal = () => {
+  const [alerta, setAlerta] = useState({ visivel: false });
   const { selectedMonth, selectedYear } = useDateFilter();
 
   const { incomes, error: incomesError } = useIncomes(selectedMonth, selectedYear);
@@ -38,13 +42,17 @@ const ResumoMensal = () => {
     ].filter(Boolean);
 
     if (errors.length > 0) {
-      Alert.alert(
-        'Erro ao carregar dados',
-        'Ocorreu um problema ao buscar as informações. Verifique sua conexão.',
-        [{ text: 'OK' }]
-      );
+      setAlerta({
+        visivel: true,
+        titulo: 'Erro ao carregar dados',
+        mensagem: 'Ocorreu um problema ao buscar as informações. Verifique sua conexão.',
+        icone: 'wifi-off',
+        corIcone: colors.error,
+        textoBotao: 'Entendi',
+      });
     }
   }, [incomesError, fixedExpensesError, loansError, investmentsError, cartoesError]);
+
 
   // ======================================================
   // ✅ CÁLCULOS ATUALIZADOS (Realizado vs. Previsto)
@@ -84,11 +92,11 @@ const ResumoMensal = () => {
     totalFixedExpensesRealizado + totalLoansRealizado + totalCartoesRealizado;
   const finalBalanceRealizado = totalIncomeRealizado - totalExpensesRealizado;
 
-  return (
+return (
+  <>
     <TelaPadrao titulo="Resumo Mensal" tipo="resumo">
       <>
         <View style={globalStyles.mb16}>
-          {/* Passando todos os valores calculados para o componente */}
           <MiniResumo
             totalIncomePrevisto={totalIncomePrevisto}
             totalExpensesPrevisto={totalExpensesPrevisto}
@@ -135,7 +143,13 @@ const ResumoMensal = () => {
         </View>
       </>
     </TelaPadrao>
-  );
-};
 
+    <AlertaModal
+      visible={alerta.visivel}
+      onClose={() => setAlerta({ visivel: false })}
+      {...alerta}
+    />
+  </>
+);
+};
 export default ResumoMensal;

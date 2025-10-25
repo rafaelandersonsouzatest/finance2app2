@@ -114,59 +114,72 @@ export default function ModalDetalhes({
   // ------------------------------------------------------
   // 🔹 CARREGAR TOTAIS PARA EMPRÉSTIMOS
   // ------------------------------------------------------
-  useEffect(() => {
-    const carregarTotais = async () => {
-      if (tipo !== 'emprestimo' || !item?.idCompra) return;
+// 🔹 CARREGAR TOTAIS PARA EMPRÉSTIMOS E CARTÕES
+useEffect(() => {
+  const carregarTotais = async () => {
+    if (!item?.idCompra) return;
 
-      try {
-        const parcelasSnap = await getDocs(
-          query(collection(db, 'emprestimos'), where('idCompra', '==', item.idCompra))
-        );
+    try {
+      const nomeColecao =
+        tipo === 'emprestimo' ? 'emprestimos' :
+        tipo === 'cartao' ? 'cartoesEmprestados' :
+        null;
 
-        if (parcelasSnap.empty) {
-          setTotalReal(0);
-          setTotalPago(0);
-          setParcelasPagas(0);
-          setTotalParcelas(0);
-          return;
-        }
+      if (!nomeColecao) return;
 
-        const parcelas = parcelasSnap.docs.map((d) => d.data());
+      const parcelasSnap = await getDocs(
+        query(collection(db, nomeColecao), where('idCompra', '==', item.idCompra))
+      );
 
-        const somaDescontos = parcelas.reduce(
-          (acc, p) => acc + (parseFloat(p.descontoAplicado) || 0),
-          0
-        );
-        setTotalDescontos(somaDescontos);
-
-
-        const somaTotal = parcelas.reduce((acc, p) => acc + (parseFloat(p.valor) || 0), 0);
-        const somaPagas = parcelas.reduce(
-          (acc, p) => acc + ((p.pago === true || p.adiantada === true) ? parseFloat(p.valor) || 0 : 0),
-          0
-        );
-        const pagas = parcelas.filter((p) => p.pago || p.adiantada).length;
-
-        setTotalReal(somaTotal);
-        setTotalPago(somaPagas);
-        setParcelasPagas(pagas);
-        setTotalParcelas(parcelas.length);
-      } catch (err) {
-        console.error('Erro ao calcular totais:', err);
-        setAlerta({
-          visivel: true,
-          titulo: 'Erro ao carregar dados',
-          mensagem: 'Não foi possível calcular os totais do empréstimo.',
-          icone: 'wifi-off',
-          corIcone: colors.error,
-          textoBotao: 'Entendi',
-        });
+      if (parcelasSnap.empty) {
+        setTotalReal(0);
+        setTotalPago(0);
+        setParcelasPagas(0);
+        setTotalParcelas(0);
+        return;
       }
-    };
 
+      const parcelas = parcelasSnap.docs.map((d) => d.data());
 
-    if (visible) carregarTotais();
-  }, [visible, item, tipo]);
+      // 🔹 Descontos (se houver)
+      const somaDescontos = parcelas.reduce(
+        (acc, p) => acc + (parseFloat(p.descontoAplicado) || 0),
+        0
+      );
+      setTotalDescontos(somaDescontos);
+
+      // 🔹 Totais reais
+      const somaTotal = parcelas.reduce(
+        (acc, p) => acc + (parseFloat(p.valor) || 0),
+        0
+      );
+
+      const somaPagas = parcelas.reduce(
+        (acc, p) => acc + ((p.pago === true || p.adiantada === true) ? parseFloat(p.valor) || 0 : 0),
+        0
+      );
+
+      const pagas = parcelas.filter((p) => p.pago || p.adiantada).length;
+
+      setTotalReal(somaTotal);
+      setTotalPago(somaPagas);
+      setParcelasPagas(pagas);
+      setTotalParcelas(parcelas.length);
+    } catch (err) {
+      console.error('Erro ao calcular totais:', err);
+      setAlerta({
+        visivel: true,
+        titulo: 'Erro ao carregar dados',
+        mensagem: 'Não foi possível calcular os totais.',
+        icone: 'wifi-off',
+        corIcone: colors.error,
+        textoBotao: 'Entendi',
+      });
+    }
+  };
+
+  if (visible && (tipo === 'emprestimo' || tipo === 'cartao')) carregarTotais();
+}, [visible, item, tipo]);
 
   if (!visible) return null;
 
@@ -193,24 +206,71 @@ const valorColor = desconto > 0 ? colors.warning : colors.expense;
         return (
           <>
             <InfoRow
-              icon="cash"
-              label="Valor"
-              value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-              color={colors.income}
-            />
-            <InfoRow icon="shape-outline" label="Categoria" value={item.categoria || 'Não informada'} />
-            <InfoRow icon="calendar" label="Data de Recebimento" value={formatarData(item.data, item.dataPagamento)} />
-            <InfoRow icon={item.pago ? 'check-circle-outline' : 'alert-circle-outline'} label="Status" value={item.pago ? 'Recebido' : 'Pendente'} color={statusCor} />
+  icon="cash"
+  label="Valor"
+  value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+  color={colors.income}
+/>
+<InfoRow icon="shape-outline" label="Categoria" value={item.categoria || 'Não informada'} />
+
+{item.pago ? (
+  <InfoRow
+    icon="calendar-check"
+    label="Data de Recebimento"
+    value={formatarData(item.dataPagamento, item.data)}
+    color={colors.balance}
+  />
+) : (
+  <InfoRow
+    icon="calendar-outline"
+    label="Data Prevista de Recebimento"
+    value={formatarData(item.data, item.dataPagamento)}
+  />
+)}
+
+<InfoRow
+  icon={item.pago ? 'check-circle-outline' : 'alert-circle-outline'}
+  label="Status"
+  value={item.pago ? 'Recebido' : 'Pendente'}
+  color={item.pago ? colors.balance : colors.pending}
+/>
+
           </>
         );
 
       case 'gasto':
         return (
           <>
-            <InfoRow icon="cash" label="Valor" value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} color={colors.expense} />
-            <InfoRow icon="shape-outline" label="Categoria" value={item.categoria || 'Não informada'} />
-            <InfoRow icon="calendar" label="Data de Vencimento" value={formatarData(item.dataVencimento, item.dataPagamento)} />
-            <InfoRow icon={item.pago ? 'check-circle-outline' : 'alert-circle-outline'} label="Status" value={item.pago ? 'Pago' : 'Pendente'} color={statusCor} />
+            <InfoRow
+  icon="cash"
+  label="Valor"
+  value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+  color={colors.expense}
+/>
+<InfoRow icon="shape-outline" label="Categoria" value={item.categoria || 'Não informada'} />
+
+{item.pago ? (
+  <InfoRow
+    icon="calendar-check"
+    label="Data de Pagamento"
+    value={formatarData(item.dataPagamento, item.dataVencimento)}
+    color={colors.balance}
+  />
+) : (
+  <InfoRow
+    icon="calendar-outline"
+    label="Data de Vencimento"
+    value={formatarData(item.dataVencimento, item.dataPagamento)}
+  />
+)}
+
+<InfoRow
+  icon={item.pago ? 'check-circle-outline' : 'alert-circle-outline'}
+  label="Status"
+  value={item.pago ? 'Pago' : 'Pendente'}
+  color={item.pago ? colors.balance : colors.pending}
+/>
+
           </>
         );
 
@@ -232,12 +292,34 @@ const valorColor = desconto > 0 ? colors.warning : colors.expense;
     color={colors.success}
   />
 )}
-            <InfoRow icon="credit-card-outline" label="Cartão" value={item.cartao || 'Não informado'} />
-            <InfoRow icon="chart-donut" label="Progresso" value={`${item.parcelaAtual} de ${item.totalParcelas}`} />
-            <InfoRow icon="calendar" label="Vencimento da Parcela" value={formatarData(item.dataVencimento, item.dataPagamento)} />
-            <TouchableOpacity onPress={onHistoryPress}>
-              <InfoRow icon="history" label="Histórico da Compra" value="Ver todas as parcelas" color={colors.primary} />
-            </TouchableOpacity>
+
+<InfoRow icon="credit-card-outline" label="Cartão" value={item.cartao || 'Não informado'} />
+<InfoRow icon="chart-donut" label="Progresso" value={`${item.parcelaAtual} de ${item.totalParcelas}`} />
+
+{item.pago ? (
+  <InfoRow
+    icon="calendar-check"
+    label="Data de Pagamento"
+    value={formatarData(item.dataPagamento, item.dataVencimento)}
+    color={colors.balance}
+  />
+) : (
+  <InfoRow
+    icon="calendar-outline"
+    label="Vencimento da Parcela"
+    value={formatarData(item.dataVencimento, item.dataPagamento)}
+  />
+)}
+
+<TouchableOpacity onPress={onHistoryPress}>
+  <InfoRow
+    icon="history"
+    label="Histórico da Compra"
+    value="Ver todas as parcelas"
+    color={colors.primary}
+  />
+</TouchableOpacity>
+
           </>
         );
 
@@ -259,13 +341,33 @@ const valorColor = desconto > 0 ? colors.warning : colors.expense;
     color={colors.success}
   />
 )}
-            <InfoRow icon="account-group-outline" label="Pessoa/Instituição" value={item.pessoa || 'Não informada'} />
-            <InfoRow icon="chart-donut" label="Progresso" value={`${item.parcelaAtual} de ${item.totalParcelas}`} />
-            <InfoRow icon={item.pago ? 'calendar-check' : 'calendar-arrow-right'} label={item.pago ? 'Data de Pagamento' : 'Vencimento da Parcela'} value={formatarData(item.dataPagamento, item.dataVencimento)} color={statusCor} />
 
-            <TouchableOpacity onPress={onHistoryPress}>
-              <InfoRow icon="history" label="Histórico da Dívida" value="Ver todas as parcelas" color={colors.primary} />
-            </TouchableOpacity>
+<InfoRow icon="account-group-outline" label="Pessoa/Instituição" value={item.pessoa || 'Não informada'} />
+<InfoRow icon="chart-donut" label="Progresso" value={`${item.parcelaAtual} de ${item.totalParcelas}`} />
+
+{item.pago ? (
+  <InfoRow
+    icon="calendar-check"
+    label="Data de Pagamento"
+    value={formatarData(item.dataPagamento, item.dataVencimento)}
+    color={colors.balance}
+  />
+) : (
+  <InfoRow
+    icon="calendar-outline"
+    label="Vencimento da Parcela"
+    value={formatarData(item.dataVencimento, item.dataPagamento)}
+  />
+)}
+
+<TouchableOpacity onPress={onHistoryPress}>
+  <InfoRow
+    icon="history"
+    label="Histórico da Dívida"
+    value="Ver todas as parcelas"
+    color={colors.primary}
+  />
+</TouchableOpacity>
 
           </>
         );

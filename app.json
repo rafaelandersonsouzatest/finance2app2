@@ -35,9 +35,7 @@
       }
     },
     "owner": "rafael.anderson.souza",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/559b4f2b-514f-42d8-bf1c-fca02444f277"
     }

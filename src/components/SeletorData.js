@@ -1,18 +1,15 @@
-// ==========================================================
-// 📅 SeletorData.js — Versão aprimorada e refinada
-// ==========================================================
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Modal, FlatList, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, FlatList } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
+import * as Haptics from 'expo-haptics';
 
 export default function SeletorData({ label = 'Data', value, onChangeText }) {
   const [mostrarModal, setMostrarModal] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // 🔹 Converter string DD-MM-YYYY → Date
+  // 🔹 Converte string DD-MM-YYYY → Date
   const parseData = (str) => {
     if (!str) return new Date();
     const partes = str.split('-');
@@ -25,20 +22,51 @@ export default function SeletorData({ label = 'Data', value, onChangeText }) {
   };
 
   // 🔹 Estados internos
-  const [dia, setDia] = useState(1);
-  const [mes, setMes] = useState(1);
-  const [ano, setAno] = useState(new Date().getFullYear());
+// 🔹 Estados principais (valor confirmado)
+const [dia, setDia] = useState(1);
+const [mes, setMes] = useState(1);
+const [ano, setAno] = useState(new Date().getFullYear());
+
+// 🔹 Estados temporários (para uso dentro do modal)
+const [tempDia, setTempDia] = useState(dia);
+const [tempMes, setTempMes] = useState(mes);
+const [tempAno, setTempAno] = useState(ano);
+
+useEffect(() => {
+  const maxDias = new Date(tempAno, tempMes, 0).getDate();
+  if (tempDia > maxDias) {
+    setTempDia(maxDias);
+
+    // 🔹 Rolagem automática para alinhar o novo dia válido
+    const timer = setTimeout(() => {
+      if (refDia.current) {
+        refDia.current.scrollToOffset({
+          offset: (maxDias - 1) * ITEM_HEIGHT,
+          animated: true,
+        });
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }
+}, [tempMes, tempAno]);
+
 
   const refDia = useRef(null);
   const refMes = useRef(null);
   const refAno = useRef(null);
 
-  const ITEM_HEIGHT = 44;
-  const VISIBLE_ITEMS = 5;
-  const VISIBLE_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
-  const PADDING_VERTICAL = ITEM_HEIGHT * ((VISIBLE_ITEMS - 1) / 2);
+const ITEM_HEIGHT = 44;
+const VISIBLE_ITEMS = 5;
+const VISIBLE_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
+const PADDING_VERTICAL = (VISIBLE_HEIGHT - ITEM_HEIGHT) / 2;
 
-  const dias = useMemo(() => Array.from({ length: 31 }, (_, i) => i + 1), []);
+  // 🔹 Dias agora dependem do mês e do ano selecionados
+  const dias = useMemo(() => {
+  const maxDias = new Date(tempAno, tempMes, 0).getDate();
+  return Array.from({ length: maxDias }, (_, i) => i + 1);
+}, [tempMes, tempAno]);
+
   const meses = useMemo(
     () => [
       'Janeiro', 'Fevereiro', 'Março', 'Abril',
@@ -60,52 +88,42 @@ export default function SeletorData({ label = 'Data', value, onChangeText }) {
     setAno(data.getFullYear());
   }, [value]);
 
-  // 🔹 Animação suave ao abrir
-  useEffect(() => {
-    if (mostrarModal) {
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      fadeAnim.setValue(0);
-    }
-  }, [mostrarModal]);
+// 🔹 Centraliza corretamente o item ao abrir o seletor
+useEffect(() => {
+  if (mostrarModal) {
+    // Aguardar layout do FlatList
+    const scrollTo = (ref, index) => {
+      if (!ref?.current || index < 0) return;
+      const offset = index * ITEM_HEIGHT;
+      ref.current.scrollToOffset({ offset, animated: true });
 
-  // 🔹 Centraliza corretamente o item ao abrir
-  useEffect(() => {
-    if (mostrarModal) {
-      const centerOffset = (VISIBLE_HEIGHT - ITEM_HEIGHT) / 2;
-      const scrollTo = (ref, index) => {
-        if (!ref?.current || index < 0) return;
-        const offset = Math.max(0, index * ITEM_HEIGHT - centerOffset);
-        ref.current.scrollToOffset({ offset, animated: false });
-        setTimeout(() => {
-          ref.current.scrollToOffset({ offset, animated: false });
-        }, 80);
-      };
+    };
 
-      const diaIndex = dia - 1;
-      const mesIndex = mes - 1;
-      const anoIndex = anos.findIndex((a) => a === ano);
+    const diaIndex = tempDia - 1;
+    const mesIndex = tempMes - 1;
+    const anoIndex = anos.findIndex((a) => a === tempAno);
 
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          scrollTo(refDia, diaIndex);
-          scrollTo(refMes, mesIndex);
-          if (anoIndex >= 0) scrollTo(refAno, anoIndex);
-        }, 160);
-      });
-    }
-  }, [mostrarModal, dia, mes, ano]);
+    // Pequeno atraso para evitar comportamento automático do iOS
+    const timer = setTimeout(() => {
+      scrollTo(refDia, diaIndex);
+      scrollTo(refMes, mesIndex);
+      if (anoIndex >= 0) scrollTo(refAno, anoIndex);
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }
+}, [mostrarModal]);
 
   // 🔹 Confirmar
-  const confirmar = () => {
-    const dataFormatada = `${String(dia).padStart(2, '0')}-${String(mes).padStart(2, '0')}-${ano}`;
-    onChangeText?.(dataFormatada);
-    setMostrarModal(false);
-  };
+const confirmar = () => {
+  setDia(tempDia);
+  setMes(tempMes);
+  setAno(tempAno);
+
+  const dataFormatada = `${String(tempDia).padStart(2, '0')}-${String(tempMes).padStart(2, '0')}-${tempAno}`;
+  onChangeText?.(dataFormatada);
+  setMostrarModal(false);
+};
 
   const formatarDataTexto = (d, m, a) =>
     `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${a}`;
@@ -127,8 +145,9 @@ export default function SeletorData({ label = 'Data', value, onChangeText }) {
         index,
       })}
       snapToInterval={ITEM_HEIGHT}
-      decelerationRate="fast"
+      decelerationRate="normal"
       onMomentumScrollEnd={(e) => {
+        Haptics.selectionAsync();
         const index = Math.round(e.nativeEvent.contentOffset.y / ITEM_HEIGHT);
         const novoValor = data[index];
         if (novoValor != null) {
@@ -157,18 +176,14 @@ export default function SeletorData({ label = 'Data', value, onChangeText }) {
                 : setValor(item)
             }
             style={[
-              {
-                height: ITEM_HEIGHT,
-                justifyContent: 'center',
-                alignItems: 'center',
-              },
-              ativo && { transform: [{ scale: 1.1 }] },
+              globalStyles.scrollItem,
+              ativo && globalStyles.scrollItemAtivo,
             ]}
           >
             <Text
               style={[
-                { fontSize: 16, color: colors.textSecondary },
-                ativo && { color: colors.primary, fontWeight: 'bold', fontSize: 18 },
+                globalStyles.scrollItemTexto,
+                ativo && globalStyles.scrollItemTextoAtivo,
               ]}
             >
               {tipo === 'mes' ? item : item.toString()}
@@ -183,7 +198,12 @@ export default function SeletorData({ label = 'Data', value, onChangeText }) {
     <View style={globalStyles.dataContainer}>
       <TouchableOpacity
         style={globalStyles.dataButton}
-        onPress={() => setMostrarModal(true)}
+        onPress={() => {
+          setTempDia(dia);
+          setTempMes(mes);
+          setTempAno(ano);
+          setMostrarModal(true);
+        }}
       >
         <MaterialCommunityIcons
           name="calendar"
@@ -196,13 +216,8 @@ export default function SeletorData({ label = 'Data', value, onChangeText }) {
         </Text>
       </TouchableOpacity>
 
-      <Modal visible={mostrarModal} transparent animationType="none">
-        <Animated.View
-          style={[
-            globalStyles.dataModalOverlay,
-            { opacity: fadeAnim },
-          ]}
-        >
+      <Modal visible={mostrarModal} transparent animationType="fade">
+        <View style={globalStyles.dataModalOverlay}>
           <View style={globalStyles.dataModalBox}>
             <Text
               style={[
@@ -226,25 +241,12 @@ export default function SeletorData({ label = 'Data', value, onChangeText }) {
                 }}
               />
 
-              <View
-                style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: 0,
-                  right: 0,
-                  height: ITEM_HEIGHT,
-                  marginTop: -ITEM_HEIGHT / 2,
-                  borderTopWidth: 1,
-                  borderBottomWidth: 1,
-                  borderColor: colors.borderLight,
-                  zIndex: 2,
-                }}
-              />
+              <View style={globalStyles.scrollCenterLine} />
 
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                {renderScroll(dias, dia, setDia, 'dia')}
-                {renderScroll(meses, mes, setMes, 'mes')}
-                {renderScroll(anos, ano, setAno, 'ano')}
+              <View style={globalStyles.datePickerRow}>
+                {renderScroll(dias, tempDia, setTempDia, 'dia')}
+                {renderScroll(meses, tempMes, setTempMes, 'mes')}
+                {renderScroll(anos, tempAno, setTempAno, 'ano')}
               </View>
 
               <LinearGradient
@@ -273,7 +275,7 @@ export default function SeletorData({ label = 'Data', value, onChangeText }) {
               </TouchableOpacity>
             </View>
           </View>
-        </Animated.View>
+        </View>
       </Modal>
     </View>
   );

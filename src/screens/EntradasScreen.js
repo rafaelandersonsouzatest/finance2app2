@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { View } from 'react-native'; // Alert não é mais necessário
+import { useMemo, useState } from 'react';
+import { View } from 'react-native';
 import TelaPadrao from '../components/TelaPadrao';
 import ModalCriacao from '../components/ModalCriacao';
 import GerenciarModelosModal from '../components/GerenciarModelosModal';

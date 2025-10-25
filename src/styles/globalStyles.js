@@ -1091,7 +1091,7 @@ scrollItem: {
   borderRadius: 8,
 },
 scrollItemAtivo: {
-  backgroundColor: colors.primary + '25',
+  backgroundColor: 'transparent'
 },
 scrollItemTexto: {
   fontSize: 18,
@@ -1099,7 +1099,8 @@ scrollItemTexto: {
 },
 scrollItemTextoAtivo: {
   color: colors.primary,
-  fontWeight: 'bold',
+  fontWeight: '600',
+  fontSize: 25,
 },
 
 // 🔹 Linha indicadora (item central)
@@ -1159,5 +1160,112 @@ modernTabText: {
 modernTabTextActive: {
   color: colors.textPrimary,
 },
+
+// add / update in styles/globalStyles.js (pode colar no final do arquivo)
+  // =================================================
+  // 🔹 ESTILOS PARA O SELETOR DE MÊS/ANO (MonthYearPicker)
+  // =================================================
+  datePickerContainer: {
+    alignItems: 'center',
+    marginTop: 10, 
+    marginBottom: -6,
+  },
+  datePickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  datePickerCenterBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  datePickerText: {
+    fontSize: 18,
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  todayButtonMinimal: {
+    marginLeft: 8,
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+  },
+  todayButtonPlaceholder: {
+    width: 36,
+    height: 36,
+  },
+
+  // Modal centralizado (usado pelo MonthYearPicker)
+  modalOverlayCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  modalBox: {
+    width: '90%',
+    backgroundColor: colors.cardBackground,
+    borderRadius: 14,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  modalSelectorRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  modalScroll: {
+    flex: 1,
+    maxHeight: 240,
+  },
+  modalOption: {
+  paddingVertical: 10,
+  borderBottomWidth: 1,
+  borderBottomColor: colors.borderLight,
+  height: 40, // 👈 necessário para centralizar o scroll com precisão
+},
+
+  modalOptionSelected: {
+    backgroundColor: colors.primary + '15',
+  },
+  modalOptionText: {
+    textAlign: 'center',
+    color: colors.textPrimary,
+    fontSize: 16,
+  },
+  modalOptionTextSelected: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  modalButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 16,
+  },
+  modalCancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: colors.textSecondary + '10',
+  },
+  modalCancelText: {
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  modalConfirmBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  modalConfirmText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
 
 });
