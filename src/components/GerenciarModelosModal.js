@@ -14,6 +14,8 @@ import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AlertaModal from './AlertaModal';
+import CategoriaSelect from './CategoriaSelect';
+
 
 // Componente do formulário com validação
 const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
@@ -107,13 +109,12 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
       />
       {erros.valor && <Text style={globalStyles.errorMessage}>{erros.valor}</Text>}
 
-      <TextInput
-        placeholder="Categoria"
-        value={categoria}
-        onChangeText={setCategoria}
-        placeholderTextColor={colors.textSecondary}
-        style={[globalStyles.input, { marginTop: 12 }]}
-      />
+      <View style={{ marginTop: 12 }}>
+        <CategoriaSelect
+          value={categoria}
+          onChange={setCategoria}
+        />
+      </View>
 
       {tipo === 'entrada' && (
         <>

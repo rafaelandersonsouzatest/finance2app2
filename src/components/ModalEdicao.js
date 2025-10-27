@@ -21,6 +21,8 @@ import { formatarDataParaExibicao, normalizarParaISO } from '../utils/formatarDa
 import { formatarBRL, parseBRL } from '../utils/formatarValor';
 import SeletorData from './SeletorData';
 import { useCurrencyInput } from '../hooks/useCurrencyInput';
+import CategoriaSelect from './CategoriaSelect';
+
 
 // ==========================================================
 // 🔹 CAMPOS REUTILIZÁVEIS
@@ -102,6 +104,16 @@ const CampoStatusPago = memo(({ label, pago, aoAlternar }) => (
     </TouchableOpacity>
   </View>
 ));
+  const CampoCategoria = memo(({ valores, atualizarCampo }) => (
+    <View style={globalStyles.inputGroup}>
+      <Text style={globalStyles.label}>Categoria</Text>
+      <CategoriaSelect
+        value={valores.categoria || ''}
+        onChange={(cat) => atualizarCampo('categoria', cat)}
+      />
+    </View>
+  ));
+
 
 // ==========================================================
 // 🔹 CAMPOS POR TIPO (ISOLADOS DO MODAL)
@@ -118,7 +130,7 @@ const CamposModal = memo(({ tipo, valores, atualizarCampo, marcarComoPago }) => 
             <CampoStatusPago label="Recebido?" pago={valores.pago} aoAlternar={marcarComoPago} />
             {!valores.pago && <CampoData label="Data prevista para Recebimento 📅" campo="data" valores={valores} atualizarCampo={atualizarCampo} />}
             {valores.pago && <CampoData label="Data de Recebimento 💰" campo="dataPagamento" valores={valores} atualizarCampo={atualizarCampo} />}
-            <CampoTexto label="Categoria" campo="categoria" placeholder="Ex: Trabalho" valores={valores} atualizarCampo={atualizarCampo} />
+            <CampoCategoria valores={valores} atualizarCampo={atualizarCampo} />
           </>
         );
 
@@ -130,7 +142,7 @@ const CamposModal = memo(({ tipo, valores, atualizarCampo, marcarComoPago }) => 
             <CampoData label="Data de Vencimento 📅" campo="dataVencimento" valores={valores} atualizarCampo={atualizarCampo} />
             <CampoStatusPago label="Pago?" pago={valores.pago} aoAlternar={marcarComoPago} />
             {valores.pago && <CampoData label="Data de Pagamento 💰" campo="dataPagamento" valores={valores} atualizarCampo={atualizarCampo} />}
-            <CampoTexto label="Categoria" campo="categoria" placeholder="Ex: Moradia" valores={valores} atualizarCampo={atualizarCampo} />
+            <CampoCategoria valores={valores} atualizarCampo={atualizarCampo} />
           </>
         );
 
@@ -154,6 +166,7 @@ const CamposModal = memo(({ tipo, valores, atualizarCampo, marcarComoPago }) => 
             <CampoData label="Data da Compra *" campo="dataCompra" valores={valores} atualizarCampo={atualizarCampo} />
             <CampoStatusPago label="Pago?" pago={valores.pago} aoAlternar={marcarComoPago} />
             {valores.pago && <CampoData label="Data de Pagamento 💰" campo="dataPagamento" valores={valores} atualizarCampo={atualizarCampo} />}
+            <CampoCategoria valores={valores} atualizarCampo={atualizarCampo} />
           </>
         );
 

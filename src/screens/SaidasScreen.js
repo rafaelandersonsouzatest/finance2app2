@@ -170,7 +170,7 @@ const getStatsFromList = (list = []) => {
 const TabSwitcher = ({ abaAtiva, setAbaAtiva }) => (
   <View style={globalStyles.topTabContainer}>
     {[
-      { key: 'gastos', label: 'Gastos Fixos' },
+      { key: 'gastos', label: 'Gastos' },
       { key: 'emprestimos', label: 'Empréstimos' },
       { key: 'cartoes', label: 'Cartões' },
     ].map((aba) => (
@@ -384,7 +384,7 @@ const handleExcluir = () => {
       ? 'Empréstimo'
       : 'Compra';
 
-  // 🔹 GASTOS FIXOS
+  // 🔹 GASTOS
   if (abaAtiva === 'gastos') {
     setAlerta({
       visivel: true,
@@ -544,7 +544,7 @@ const handleExcluir = () => {
       >
     <ModernTabs
       tabs={[
-        { key: 'gastos', label: 'Gastos Fixos', icon: 'home-outline' },
+        { key: 'gastos', label: 'Gastos', icon: 'home-outline' },
         { key: 'emprestimos', label: 'Empréstimos', icon: 'hand-coin-outline' },
         { key: 'cartoes', label: 'Cartões', icon: 'credit-card-outline' },
       ]}

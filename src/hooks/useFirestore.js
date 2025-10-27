@@ -1053,7 +1053,7 @@ const anteciparParcelas = async (idsSelecionados, dataPagamento, valorComDescont
 };
 
 // ================================
-// 🔹 HOOK: MODELOS (Gastos e Entradas)
+// 🔹 HOOK: MODELOS
 // ================================
 export const useFirestoreModelos = (tipo = 'gasto') => {
   const [modelos, setModelos] = useState([]);

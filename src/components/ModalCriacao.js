@@ -18,6 +18,8 @@ import { gerarDataComDia } from '../utils/gerarDataComDia';
 import AlertaModal from './AlertaModal';
 import SeletorData from './SeletorData';
 import { useCurrencyInput } from '../hooks/useCurrencyInput';
+import CategoriaSelect from './CategoriaSelect';
+
 
 const ModalCriacao = ({
   visivel,
@@ -319,15 +321,11 @@ useEffect(() => {
                 />
               </View>
             )}
-
             <View style={globalStyles.inputGroup}>
               <Text style={globalStyles.label}>Categoria</Text>
-              <TextInput
-                style={globalStyles.input}
+              <CategoriaSelect
                 value={valores.categoria || ''}
-                onChangeText={(texto) => handleChange('categoria', texto)}
-                placeholder="Ex: Trabalho"
-                placeholderTextColor={colors.textSecondary}
+                onChange={(cat) => handleChange('categoria', cat)}
               />
             </View>
           </>
@@ -366,15 +364,11 @@ useEffect(() => {
                 />
               </View>
             )}
-
             <View style={globalStyles.inputGroup}>
               <Text style={globalStyles.label}>Categoria</Text>
-              <TextInput
-                style={globalStyles.input}
+              <CategoriaSelect
                 value={valores.categoria || ''}
-                onChangeText={(texto) => handleChange('categoria', texto)}
-                placeholder="Ex: Moradia"
-                placeholderTextColor={colors.textSecondary}
+                onChange={(cat) => handleChange('categoria', cat)}
               />
             </View>
           </>
@@ -536,16 +530,13 @@ useEffect(() => {
                     />
                   </View>
 
-                  <View style={globalStyles.inputGroup}>
-                    <Text style={globalStyles.label}>Categoria</Text>
-                    <TextInput
-                      style={globalStyles.input}
-                      value={valores.categoria || ''}
-                      onChangeText={(texto) => handleChange('categoria', texto)}
-                      placeholder="Ex: Financiamento"
-                      placeholderTextColor={colors.textSecondary}
-                    />
-                  </View>
+                <View style={globalStyles.inputGroup}>
+                  <Text style={globalStyles.label}>Categoria</Text>
+                  <CategoriaSelect
+                    value={valores.categoria || ''}
+                    onChange={(cat) => handleChange('categoria', cat)}
+                  />
+                </View>
                 </>
               );
 
@@ -700,16 +691,13 @@ useEffect(() => {
               </View>
             )}
 
-            <View style={globalStyles.inputGroup}>
-              <Text style={globalStyles.label}>Categoria</Text>
-              <TextInput
-                style={globalStyles.input}
-                value={valores.categoria || ''}
-                onChangeText={(texto) => handleChange('categoria', texto)}
-                placeholder="Ex: Alimentação"
-                placeholderTextColor={colors.textSecondary}
-              />
-            </View>
+                <View style={globalStyles.inputGroup}>
+                  <Text style={globalStyles.label}>Categoria</Text>
+                  <CategoriaSelect
+                    value={valores.categoria || ''}
+                    onChange={(cat) => handleChange('categoria', cat)}
+                  />
+                </View>
           </>
         );
 
