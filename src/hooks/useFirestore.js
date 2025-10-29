@@ -30,12 +30,18 @@ export const useIncomes = (month, year) => {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        let dados = snapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...docSnap.data(),
-          valor: parseFloat(docSnap.data().valor) || 0,
-          pago: docSnap.data().pago === true,
-        }));
+        let dados = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            ...data,
+            valor: parseFloat(data.valor) || 0,
+            pago: data.pago === true,
+            membro: typeof data.membro === "object" ? data.membro?.nome : data.membro,
+            categoria: typeof data.categoria === "object" ? data.categoria?.nome : data.categoria,
+          };
+        });
+
 
         // ✅ Ordenar por data (recebimento)
         dados.sort((a, b) => {
@@ -57,57 +63,107 @@ export const useIncomes = (month, year) => {
     return () => unsubscribe();
   }, [month, year]);
 
+  // 🟢 NOVO TRECHO — recalcula gastos dinâmicos quando entradas mudam
+useEffect(() => {
+  if (!month || !year || incomes.length === 0) return;
+
+  const qGastos = query(
+    collection(db, "gastosFixos"),
+    where("mes", "==", month),
+    where("ano", "==", year),
+    where("fixacao", "==", "dinamico")
+  );
+
+  const unsub = onSnapshot(qGastos, async (snapshot) => {
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((docSnap) => {
+      const gasto = docSnap.data();
+
+      if (
+        gasto.modoCalculo === "porcentagem" &&
+        Array.isArray(gasto.entradasSelecionadas) &&
+        gasto.entradasSelecionadas.length > 0
+      ) {
+        const entradasSelecionadas = incomes.filter((e) =>
+          gasto.entradasSelecionadas.includes(e.id)
+        );
+        const total = entradasSelecionadas.reduce(
+          (sum, e) => sum + (parseFloat(e.valor) || 0),
+          0
+        );
+        const novoValor = total * (parseFloat(gasto.valorPercentual) / 100);
+
+        if (novoValor.toFixed(2) !== gasto.valor.toFixed(2)) {
+          batch.update(doc(db, "gastosFixos", docSnap.id), {
+            valor: parseFloat(novoValor.toFixed(2)),
+            atualizadoEm: serverTimestamp(),
+          });
+        }
+      }
+    });
+    await batch.commit();
+  });
+
+  return () => unsub();
+}, [incomes, month, year]);
+
+
   // ✅ Nome padronizado e coerente com os outros hooks
-  const gerarFixosDoMes = async () => {
-    try {
-      const qEntradas = query(
-        collection(db, 'entradas'),
-        where('mes', '==', month),
-        where('ano', '==', year)
-      );
-      const snapshotEntradas = await getDocs(qEntradas);
-      const jaGerou = snapshotEntradas.docs.some((doc) => doc.data().origemModelo === true);
-      if (jaGerou) {
-        console.log('Entradas fixas já foram geradas para este mês.');
-        return 'JA_GERADO';
+const gerarFixosDoMes = async () => {
+  try {
+    const qGastos = query(collection(db, 'gastosFixos'), where('mes', '==', month), where('ano', '==', year));
+    const snapshotGastos = await getDocs(qGastos);
+    const jaGerou = snapshotGastos.docs.some((doc) => doc.data().origemModelo === true);
+    if (jaGerou) return 'JA_GERADO';
+
+    const qModelos = query(collection(db, 'modelosDeGasto'), where('ativo', '==', true));
+    const modelosSnapshot = await getDocs(qModelos);
+    if (modelosSnapshot.empty) return 'SEM_MODELOS';
+
+    // 🔹 Carrega todas as entradas do mês/ano para base de cálculo
+    const qEntradas = query(collection(db, 'entradas'), where('mes', '==', month), where('ano', '==', year));
+    const entradasSnapshot = await getDocs(qEntradas);
+    const entradas = entradasSnapshot.docs.map((d) => ({ id: d.id, ...d.data(), valor: parseFloat(d.data().valor) || 0 }));
+
+    const novosGastos = [];
+
+    for (const docSnap of modelosSnapshot.docs) {
+      const modelo = docSnap.data();
+
+      let valorFinal = parseFloat(modelo.valor) || 0;
+
+      // ⚙️ Se for porcentagem, calcular base nas entradas selecionadas
+      if (modelo.modoCalculo === 'porcentagem' && Array.isArray(modelo.entradasSelecionadas) && modelo.entradasSelecionadas.length > 0) {
+        const entradasSelecionadas = entradas.filter((e) => modelo.entradasSelecionadas.includes(e.id));
+        const totalEntradas = entradasSelecionadas.reduce((sum, e) => sum + (parseFloat(e.valor) || 0), 0);
+        valorFinal = totalEntradas * (parseFloat(modelo.valor) / 100);
       }
 
-      const qModelos = query(collection(db, 'modelosDeEntrada'), where('ativo', '==', true));
-      const modelosSnapshot = await getDocs(qModelos);
-      if (modelosSnapshot.empty) {
-        console.log('Nenhum modelo de entrada ativo encontrado.');
-        return 'SEM_MODELOS';
-      }
-
-      const novas = modelosSnapshot.docs.map((doc) => {
-        const modelo = doc.data();
-        return {
-          descricao: modelo.descricao,
-          categoria: modelo.categoria,
-          membro: modelo.membro || '',
-          valor: parseFloat(modelo.valor),
-          data: gerarDataComDia(modelo.diaDoMes, month, year),
-          mes: month,
-          ano: year,
-          pago: false,
-          origemModelo: true,
-          criadoEm: serverTimestamp(),
-        };
+      novosGastos.push({
+        descricao: modelo.descricao,
+        categoria: modelo.categoria,
+        valor: parseFloat(valorFinal.toFixed(2)),
+        dataVencimento: gerarDataComDia(modelo.diaVencimento, month, year),
+        mes: month,
+        ano: year,
+        pago: false,
+        origemModelo: true,
+        criadoEm: serverTimestamp(),
       });
-
-      const batch = writeBatch(db);
-      novas.forEach((i) => {
-        const docRef = doc(collection(db, 'entradas'));
-        batch.set(docRef, i);
-      });
-      await batch.commit();
-      return 'SUCESSO';
-    } catch (err) {
-      console.error('Erro ao gerar entradas fixas a partir dos modelos:', err);
-      setError(err.message);
-      return 'ERRO';
     }
-  };
+
+    // 🔸 Salva tudo em lote
+    const batch = writeBatch(db);
+    novosGastos.forEach((g) => batch.set(doc(collection(db, 'gastosFixos')), g));
+    await batch.commit();
+
+    return 'SUCESSO';
+  } catch (err) {
+    console.error('Erro ao gerar gastos fixos:', err);
+    setError(err.message);
+    return 'ERRO';
+  }
+};
 
   const addIncome = async (income) => {
     try {
@@ -182,18 +238,24 @@ export const useIncomes = (month, year) => {
 
 
 // ================================
-// 🔹 HOOK: GASTOS FIXOS
+// 🔹 HOOK: GASTOS
 // ================================
 export const useFixedExpenses = (month, year) => {
   const [fixedExpenses, setFixedExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // 🔄 Ouve em tempo real os gastos fixos do mês/ano filtrado
   useEffect(() => {
     if (!month || !year) return;
     setLoading(true);
 
-    const q = query(collection(db, 'gastosFixos'), where('mes', '==', month), where('ano', '==', year));
+    const q = query(
+      collection(db, 'gastosFixos'),
+      where('mes', '==', month),
+      where('ano', '==', year)
+    );
+
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
@@ -202,8 +264,12 @@ export const useFixedExpenses = (month, year) => {
           ...d.data(),
           valor: parseFloat(d.data().valor) || 0,
         }));
-        // ✅ Ordenar por data de vencimento
-        dados.sort((a, b) => new Date(a.dataVencimento) - new Date(b.dataVencimento));
+
+        // ✅ Ordena por data de vencimento
+        dados.sort(
+          (a, b) => new Date(a.dataVencimento) - new Date(b.dataVencimento)
+        );
+
         setFixedExpenses(dados);
         setLoading(false);
       },
@@ -217,35 +283,97 @@ export const useFixedExpenses = (month, year) => {
     return () => unsubscribe();
   }, [month, year]);
 
+  // ================================================
+  // ⚙️ GERAÇÃO DOS GASTOS FIXOS A PARTIR DOS MODELOS
+  // ================================================
   const gerarFixosDoMes = async () => {
     try {
-      const qGastos = query(collection(db, 'gastosFixos'), where('mes', '==', month), where('ano', '==', year));
+      // 🔍 Verifica se já existem gastos gerados
+      const qGastos = query(
+        collection(db, 'gastosFixos'),
+        where('mes', '==', month),
+        where('ano', '==', year)
+      );
       const snapshotGastos = await getDocs(qGastos);
-      const jaGerou = snapshotGastos.docs.some((doc) => doc.data().origemModelo === true);
+      const jaGerou = snapshotGastos.docs.some(
+        (doc) => doc.data().origemModelo === true
+      );
       if (jaGerou) return 'JA_GERADO';
 
-      const qModelos = query(collection(db, 'modelosDeGasto'), where('ativo', '==', true));
+      // 🔍 Busca todos os modelos de gasto ativos
+      const qModelos = query(
+        collection(db, 'modelosDeGasto'),
+        where('ativo', '==', true)
+      );
       const modelosSnapshot = await getDocs(qModelos);
       if (modelosSnapshot.empty) return 'SEM_MODELOS';
 
-      const novosGastos = modelosSnapshot.docs.map((doc) => {
-        const modelo = doc.data();
-        return {
+      // 🔹 Carrega todas as entradas do mês/ano (para base de cálculo)
+      const qEntradas = query(
+        collection(db, 'entradas'),
+        where('mes', '==', month),
+        where('ano', '==', year)
+      );
+      const entradasSnapshot = await getDocs(qEntradas);
+      const entradas = entradasSnapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+        valor: parseFloat(d.data().valor) || 0,
+      }));
+
+      const novosGastos = [];
+
+      // 🔁 Para cada modelo, cria o gasto correspondente
+      for (const docSnap of modelosSnapshot.docs) {
+        const modelo = docSnap.data();
+        let valorFinal = parseFloat(modelo.valor) || 0;
+
+        // 🧮 Se for porcentagem, calcular com base nas entradas selecionadas
+        if (
+          modelo.modoCalculo === 'porcentagem' &&
+          Array.isArray(modelo.entradasSelecionadas) &&
+          modelo.entradasSelecionadas.length > 0
+        ) {
+          const entradasSelecionadas = entradas.filter((e) =>
+            modelo.entradasSelecionadas.includes(e.id)
+          );
+
+          const totalEntradas = entradasSelecionadas.reduce(
+            (sum, e) => sum + (parseFloat(e.valor) || 0),
+            0
+          );
+
+          valorFinal = totalEntradas * (parseFloat(modelo.valor) / 100);
+        }
+
+        // 🟢 NOVO — salva mais dados para uso futuro
+        novosGastos.push({
           descricao: modelo.descricao,
           categoria: modelo.categoria,
-          valor: parseFloat(modelo.valor),
+          valor: parseFloat(valorFinal.toFixed(2)),
+          valorPercentual:
+            modelo.modoCalculo === 'porcentagem'
+              ? parseFloat(modelo.valor)
+              : null,
+          modoCalculo: modelo.modoCalculo || 'valor',
+          entradasSelecionadas: modelo.entradasSelecionadas || [],
+          fixacao: modelo.fixacao || 'dinamico',
           dataVencimento: gerarDataComDia(modelo.diaVencimento, month, year),
           mes: month,
           ano: year,
           pago: false,
           origemModelo: true,
           criadoEm: serverTimestamp(),
-        };
-      });
+        });
+      }
 
+      // 💾 Salva todos os novos gastos em lote
       const batch = writeBatch(db);
-      novosGastos.forEach((g) => batch.set(doc(collection(db, 'gastosFixos')), g));
+      novosGastos.forEach((g) =>
+        batch.set(doc(collection(db, 'gastosFixos')), g)
+      );
       await batch.commit();
+
       return 'SUCESSO';
     } catch (err) {
       console.error('Erro ao gerar gastos fixos:', err);
@@ -254,10 +382,20 @@ export const useFixedExpenses = (month, year) => {
     }
   };
 
+  // ================================================
+  // CRUD BÁSICO (inalterado)
+  // ================================================
   const addFixedExpense = async (expense) => {
     try {
       const diaPadrao = datasPadraoPorDescricao[expense.descricao] || 1;
-      const dataFinal = expense.dataVencimento || gerarDataComDia(diaPadrao, expense.mes || month, expense.ano || year);
+      const dataFinal =
+        expense.dataVencimento ||
+        gerarDataComDia(
+          diaPadrao,
+          expense.mes || month,
+          expense.ano || year
+        );
+
       await addDoc(collection(db, 'gastosFixos'), {
         ...expense,
         dataVencimento: normalizarParaISO(dataFinal),
@@ -273,9 +411,14 @@ export const useFixedExpenses = (month, year) => {
   const updateFixedExpense = async (id, expense) => {
     try {
       const dadosAtualizados = { ...expense };
-      if (dadosAtualizados.pago === true && !dadosAtualizados.dataPagamento)
-        dadosAtualizados.dataPagamento = new Date().toISOString().split('T')[0];
-      if (dadosAtualizados.pago === false) dadosAtualizados.dataPagamento = null;
+      if (
+        dadosAtualizados.pago === true &&
+        !dadosAtualizados.dataPagamento
+      )
+        dadosAtualizados.dataPagamento =
+          new Date().toISOString().split('T')[0];
+      if (dadosAtualizados.pago === false)
+        dadosAtualizados.dataPagamento = null;
 
       await updateDoc(doc(db, 'gastosFixos', id), {
         ...dadosAtualizados,
@@ -297,7 +440,16 @@ export const useFixedExpenses = (month, year) => {
     }
   };
 
-  return { fixedExpenses, loading, error, addFixedExpense, updateFixedExpense, deleteFixedExpense, gerarFixosDoMes };
+  // ✅ Retorno padronizado
+  return {
+    fixedExpenses,
+    loading,
+    error,
+    addFixedExpense,
+    updateFixedExpense,
+    deleteFixedExpense,
+    gerarFixosDoMes,
+  };
 };
 
 
@@ -759,7 +911,7 @@ export const useInvestments = () => {
 
 
 // =======================================
-// 🔹 HOOK: CARTÕES EMPRESTADOS
+// 🔹 HOOK: CARTÕES 
 // =======================================
 export const useCartoesEmprestados = (month, year) => {
   const [cartoes, setCartoes] = useState([]);
@@ -782,12 +934,19 @@ export const useCartoesEmprestados = (month, year) => {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const dados = snapshot.docs.map((d) => ({
+        const dados = snapshot.docs.map((d) => {
+        const data = d.data();
+        return {
           id: d.id,
-          ...d.data(),
-          valor: parseFloat(d.data().valor) || 0,
-          pago: d.data().pago === true,
-        }));
+          ...data,
+          valor: parseFloat(data.valor) || 0,
+          pago: data.pago === true,
+          // 🔹 Normaliza campos que podem vir como objeto
+          pessoa: typeof data.pessoa === 'object' ? data.pessoa?.nome : data.pessoa,
+          membro: typeof data.membro === 'object' ? data.membro?.nome : data.membro,
+          categoria: typeof data.categoria === 'object' ? data.categoria?.nome : data.categoria,
+        };
+      });
         // ✅ Ordenar por data de vencimento
         dados.sort((a, b) => new Date(a.dataVencimento) - new Date(b.dataVencimento));
         setCartoes(dados);
@@ -1072,6 +1231,14 @@ export const useFirestoreModelos = (tipo = 'gasto') => {
           ...docSnap.data(),
           valor: parseFloat(docSnap.data().valor) || 0,
         }));
+
+        // ✅ Ordena por dia de vencimento
+        data.sort(
+          (a, b) =>
+            (a.diaVencimento || a.diaDoMes || 99) -
+            (b.diaVencimento || b.diaDoMes || 99)
+        );
+        
         setModelos(data);
         setLoading(false);
       },

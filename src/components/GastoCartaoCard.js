@@ -15,8 +15,10 @@ const GastoCartaoCard = ({
   const parcelas = transacao.totalParcelas || 1;
   const progressoParcelas = parcelas ? ((transacao.parcelaAtual || 0) / parcelas) * 100 : 0;
 
-  const getCartaoIcon = (nomeCartao) => {
-    const n = (nomeCartao || '').toLowerCase();
+  // 🔹 Função segura para pegar o ícone
+  const getCartaoIcon = (cartao) => {
+    const nome = (typeof cartao === 'string' ? cartao : cartao?.nome) || '';
+    const n = nome.toLowerCase();
     if (n.includes('nubank')) return 'credit-card-wireless-outline';
     if (n.includes('c6')) return 'credit-card-multiple-outline';
     if (n.includes('inter')) return 'credit-card-chip-outline';
@@ -35,13 +37,17 @@ const GastoCartaoCard = ({
     ? new Date(transacao.dataVencimento + 'T00:00:00').toLocaleDateString('pt-BR')
     : '';
 
+  const nomeCartao = typeof transacao.cartao === 'string'
+    ? transacao.cartao
+    : transacao.cartao?.nome || '';
+
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={() => onPressItem?.(transacao)}>
       <View style={[styles.card, { borderLeftColor: corCartao }]}>
         <View style={styles.cardHeader}>
           <View style={styles.cartaoInfo}>
             <MaterialCommunityIcons name={getCartaoIcon(transacao.cartao)} size={16} color={corCartao} />
-            <Text style={[styles.cartaoNome, { color: corCartao }]}>{transacao.cartao}</Text>
+            <Text style={[styles.cartaoNome, { color: corCartao }]}>{nomeCartao}</Text>
           </View>
         </View>
 
@@ -50,7 +56,9 @@ const GastoCartaoCard = ({
         <View style={styles.pessoaValorContainer}>
           <View style={styles.pessoaContainer}>
             <MaterialCommunityIcons name="face-man" size={16} color="#BBBBBB" />
-            <Text style={styles.pessoaNome}>{transacao.pessoa}</Text>
+              <Text style={styles.pessoaNome}>
+                {typeof transacao.pessoa === 'object' ? transacao.pessoa?.nome : transacao.pessoa}
+              </Text>
           </View>
 
           <View style={styles.valorContainer}>

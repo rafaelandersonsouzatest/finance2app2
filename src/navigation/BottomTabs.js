@@ -7,6 +7,8 @@ import InvestimentosScreen from '../screens/InvestimentosScreen';
 import ResumoMensal from '../screens/ResumoMensal';
 import CustomTabBar from '../components/CustomTabBar';
 import SaidasScreen from '../screens/SaidasScreen';
+import MembrosScreen from '../screens/MembrosScreen';
+
 
 const Tab = createBottomTabNavigator();
 
@@ -40,22 +42,6 @@ export default function BottomTabs() {
           tabBarIcon: 'arrow-up-circle-outline', 
         }}
       />   
-         {/* <Tab.Screen 
-        name="Gastos" 
-        component={GastosFixosScreen}
-        options={{
-          tabBarLabel: 'Gastos',
-          tabBarIcon: 'card-outline',
-        }}
-      />
-      <Tab.Screen 
-        name="Empréstimos" 
-        component={EmprestimosScreen}
-        options={{
-          tabBarLabel: 'Empréstimos',
-          tabBarIcon: 'file-tray-full-outline',
-        }}
-      /> */}
       <Tab.Screen 
         name="Investimentos" 
         component={InvestimentosScreen}
@@ -72,6 +58,15 @@ export default function BottomTabs() {
           tabBarIcon: 'card-outline',
         }}
       /> */}
+      <Tab.Screen 
+        name="Membros" 
+        component={MembrosScreen}
+        options={{
+          tabBarLabel: 'Membros',
+          tabBarIcon: 'people-outline',
+        }}
+/>
+
     </Tab.Navigator>
   );
 }

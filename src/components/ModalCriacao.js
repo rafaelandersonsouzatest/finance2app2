@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  Modal,
   View,
   Text,
   TextInput,
@@ -9,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import ModalRN from 'react-native-modal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../styles/colors';
 import { globalStyles } from '../styles/globalStyles';
@@ -19,6 +19,7 @@ import AlertaModal from './AlertaModal';
 import SeletorData from './SeletorData';
 import { useCurrencyInput } from '../hooks/useCurrencyInput';
 import CategoriaSelect from './CategoriaSelect';
+import { MembroSelect } from '../components/MembroSelect';
 
 
 const ModalCriacao = ({
@@ -30,6 +31,7 @@ const ModalCriacao = ({
   mesSelecionado,
   anoSelecionado,
 }) => {
+  const [bloquearFechamento, setBloquearFechamento] = useState(false);
   const [valores, setValores] = useState({});
   const [alerta, setAlerta] = useState({ visivel: false });
   const [modoCalculo, setModoCalculo] = useState(null);
@@ -209,6 +211,18 @@ useEffect(() => {
     else if (tipo === 'gasto') aplicarDataPadraoSeNecessario('dataVencimento');
     else if (tipo === 'emprestimo') aplicarDataPadraoSeNecessario('dataInicio');
     else if (tipo === 'cartao') aplicarDataPadraoSeNecessario('dataCompra');
+    // 🔹 Garante que membro/pessoa e categoria sejam salvos como string
+    if (valoresProcessados.membro && typeof valoresProcessados.membro === 'object') {
+      valoresProcessados.membro = valoresProcessados.membro.nome;
+    }
+    if (valoresProcessados.pessoa && typeof valoresProcessados.pessoa === 'object') {
+      valoresProcessados.pessoa = valoresProcessados.pessoa.nome;
+    }
+    if (valoresProcessados.categoria && typeof valoresProcessados.categoria === 'object') {
+      valoresProcessados.categoria = valoresProcessados.categoria.nome || valoresProcessados.categoria;
+    }
+
+
 
     aoSalvar(valoresProcessados);
     let mensagem = '';
@@ -292,15 +306,15 @@ useEffect(() => {
               />
             </View>
             <View style={globalStyles.inputGroup}>
-              <Text style={globalStyles.label}>Membro</Text>
-              <TextInput
-                style={globalStyles.input}
-                value={valores.membro || ''}
-                onChangeText={(texto) => handleChange('membro', texto)}
-                placeholder="Ex: Rafael"
-                placeholderTextColor={colors.textSecondary}
+              <MembroSelect
+                membroSelecionado={valores.membro}
+                onSelecionar={(m) => handleChange('membro', m)}
+                tipo="membro"
+                label="Membro"
+                onBloquearFechamento={setBloquearFechamento}
               />
             </View>
+
             <View style={globalStyles.inputGroup}>
               <Text style={globalStyles.label}>Valor *</Text>
               <TextInput
@@ -554,16 +568,16 @@ useEffect(() => {
         />
       </View>
 
-            <View style={globalStyles.inputGroup}>
-              <Text style={globalStyles.label}>Pessoa *</Text>
-              <TextInput
-                style={globalStyles.input}
-                value={valores.pessoa || ''}
-                onChangeText={(texto) => handleChange('pessoa', texto)}
-                placeholder="Quem fez a compra"
-                placeholderTextColor={colors.textSecondary}
-              />
-            </View>
+      <View style={globalStyles.inputGroup}>
+            <MembroSelect
+              membroSelecionado={valores.pessoa}
+              onSelecionar={(p) => handleChange('pessoa', p)}
+              tipo="pessoa"
+              label="Comprador" // ✅ label correto para cartão
+              onBloquearFechamento={setBloquearFechamento}
+            />
+          </View>
+
             <View style={globalStyles.inputGroup}>
               <Text style={globalStyles.label}>Cartão *</Text>
               <TextInput
@@ -758,9 +772,18 @@ case 'investimento':
     }
   };
 
-  return (
-     <>
-    <Modal visible={visivel} animationType="slide" transparent onRequestClose={aoFechar}>
+return (
+  <>
+    <ModalRN
+      isVisible={visivel}
+      onBackdropPress={() => { if (!bloquearFechamento) aoFechar(); }}
+      onBackButtonPress={() => { if (!bloquearFechamento) aoFechar(); }} // Android
+      useNativeDriver
+      hideModalContentWhileAnimating
+      propagateSwipe={false}
+      style={{ justifyContent: 'flex-end', margin: 0 }}
+      avoidKeyboard
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={globalStyles.modalOverlay}
@@ -768,12 +791,11 @@ case 'investimento':
         <View style={globalStyles.modalContainer}>
           <View style={globalStyles.modalHeader}>
             <Text style={globalStyles.modalTitle}>{titulo || `Novo ${tipo}`}</Text>
-            <TouchableOpacity onPress={aoFechar}>
-              <MaterialCommunityIcons
-                name="close"
-                size={28}
-                color={colors.textSecondary}
-              />
+            <TouchableOpacity onPress={() => {
+              if (bloquearFechamento) return; // protege aqui também
+              aoFechar();
+            }}>
+              <MaterialCommunityIcons name="close" size={28} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -783,7 +805,13 @@ case 'investimento':
 
           <View style={globalStyles.buttonRow}>
             <View style={globalStyles.rightButtons}>
-              <TouchableOpacity style={globalStyles.cancelButton} onPress={aoFechar}>
+              <TouchableOpacity
+                style={globalStyles.cancelButton}
+                onPress={() => {
+                  if (bloquearFechamento) return;
+                  aoFechar();
+                }}
+              >
                 <Text style={globalStyles.cancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
 
@@ -794,16 +822,16 @@ case 'investimento':
           </View>
         </View>
       </KeyboardAvoidingView>
-          
+    </ModalRN>
 
-    </Modal>
     <AlertaModal
       visible={alerta.visivel}
       onClose={() => setAlerta({ visivel: false })}
       {...alerta}
-        />
+    />
   </>
-  );
+);
+
 }; 
 
 export default ModalCriacao;

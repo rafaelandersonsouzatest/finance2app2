@@ -25,6 +25,14 @@ export default ({ config }) => {
       updatesUrl: "https://u.expo.dev/ef2738e8-9756-4e34-9fd8-87e63b7cf9cd",
       icon: "./assets/icon.png",
     },
+    christian: {
+      name: "Financeiro Christian",
+      slug: "christian",
+      projectId: "8887c54c-8cde-4f30-9a5a-ccd977b9795e", // ID do projeto Christian no Expo
+      updatesUrl: "https://u.expo.dev/8887c54c-8cde-4f30-9a5a-ccd977b9795e",
+      icon: "./assets/icon.png",
+    },
+
   };
 
   const selected = configs[appEnv] || configs["meu-app"];

@@ -5,16 +5,18 @@ import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import GastoCartaoCard from './GastoCartaoCard';
 import { vibrarLeve } from '../utils/haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 
-
-export default function CartaoCard({ cartao, gastos = [] }) {
+export default function CartaoCard({ cartao = {}, gastos = [] }) {
   const [modalVisivel, setModalVisivel] = useState(false);
 
-  // 🔹 Cor pelo nome do cartão
-  const corCartao =
-    colors.byInstitution[cartao.nome?.trim()] || colors.byInstitution.Default;
+  // 🔹 Garantir que cartao.nome exista
+  const nomeCartao = cartao.nome || 'Outro';
 
+  // 🔹 Cor segura
+  const corCartao =
+    colors.byInstitution[nomeCartao.trim()] || colors.byInstitution.Default;
+
+  // 🔹 Total gasto seguro
   const totalGasto = gastos.reduce((acc, g) => acc + (g.valor || 0), 0);
   const quantidadeGastos = gastos.length;
 
@@ -40,12 +42,9 @@ export default function CartaoCard({ cartao, gastos = [] }) {
       >
         <View style={globalStyles.rowBetween}>
           <Text
-            style={[
-              globalStyles.cardTitle,
-              { color: '#fff', fontWeight: '700', flex: 1 },
-            ]}
+            style={[globalStyles.cardTitle, { color: '#fff', fontWeight: '700', flex: 1 }]}
           >
-            {cartao.nome}
+            {nomeCartao}
           </Text>
           <MaterialCommunityIcons
             name="credit-card-outline"
@@ -54,15 +53,12 @@ export default function CartaoCard({ cartao, gastos = [] }) {
           />
         </View>
 
-        <View style={[globalStyles.mt16]}>
+        <View style={globalStyles.mt16}>
           <Text style={[globalStyles.textSecondary, { color: '#ddd' }]}>
             Total gasto
           </Text>
           <Text
-            style={[
-              globalStyles.totalAmount,
-              { color: '#fff', fontSize: 26, marginTop: 2 },
-            ]}
+            style={[globalStyles.totalAmount, { color: '#fff', fontSize: 26, marginTop: 2 }]}
           >
             R$ {totalGasto.toFixed(2)}
           </Text>
@@ -70,7 +66,7 @@ export default function CartaoCard({ cartao, gastos = [] }) {
 
         <View style={[globalStyles.rowBetween, globalStyles.mt16]}>
           <Text style={[globalStyles.textSecondary, { color: '#fff' }]}>
-            {quantidadeGastos} transações neste mês
+            {quantidadeGastos} {quantidadeGastos === 1 ? 'transação' : 'transações'} neste mês
           </Text>
           <MaterialCommunityIcons
             name="chevron-right"
@@ -97,7 +93,7 @@ export default function CartaoCard({ cartao, gastos = [] }) {
               ]}
             >
               <Text style={[globalStyles.modalTitle, { color: '#fff' }]}>
-                {cartao.nome}
+                {nomeCartao}
               </Text>
               <TouchableOpacity onPress={() => setModalVisivel(false)}>
                 <MaterialCommunityIcons name="close" size={22} color="#fff" />
@@ -107,13 +103,16 @@ export default function CartaoCard({ cartao, gastos = [] }) {
             {/* Conteúdo */}
             <ScrollView
               style={[globalStyles.mt16]}
-              contentContainerStyle={{ paddingBottom: 40 }}
+              contentContainerStyle={{
+                paddingBottom: 40,
+                ...(gastos.length === 0 ? { flex: 1, justifyContent: 'center', alignItems: 'center' } : {}),
+              }}
               showsVerticalScrollIndicator={false}
             >
               {gastos.length > 0 ? (
                 gastos.map((gasto, index) => (
                   <GastoCartaoCard
-                    key={index}
+                    key={gasto.id || index}
                     transacao={gasto}
                     corCartao={corCartao}
                     onToggleStatus={() => {}}
@@ -124,10 +123,10 @@ export default function CartaoCard({ cartao, gastos = [] }) {
                 <Text
                   style={[
                     globalStyles.noDataText,
-                    { color: colors.textSecondary, marginTop: 20 },
+                    { color: colors.textSecondary, marginTop: 20, textAlign: 'center' },
                   ]}
                 >
-                  Nenhum gasto encontrado.
+                  Nenhuma transação neste cartão.
                 </Text>
               )}
             </ScrollView>

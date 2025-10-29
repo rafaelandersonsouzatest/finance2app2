@@ -32,6 +32,14 @@ const firebaseConfigs = {
     messagingSenderId: "370702667501",
     appId: "1:370702667501:web:8362477ccc5adc3884c6e4",
   },
+  christian: {
+  apiKey: "AIzaSyBl_jMe3Xjg9ki-Zgg0dNnrn0paoLtIDd8",
+  authDomain: "financeapp-christian.firebaseapp.com",
+  projectId: "financeapp-christian",
+  storageBucket: "financeapp-christian.appspot.com",
+  messagingSenderId: "539477944805",
+  appId: "1:539477944805:web:efc2882f73177b98d4270c"
+}
 };
 
 // 🔹 Seleciona o config com base no ambiente atual

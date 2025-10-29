@@ -12,6 +12,7 @@ export default function ModernTabs({
   inactiveColor = colors.textSecondary,
   backgroundColor = colors.background,
   children,
+  compact = false,
 }) {
   const animation = useRef(new Animated.Value(0)).current;
 
@@ -24,7 +25,7 @@ export default function ModernTabs({
   }, [activeTab]);
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={compact ? {} : { flex: 1 }}>
       {/* 🔹 BARRA DE ABAS */}
       <View
         style={[
@@ -88,7 +89,7 @@ export default function ModernTabs({
       {children?.find?.((child) => child?.props?.slot === 'header')}
 
       {/* 🔹 CONTEÚDO (telas embutidas) */}
-      <View style={{ flex: 1 }}>
+      <View style={compact ? {} : { flex: 1 }}>
         {React.Children.map(children, (child) => {
           if (!child) return null;
           // Só renderiza o filho cuja aba está ativa

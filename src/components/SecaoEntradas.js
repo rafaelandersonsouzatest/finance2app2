@@ -65,13 +65,16 @@ const createDonutSegmentPath = (cx, cy, outerR, innerR, startAngle, endAngle) =>
 export default function SecaoEntradas({ incomes = [] }) {
   const { formatValue } = useVisibility(); // 👈 usar contexto
 
-  const normalizedIncomes = useMemo(() => {
-    return incomes.map((i) => ({
-      member: i.member || i.membro || i.fonte || i.source || 'Desconhecido',
-      amount: Number(i.amount ?? i.valor ?? 0),
-      paid: i.pago === true,
-    }));
-  }, [incomes]);
+    const normalizedIncomes = useMemo(() => {
+      return incomes.map((i) => {
+        const memberName = i.member?.nome || i.membro?.nome || i.fonte?.nome || i.source?.nome || i.member || i.membro || i.fonte || i.source || 'Desconhecido';
+        return {
+          member: String(memberName),
+          amount: Number(i.amount ?? i.valor ?? 0),
+          paid: i.pago === true,
+        };
+      });
+    }, [incomes]);
 
   const groupedByMember = useMemo(() => {
     return normalizedIncomes.reduce((acc, it) => {

@@ -888,10 +888,8 @@ fabItemsWrapper: {
     marginTop: 4,
   },
   formContainer: {
-    marginTop: 24,
+    marginTop: -24,
     paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
   },
   formTitle: {
     fontSize: 18,

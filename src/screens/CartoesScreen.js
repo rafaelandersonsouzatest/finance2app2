@@ -4,7 +4,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDateFilter } from '../contexts/DateFilterContext';
 import { useCartoesEmprestados } from '../hooks/useFirestore';
 import { useAdiantamento } from '../hooks/useAdiantamento';
-import EstatisticasComponent from '../components/EstatisticasComponent';
 import GastoCartaoCard from '../components/GastoCartaoCard';
 import CartaoCard from '../components/CartaoCard';
 import ModalParcelasAdiantamento from '../components/ModalParcelasAdiantamento';
@@ -13,18 +12,28 @@ import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import ModernTabs from '../components/ModernTabs';
 
-export default function CartoesScreen({
-  isEmbedded = false,
-  onPressItem,
-  onDeleteItem,
-}) {
+// 🧩 Função auxiliar: extrai data do item
+const extractDate = (item) => {
+  const possible = [
+    item.dataVencimento,
+    item.vencimento,
+    item.dataPagamento,
+    item.data,
+    item.createdAt,
+  ];
+  for (const d of possible) {
+    if (!d) continue;
+    if (d instanceof Date) return d;
+    const parsed = new Date(d);
+    if (!isNaN(parsed)) return parsed;
+  }
+  return new Date(8640000000000000); // data muito distante caso não exista
+};
+
+export default function CartoesScreen({ isEmbedded = false, onPressItem, onDeleteItem }) {
   const { selectedMonth, selectedYear } = useDateFilter();
-  const {
-    cartoes: cartoesData = [],
-    updateCartao,
-    deleteCartao,
-    toggleCartaoStatus,
-  } = useCartoesEmprestados(selectedMonth, selectedYear);
+  const { cartoes: cartoesData = [], updateCartao, deleteCartao, toggleCartaoStatus } =
+    useCartoesEmprestados(selectedMonth, selectedYear);
 
   const {
     modalAdiantamentoVisivel,
@@ -38,11 +47,25 @@ export default function CartoesScreen({
 
   const [abaInterna, setAbaInterna] = useState('mes');
 
+  // 🔹 Ordenar gastos por data e nome
+  const sortedCartoes = useMemo(() => {
+    return [...cartoesData].sort((a, b) => {
+      const dateA = extractDate(a);
+      const dateB = extractDate(b);
+      const diff = dateA - dateB;
+      if (diff !== 0) return diff;
+      return (a.descricao || '').localeCompare(b.descricao || '');
+    });
+  }, [cartoesData]);
+
   // 🔹 Agrupar gastos por cartão
   const agrupadoPorCartao = useMemo(() => {
     const grupos = {};
-    cartoesData.forEach((item) => {
-      const nome = item.cartao || 'Outro';
+    sortedCartoes.forEach((item) => {
+      const nome =
+        typeof item.cartao === 'string'
+          ? item.cartao
+          : item.cartao?.nome || 'Outro';
       if (!grupos[nome]) grupos[nome] = [];
       grupos[nome].push(item);
     });
@@ -50,18 +73,7 @@ export default function CartoesScreen({
       nome,
       gastos,
     }));
-  }, [cartoesData]);
-
-  // 🔹 Estatísticas gerais
-  const estatisticas = useMemo(
-    () => ({
-      total: cartoesData.reduce((acc, it) => acc + (it.valor || 0), 0),
-      pagos: cartoesData.filter((it) => it.pago).length,
-      emAberto: cartoesData.filter((it) => !it.pago).length,
-      totalItens: cartoesData.length,
-    }),
-    [cartoesData]
-  );
+  }, [sortedCartoes]);
 
   const handleToggleStatus = async (id, pago) => {
     await toggleCartaoStatus(id, pago);
@@ -74,8 +86,6 @@ export default function CartoesScreen({
 
   return (
     <View style={{ flex: 1 }}>
-
-      {/* 🔹 Abas internas abaixo do cabeçalho */}
       <ModernTabs
         tabs={[
           { key: 'mes', label: 'Gastos do mês', icon: 'calendar-month-outline' },
@@ -90,7 +100,7 @@ export default function CartoesScreen({
           style={{ flex: 1, paddingHorizontal: 12, paddingBottom: 24 }}
           showsVerticalScrollIndicator={false}
         >
-          {cartoesData.length === 0 ? (
+          {sortedCartoes.length === 0 ? (
             <View style={globalStyles.emptyContainer}>
               <MaterialCommunityIcons
                 name="credit-card-off-outline"
@@ -102,11 +112,11 @@ export default function CartoesScreen({
               </Text>
             </View>
           ) : (
-            cartoesData.map((item) => (
+            sortedCartoes.map((item) => (
               <GastoCartaoCard
                 key={item.id}
                 transacao={item}
-                corCartao={item.corCartao}
+                corCartao={item.corCartao || colors.byInstitution.Default}
                 onPressItem={() => onPressItem?.(item)}
                 onToggleStatus={() => handleToggleStatus(item.id, item.pago)}
                 onAdiantar={() => iniciarAdiantamento([item])}
@@ -143,7 +153,6 @@ export default function CartoesScreen({
         </ScrollView>
       </ModernTabs>
 
-      {/* 🔹 Modais (somente se não estiver embutido) */}
       {!isEmbedded && (
         <>
           <ModalParcelasAdiantamento
@@ -163,4 +172,3 @@ export default function CartoesScreen({
     </View>
   );
 }
-

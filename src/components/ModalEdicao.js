@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, memo } from 'react';
 import {
-  Modal,
   View,
   Text,
   TextInput,
@@ -11,6 +10,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
+import ModalRN from 'react-native-modal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../styles/colors';
 import { globalStyles } from '../styles/globalStyles';
@@ -22,6 +22,7 @@ import { formatarBRL, parseBRL } from '../utils/formatarValor';
 import SeletorData from './SeletorData';
 import { useCurrencyInput } from '../hooks/useCurrencyInput';
 import CategoriaSelect from './CategoriaSelect';
+import { MembroSelect } from '../components/MembroSelect';
 
 
 // ==========================================================
@@ -125,7 +126,7 @@ const CamposModal = memo(({ tipo, valores, atualizarCampo, marcarComoPago }) => 
         return (
           <>
             <CampoTexto label="Descrição *" campo="descricao" placeholder="Ex: Salário" valores={valores} atualizarCampo={atualizarCampo} />
-            <CampoTexto label="Membro *" campo="membro" placeholder="Ex: Rafael" valores={valores} atualizarCampo={atualizarCampo} />
+            <MembroSelect membroSelecionado={valores.membro} onSelecionar={(membro) => atualizarCampo('membro', membro)} />
             <CampoMonetario label="Valor *" campo="valor" valores={valores} atualizarCampo={atualizarCampo} />
             <CampoStatusPago label="Recebido?" pago={valores.pago} aoAlternar={marcarComoPago} />
             {!valores.pago && <CampoData label="Data prevista para Recebimento 📅" campo="data" valores={valores} atualizarCampo={atualizarCampo} />}
@@ -162,6 +163,7 @@ const CamposModal = memo(({ tipo, valores, atualizarCampo, marcarComoPago }) => 
         return (
           <>
             <CampoTexto label="Descrição *" campo="descricao" placeholder="Ex: Compra supermercado" valores={valores} atualizarCampo={atualizarCampo} />
+            <MembroSelect label="Comprador" tipo="pessoa" membroSelecionado={valores.comprador} onSelecionar={(membro) => atualizarCampo('comprador', membro)} />
             <CampoMonetario label="Valor *" campo="valor" valores={valores} atualizarCampo={atualizarCampo} />
             <CampoData label="Data da Compra *" campo="dataCompra" valores={valores} atualizarCampo={atualizarCampo} />
             <CampoStatusPago label="Pago?" pago={valores.pago} aoAlternar={marcarComoPago} />
@@ -225,6 +227,14 @@ useEffect(() => {
     }
   }
 
+  // --- Normalizar campos de pessoa para o formato { id, nome } se vierem como string
+    ['membro', 'pessoa', 'comprador'].forEach((f) => {
+      if (v[f] && typeof v[f] === 'string') {
+        v[f] = { id: v[f], nome: v[f] };
+      }
+      // Se já for objeto {id, nome}, deixamos como está
+    });
+
   // 🔹 Atualiza SOMENTE ao abrir o modal (não a cada re-render)
   setValores(v);
 }, [visivel]);
@@ -257,6 +267,22 @@ const handleSalvar = () => {
     if (v[c]) v[c] = normalizarParaISO(v[c]);
   });
 
+  // 🔹 Garantir que campos com objetos sejam convertidos em texto
+    if (v.membro && typeof v.membro === 'object') {
+      v.membro = v.membro.nome || v.membro.id || '';
+    }
+    if (v.comprador && typeof v.comprador === 'object') {
+      v.comprador = v.comprador.nome || v.comprador.id || '';
+    }
+    if (v.pessoa && typeof v.pessoa === 'object') {
+      v.pessoa = v.pessoa.nome || v.pessoa.id || '';
+    }
+    if (v.categoria && typeof v.categoria === 'object') {
+      v.categoria = v.categoria.nome || String(v.categoria);
+    }
+
+
+
   vibrarSucesso();
   aoSalvar(v);
   aoFechar();
@@ -265,49 +291,74 @@ const handleSalvar = () => {
   // ==========================================================
   // 🔹 RENDER FINAL
   // ==========================================================
-  return (
-    <Modal visible={visivel} animationType="slide" transparent onRequestClose={aoFechar}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={globalStyles.modalOverlay}>
-            <View style={globalStyles.modalContainer}>
-              <View style={globalStyles.modalHeader}>
-                <Text style={globalStyles.modalTitle}>{titulo || 'Editar Item'}</Text>
-                <TouchableOpacity onPress={aoFechar}>
-                  <MaterialCommunityIcons name="close" size={28} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
+return (
+  <ModalRN
+    isVisible={visivel}
+    onBackdropPress={aoFechar}
+    onBackButtonPress={aoFechar}
+    avoidKeyboard
+    animationIn="slideInUp"
+    animationOut="slideOutDown"
+    hideModalContentWhileAnimating
+    backdropOpacity={0.4}
+    propagateSwipe={true}
+    style={{ margin: 0, justifyContent: 'flex-end' }} // fixa na base
+  >
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={{ flex: 1, justifyContent: 'flex-end' }}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        {/* Container “sheet” (mantém o visual anterior) */}
+        <View
+          style={{
+            backgroundColor: colors.background,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            paddingHorizontal: 16,
+            paddingTop: 12,
+            paddingBottom: 20,
+            maxHeight: '90%',
+          }}
+        >
+          {/* Cabeçalho (mesmo que você já tinha) */}
+          <View style={globalStyles.modalHeader}>
+            <Text style={globalStyles.modalTitle}>{titulo || 'Editar Item'}</Text>
+            <TouchableOpacity onPress={aoFechar}>
+              <MaterialCommunityIcons name="close" size={28} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
 
-              {/* Campos isolados e estáveis */}
-              <CamposModal tipo={tipo} valores={valores} atualizarCampo={atualizarCampo} marcarComoPago={marcarComoPago} />
+          {/* Campos (mantém exatamente como antes) */}
+          <CamposModal tipo={tipo} valores={valores} atualizarCampo={atualizarCampo} marcarComoPago={marcarComoPago} />
 
-              <View style={globalStyles.buttonRow}>
-                {aoExcluir && (
-                  <TouchableOpacity
-                    style={globalStyles.deleteButton}
-                    onPress={() => {
-                      aoExcluir(valores);
-                      aoFechar();
-                    }}
-                  >
-                    <MaterialCommunityIcons name="trash-can" size={12} color="#fff" />
-                    <Text style={globalStyles.deleteButtonText}>Excluir</Text>
-                  </TouchableOpacity>
-                )}
+          {/* Botões (mantém) */}
+          <View style={[globalStyles.buttonRow, { marginTop: 20 }]}>
+            {aoExcluir && (
+              <TouchableOpacity
+                style={globalStyles.deleteButton}
+                onPress={() => {
+                  aoExcluir(valores);
+                  aoFechar();
+                }}
+              >
+                <MaterialCommunityIcons name="trash-can" size={12} color="#fff" />
+                <Text style={globalStyles.deleteButtonText}>Excluir</Text>
+              </TouchableOpacity>
+            )}
 
-                <View style={globalStyles.rightButtons}>
-                  <TouchableOpacity style={globalStyles.cancelButton} onPress={aoFechar}>
-                    <Text style={globalStyles.cancelButtonText}>Cancelar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={globalStyles.saveButton} onPress={handleSalvar}>
-                    <Text style={globalStyles.saveButtonText}>Salvar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+            <View style={globalStyles.rightButtons}>
+              <TouchableOpacity style={globalStyles.cancelButton} onPress={aoFechar}>
+                <Text style={globalStyles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={globalStyles.saveButton} onPress={handleSalvar}>
+                <Text style={globalStyles.saveButtonText}>Salvar</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
+        </View>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
+  </ModalRN>
+);
 }
