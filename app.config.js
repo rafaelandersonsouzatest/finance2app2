@@ -41,6 +41,8 @@ export default ({ config }) => {
     ...config,
     name: selected.name,
     slug: selected.slug,
+    scheme: "meuapp", 
+    plugins: ["expo-web-browser"],
     icon: selected.icon,
     ios: { ...config.ios },
     android: { ...config.android },

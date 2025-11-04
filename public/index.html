@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redefinição de senha - Minhas Finanças</title>
+
+    <script defer src="/__/firebase/12.5.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/12.5.0/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/init.js"></script>
+
+    <style>
+      body {
+        font-family: "Inter", Arial, sans-serif;
+        background-color: #f4f6f8;
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        max-width: 400px;
+        margin: 80px auto;
+        background: #fff;
+        border-radius: 12px;
+        padding: 32px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        text-align: center;
+      }
+      h1 {
+        color: #2e7d32;
+        margin-bottom: 16px;
+      }
+      input {
+        width: 100%;
+        padding: 12px;
+        margin-top: 8px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 15px;
+      }
+      button {
+        background-color: #2e7d32;
+        color: #fff;
+        padding: 12px;
+        width: 100%;
+        border: none;
+        border-radius: 6px;
+        font-size: 16px;
+        margin-top: 16px;
+        cursor: pointer;
+      }
+      p {
+        color: #555;
+        margin-top: 16px;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Redefinição de senha</h1>
+      <div id="form-container">
+        <p>Carregando formulário seguro do Firebase...</p>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        firebase.auth().onAuthStateChanged(() => {
+          const urlParams = new URLSearchParams(window.location.search);
+          const mode = urlParams.get("mode");
+          const oobCode = urlParams.get("oobCode");
+
+          if (mode === "resetPassword" && oobCode) {
+            document.getElementById("form-container").innerHTML = `
+              <input type="password" id="newPassword" placeholder="Nova senha" />
+              <button id="resetBtn">Redefinir senha</button>
+            `;
+
+            document
+              .getElementById("resetBtn")
+              .addEventListener("click", async () => {
+                const newPassword = document.getElementById("newPassword").value;
+                try {
+                  await firebase.auth().confirmPasswordReset(oobCode, newPassword);
+                  document.getElementById("form-container").innerHTML =
+                    "<p>✅ Senha redefinida com sucesso!<br>Você já pode voltar ao app Minhas Finanças.</p>";
+                } catch (err) {
+                  document.getElementById("form-container").innerHTML =
+                    "<p style='color:red;'>Erro ao redefinir senha.<br>O link pode ter expirado.</p>";
+                }
+              });
+          } else {
+            document.getElementById("form-container").innerHTML =
+              "<p style='color:red;'>Link inválido ou expirado.</p>";
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

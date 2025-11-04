@@ -1265,5 +1265,12 @@ modernTabTextActive: {
     fontWeight: 'bold',
     textAlign: 'center',
   },
+screenTitle: {
+  fontSize: 26,
+  fontWeight: "700",
+  color: colors.textPrimary,
+  textAlign: "left",
+  marginBottom: 16,
+},
 
 });

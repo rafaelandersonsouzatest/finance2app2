@@ -8,7 +8,7 @@ import ResumoMensal from '../screens/ResumoMensal';
 import CustomTabBar from '../components/CustomTabBar';
 import SaidasScreen from '../screens/SaidasScreen';
 import MembrosScreen from '../screens/MembrosScreen';
-
+import AlterarSenhaScreen from '../screens/AlterarSenhaScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -58,15 +58,22 @@ export default function BottomTabs() {
           tabBarIcon: 'card-outline',
         }}
       /> */}
-      <Tab.Screen 
+      {/* <Tab.Screen 
         name="Membros" 
         component={MembrosScreen}
         options={{
           tabBarLabel: 'Membros',
           tabBarIcon: 'people-outline',
         }}
-/>
-
+/> */}
+{/* <Tab.Screen 
+        name="AlterarSenha" 
+        component={AlterarSenhaScreen}
+        options={{
+          tabBarLabel: 'Senha',
+          tabBarIcon: 'lock-closed-outline',
+        }}
+      /> */}
     </Tab.Navigator>
   );
 }

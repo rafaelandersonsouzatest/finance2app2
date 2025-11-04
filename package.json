@@ -10,9 +10,11 @@
     "start:dev": "cross-env APP_ENV=meu-app expo start",
     "start:rafael": "cross-env APP_ENV=rafael expo start",
     "start:marina": "cross-env APP_ENV=marina expo start",
+    "start:christian": "cross-env APP_ENV=christian expo start",
     "publish:dev": "cross-env APP_ENV=meu-app eas update --branch dev --message \"Atualização DEV\"",
     "publish:rafael": "cross-env APP_ENV=rafael eas update --branch rafael --message \"Versão Rafael atualizada\"",
-    "publish:marina": "cross-env APP_ENV=marina eas update --branch marina --message \"Versão Marina atualizada\""
+    "publish:marina": "cross-env APP_ENV=marina eas update --branch marina --message \"Versão Marina atualizada\"",
+    "publish:christian": "cross-env APP_ENV=christian eas update --branch christian --message \"Versão Christian atualizada\""
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -27,11 +29,14 @@
     "d3-shape": "^3.2.0",
     "date-fns": "^4.1.0",
     "expo": "^54.0.20",
+    "expo-auth-session": "~7.0.8",
     "expo-constants": "^18.0.10",
+    "expo-crypto": "~15.0.7",
     "expo-haptics": "~15.0.7",
     "expo-linear-gradient": "~15.0.7",
     "expo-status-bar": "~3.0.8",
     "expo-updates": "~29.0.12",
+    "expo-web-browser": "~15.0.8",
     "firebase": "^12.0.0",
     "react": "19.1.0",
     "react-native": "^0.81.5",
