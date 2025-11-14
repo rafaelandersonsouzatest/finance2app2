@@ -35,7 +35,7 @@ export default function MembrosScreen() {
     titulo: "",
     mensagem: "",
     icone: "alert-circle-outline",
-    corIcone: colors.expense,
+    corIcone: colors.gasto,
     botoes: [],
   });
 
@@ -62,7 +62,7 @@ export default function MembrosScreen() {
         titulo: "Campo vazio",
         mensagem: "Digite um nome antes de adicionar.",
         icone: "alert-circle-outline",
-        corIcone: colors.expense,
+        corIcone: colors.gasto,
       });
       return;
     }
@@ -98,7 +98,7 @@ export default function MembrosScreen() {
         titulo: "Erro",
         mensagem: "Não foi possível adicionar o membro.",
         icone: "alert-circle-outline",
-        corIcone: colors.expense,
+        corIcone: colors.gasto,
       });
     }
   };
@@ -131,7 +131,7 @@ export default function MembrosScreen() {
                 titulo: "Erro",
                 mensagem: "Não foi possível excluir o membro.",
                 icone: "alert-circle-outline",
-                corIcone: colors.expense,
+                corIcone: colors.gasto,
               });
             }
           },
@@ -146,7 +146,7 @@ export default function MembrosScreen() {
       style={[
         globalStyles.listItem,
         {
-          borderLeftColor: colors.income,
+          borderLeftColor: colors.entrada,
           borderLeftWidth: 4,
           flexDirection: "row",
           alignItems: "center",
@@ -222,7 +222,7 @@ export default function MembrosScreen() {
           <MaterialCommunityIcons
             name="plus-circle"
             size={28}
-            color={colors.income}
+            color={colors.entrada}
           />
         </TouchableOpacity>
       </View>

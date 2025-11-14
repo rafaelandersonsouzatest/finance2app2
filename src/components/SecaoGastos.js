@@ -4,7 +4,7 @@ import { colors } from '../styles/colors';
 import { globalStyles } from '../styles/globalStyles';
 import { useVisibility } from '../contexts/VisibilityContext'; // 👈 novo
 
-const SecaoGastosFixos = ({ expenses = [] }) => {
+const SecaoGastos = ({ gastos = [] }) => {
   const { formatValue } = useVisibility(); // 👈 usar o contexto
 
   const getIconColor = (iconType) => {
@@ -35,18 +35,18 @@ const SecaoGastosFixos = ({ expenses = [] }) => {
 
   return (
     <View style={[globalStyles.card, globalStyles.mb4]}>
-      <Text style={globalStyles.subtitle}>Gastos Fixos</Text>
+      <Text style={globalStyles.subtitle}>Gastos</Text>
 
       <View style={globalStyles.gap12}>
-        {expenses.length > 0 ? (
-          expenses.map((expense, index) => (
+        {gastos.length > 0 ? (
+          gastos.map((gasto, index) => (
             <View 
-              key={`${expense.name}-${index}`} 
+              key={`${gasto.name}-${index}`} 
               style={[
                 globalStyles.investmentItem,
                 globalStyles.rowBetween, 
                 globalStyles.alignCenter,
-                !expense.pago && globalStyles.itemPendente
+                !gasto.pago && globalStyles.itemPendente
               ]}
             >
               {/* Ícone e informações do gasto */}
@@ -54,16 +54,16 @@ const SecaoGastosFixos = ({ expenses = [] }) => {
                 <View 
                   style={[
                     globalStyles.iconContainer,
-                    { backgroundColor: getIconColor(expense.icon) + '20' }
+                    { backgroundColor: getIconColor(gasto.icon) + '20' }
                   ]}
                 >
-                  <Text style={globalStyles.iconText}>{getIconSymbol(expense.icon)}</Text>
+                  <Text style={globalStyles.iconText}>{getIconSymbol(gasto.icon)}</Text>
                 </View>
 
                 <View style={[globalStyles.flex1, { marginLeft: 8 }]}>
-                  <Text style={globalStyles.listItemTitle}>{expense.name}</Text>
+                  <Text style={globalStyles.listItemTitle}>{gasto.name}</Text>
                   <Text style={[globalStyles.textSecondary, globalStyles.mt2]}>
-                    {formatValue(expense.amount)} {/* 👈 usando o contexto */}
+                    {formatValue(gasto.amount)} {/* 👈 usando o contexto */}
                   </Text>
                 </View>
               </View>
@@ -72,11 +72,11 @@ const SecaoGastosFixos = ({ expenses = [] }) => {
               <View
                 style={[
                   globalStyles.statusBadge,
-                  expense.pago ? globalStyles.statusBadgePaid : globalStyles.statusBadgePending,
+                  gasto.pago ? globalStyles.statusBadgePaid : globalStyles.statusBadgePending,
                 ]}
               >
                 <Text style={globalStyles.statusText}>
-                  {expense.pago ? 'Pago' : 'Aguardando'}
+                  {gasto.pago ? 'Pago' : 'Aguardando'}
                 </Text>
               </View>
             </View>
@@ -89,4 +89,4 @@ const SecaoGastosFixos = ({ expenses = [] }) => {
   );
 };
 
-export default SecaoGastosFixos;
+export default SecaoGastos;

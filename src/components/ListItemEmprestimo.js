@@ -51,7 +51,7 @@ export default function ListItemEmprestimo({ item, onPressItem, onToggleStatus, 
           <Text
             style={[
               globalStyles.listItemStatus,
-              { color: item.adiantada ? colors.warning : item.pago ? colors.income : colors.pending },
+              { color: item.adiantada ? colors.warning : item.pago ? colors.entrada : colors.pending },
             ]}
           >
             {item.adiantada ? '🚀 Antecipada' : item.pago ? '✓ Paga' : '⏳ Aguardando'}
@@ -78,7 +78,7 @@ export default function ListItemEmprestimo({ item, onPressItem, onToggleStatus, 
           <TouchableOpacity
             style={[
               globalStyles.statusButton,
-              { backgroundColor: item.pago ? colors.income + '20' : colors.pending + '20' },
+              { backgroundColor: item.pago ? colors.entrada + '20' : colors.pending + '20' },
             ]}
             onPress={(e) => {
               e.stopPropagation();
@@ -89,7 +89,7 @@ export default function ListItemEmprestimo({ item, onPressItem, onToggleStatus, 
             <MaterialCommunityIcons
               name={item.pago ? 'check-circle' : 'calendar-clock-outline'}
               size={16}
-              color={item.pago ? colors.income : colors.pending}
+              color={item.pago ? colors.entrada : colors.pending}
             />
           </TouchableOpacity>
         </View>

@@ -8,7 +8,7 @@ export default function AlertaModal({
   titulo = 'Atenção',
   mensagem = 'Ocorreu um erro inesperado.',
   icone = 'alert-circle-outline',
-  corIcone = colors.expense,
+  corIcone = colors.gasto,
   // ✨ LÓGICA DE BOTÕES CORRIGIDA E RESTAURADA
   // A prop 'botoes' continua existindo para múltiplos botões
   botoes,

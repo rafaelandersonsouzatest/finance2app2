@@ -5,7 +5,7 @@ import ModalCriacao from '../components/ModalCriacao';
 import GerenciarModelosModal from '../components/GerenciarModelosModal';
 import AlertaModal from '../components/AlertaModal';
 import { useDateFilter } from '../contexts/DateFilterContext';
-import { useIncomes } from '../hooks/useFirestore';
+import { useEntradas } from "../hooks/useEntradas";
 import { colors } from '../styles/colors';
 import { handleGerarFixosUtil } from '../utils/handleGerarFixos';
 
@@ -16,19 +16,19 @@ export default function EntradasScreen() {
   const { selectedMonth, selectedYear } = useDateFilter();
 
   const {
-    incomes,
-    loading,
-    addIncome,
-    updateIncome,
-    deleteIncome,
+    entradas,
+    carregando: loading,
+    adicionarEntrada: addEntrada,
+    atualizarEntrada: updateEntrada,
+    excluirEntrada: deleteEntrada,
     gerarFixosDoMes,
-  } = useIncomes(selectedMonth, selectedYear);
+  } = useEntradas(selectedMonth, selectedYear);
 
   // Modais
   const [modalCriacaoVisivel, setModalCriacaoVisivel] = useState(false);
   const [modalModelosVisivel, setModalModelosVisivel] = useState(false);
 
-  const entradasFiltradas = useMemo(() => incomes || [], [incomes]);
+  const entradasFiltradas = useMemo(() => entradas || [], [entradas]);
 
   const total = useMemo(() => {
     return entradasFiltradas
@@ -42,7 +42,7 @@ export default function EntradasScreen() {
 
   // Handlers
   const handleAdicionar = async (nova) => {
-    await addIncome({
+    await addEntrada({
       ...nova,
       pago: false,
       mes: selectedMonth,
@@ -54,7 +54,7 @@ export default function EntradasScreen() {
 
   const handleEditar = async (editado) => {
     if (!editado?.id) return;
-    await updateIncome(editado.id, editado);
+    await updateEntrada(editado.id, editado);
   };
 
   // ✨ FUNÇÃO DE EXCLUIR ATUALIZADA PARA USAR O AlertaModal
@@ -75,7 +75,7 @@ export default function EntradasScreen() {
         {
           texto: 'Excluir',
           onPress: async () => {
-            await deleteIncome(item.id);
+            await deleteEntrada(item.id);
             setAlerta({ visivel: false });
           },
           style: 'destructive',
@@ -85,9 +85,9 @@ export default function EntradasScreen() {
   };
 
   const handleToggleStatus = async (id) => {
-    const item = incomes.find((e) => e.id === id);
+    const item = entradas.find((e) => e.id === id);
     if (item) {
-      await updateIncome(id, { ...item, pago: !item.pago });
+      await updateEntrada(id, { ...item, pago: !item.pago });
     }
   };
 

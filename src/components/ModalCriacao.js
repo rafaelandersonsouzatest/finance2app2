@@ -176,7 +176,7 @@ useEffect(() => {
         titulo: 'Campos obrigatórios',
         mensagem: `Preencha os seguintes campos:\n${camposFaltando.join(', ')}`,
         icone: 'alert-circle-outline',
-        corIcone: colors.expense,
+        corIcone: colors.gasto,
         textoBotao: 'Entendi',
       });
       return;

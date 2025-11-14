@@ -2,7 +2,9 @@ import { useState, useMemo } from 'react';
 import { View, Text, FlatList, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDateFilter } from '../contexts/DateFilterContext';
-import { useFixedExpenses, useLoans, useCartoesEmprestados } from '../hooks/useFirestore';
+import { useCartoes } from '../hooks/useCartoes';
+import { useEmprestimos } from '../hooks/useEmprestimos';
+import { useGastos } from '../hooks/useGastos';
 import { useVisibility } from '../contexts/VisibilityContext';
 import TelaPadrao from '../components/TelaPadrao';
 import ModalCriacao from '../components/ModalCriacao';
@@ -18,7 +20,7 @@ import ModalParcelasAdiantamento from '../components/ModalParcelasAdiantamento';
 import CartoesScreen from './CartoesScreen';
 import EstatisticasComponent from '../components/EstatisticasComponent';
 import ModernTabs from '../components/ModernTabs';
-import GastosFixosScreen from './GastosFixosScreen';
+import GastosScreen from './GastosScreen';
 import EmprestimosScreen from './EmprestimosScreen';
 
 
@@ -233,21 +235,21 @@ export default function SaidasScreen() {
 
   // --- Hooks de dados ---
   const {
-    fixedExpenses,
+    gastos,
     loading: loadingGastos,
-    addFixedExpense,
-    updateFixedExpense,
-    deleteFixedExpense,
+    addGasto,
+    updateGasto,
+    deleteGasto,
     gerarFixosDoMes,
-  } = useFixedExpenses(selectedMonth, selectedYear);
+  } = useGastos(selectedMonth, selectedYear);
 
   const {
-    loans,
+    emprestimos,
     loading: loadingEmprestimos,
-    addLoan,
-    updateLoan,
-    deleteLoan,
-  } = useLoans(selectedMonth, selectedYear);
+    addEmprestimo,
+    updateEmprestimo,
+    deleteEmprestimo,
+  } = useEmprestimos(selectedMonth, selectedYear);
 
   const {
   modalAdiantamentoVisivel,
@@ -255,7 +257,7 @@ export default function SaidasScreen() {
   iniciarAdiantamento,
   confirmarAdiantamento,
   fecharModalAdiantamento,
-} = useAdiantamento(abaAtiva === 'cartoes' ? 'cartoesEmprestados' : 'emprestimos');
+} = useAdiantamento(abaAtiva === 'cartoes' ? 'cartoes' : 'emprestimos');
 
 
   const [modalCriacaoVisivel, setModalCriacaoVisivel] = useState(false);
@@ -272,26 +274,26 @@ export default function SaidasScreen() {
     addCartao,
     updateCartao,
     deleteCartao,
-  } = useCartoesEmprestados(selectedMonth, selectedYear);
+  } = useCartoes(selectedMonth, selectedYear);
 
 
   const loading = loadingGastos || loadingEmprestimos;
 
   // --- Totais gerais ---
   const totalGastosPagos = useMemo(
-    () => fixedExpenses.filter((g) => g.pago).reduce((s, i) => s + (parseValor(i.valor) || 0), 0),
-    [fixedExpenses]
+    () => gastos.filter((g) => g.pago).reduce((s, i) => s + (parseValor(i.valor) || 0), 0),
+    [gastos]
   );
   const totalEmprestimosPagos = useMemo(
-    () => loans.filter((l) => l.pago).reduce((s, i) => s + (parseValor(i.valor) || 0), 0),
-    [loans]
+    () => emprestimos.filter((l) => l.pago).reduce((s, i) => s + (parseValor(i.valor) || 0), 0),
+    [emprestimos]
   );
   const totalSaidasGeral = totalGastosPagos + totalEmprestimosPagos;
 
   // --- Estatísticas da aba ativa (agora com cálculos completos) ---
 const estatisticas = useMemo(() => {
   if (abaAtiva === 'gastos') {
-    const s = getStatsFromList(fixedExpenses);
+    const s = getStatsFromList(gastos);
     return {
       lista: s.lista,
       total: s.total,
@@ -307,7 +309,7 @@ const estatisticas = useMemo(() => {
   }
 
   if (abaAtiva === 'emprestimos') {
-    const s = getStatsFromList(loans);
+    const s = getStatsFromList(emprestimos);
     return {
       lista: s.lista,
       total: s.total,
@@ -339,16 +341,16 @@ const estatisticas = useMemo(() => {
   }
 
   return { lista: [], total: 0, totalItens: 0, pagos: 0, emAberto: 0, valorPago: 0, valorEmAberto: 0 };
-}, [abaAtiva, fixedExpenses, loans, cartoes]);
+}, [abaAtiva, gastos, emprestimos, cartoes]);
 
   // ===================================================
   // 🔹 Funções principais (mantive seu código)
   // ===================================================
 const handleAdicionar = async (novoItem) => {
   if (abaAtiva === 'gastos') {
-    await addFixedExpense({ ...novoItem, mes: selectedMonth, ano: selectedYear });
+    await addGasto({ ...novoItem, mes: selectedMonth, ano: selectedYear });
   } else if (abaAtiva === 'emprestimos') {
-    await addLoan(novoItem);
+    await addEmprestimo(novoItem);
   } else if (abaAtiva === 'cartoes') {
     if (novoItem.cartao) {
       await addCartao({ ...novoItem, mes: selectedMonth, ano: selectedYear });
@@ -360,9 +362,9 @@ const handleAdicionar = async (novoItem) => {
 
 const handleEditar = async (itemEditado) => {
   if (abaAtiva === 'gastos') {
-    await updateFixedExpense(itemSelecionado.id, itemEditado);
+    await updateGasto(itemSelecionado.id, itemEditado);
   } else if (abaAtiva === 'emprestimos') {
-    await updateLoan(itemSelecionado.id, itemEditado);
+    await updateEmprestimo(itemSelecionado.id, itemEditado);
   } else if (abaAtiva === 'cartoes') {
     await updateCartao(itemSelecionado.id, itemEditado);
   }
@@ -395,7 +397,7 @@ const handleExcluir = () => {
         {
           texto: 'Excluir',
           onPress: async () => {
-            await deleteFixedExpense(item.id);
+            await deleteGasto(item.id);
             setAlerta({ visivel: false });
             setModalDetalhesVisivel(false);
             setItemSelecionado(null);
@@ -418,7 +420,7 @@ const handleExcluir = () => {
         {
           texto: 'Somente esta parcela',
           onPress: async () => {
-            await deleteLoan(item.id);
+            await deleteEmprestimo(item.id);
             setAlerta({ visivel: false });
             setModalDetalhesVisivel(false);
             setItemSelecionado(null);
@@ -428,7 +430,7 @@ const handleExcluir = () => {
         {
           texto: 'Excluir empréstimo inteiro',
           onPress: async () => {
-            await deleteLoan(item.id, item.idCompra, true);
+            await deleteEmprestimo(item.id, item.idCompra, true);
             setAlerta({ visivel: false });
             setModalDetalhesVisivel(false);
             setItemSelecionado(null);
@@ -466,11 +468,11 @@ const handleExcluir = () => {
 
   const handleToggleStatus = async (id) => {
   if (abaAtiva === 'gastos') {
-    const item = fixedExpenses.find((i) => i.id === id);
-    if (item) await updateFixedExpense(id, { ...item, pago: !item.pago });
+    const item = gastos.find((i) => i.id === id);
+    if (item) await updateGasto(id, { ...item, pago: !item.pago });
   } else if (abaAtiva === 'emprestimos') {
-    const item = loans.find((i) => i.id === id);
-    if (item) await updateLoan(id, { ...item, pago: !item.pago });
+    const item = emprestimos.find((i) => i.id === id);
+    if (item) await updateEmprestimo(id, { ...item, pago: !item.pago });
   } else if (abaAtiva === 'cartoes') {
     const item = cartoes.find((i) => i.id === id);
     if (item) await updateCartao(id, { ...item, pago: !item.pago });
@@ -528,7 +530,7 @@ const handleExcluir = () => {
     }
 
     return acoes;
-  }, [abaAtiva, fixedExpenses, loans]);
+  }, [abaAtiva, gastos, emprestimos]);
 
   // ===================================================
   // 🔹 RENDERIZAÇÃO
@@ -557,7 +559,7 @@ const handleExcluir = () => {
       </View>
 
       {/* 🧭 Conteúdo das abas */}
-      <GastosFixosScreen tabKey="gastos" isEmbedded onPressItem={handleAbrirDetalhes} />
+      <GastosScreen tabKey="gastos" isEmbedded onPressItem={handleAbrirDetalhes} />
       <EmprestimosScreen tabKey="emprestimos" isEmbedded onPressItem={handleAbrirDetalhes} />
       <CartoesScreen tabKey="cartoes" isEmbedded onPressItem={handleAbrirDetalhes} />
     </ModernTabs>
@@ -641,25 +643,22 @@ tipo={
 
 
       <ModalHistoricoParcelas
-          visible={historicoModalVisivel}
-          onClose={() => {
-            setHistoricoModalVisivel(false);
-            setItemHistorico(null);
-          }}
-          item={{
-            idCompra: itemHistorico?.idCompra,
-            descricao: itemHistorico?.descricao,
-            // 👇 ajuste aqui
-            collectionName:
-              abaAtiva === 'cartoes'
-                ? 'cartoesEmprestados'
-                : abaAtiva === 'emprestimos'
-                ? 'emprestimos'
-                : 'gastosFixos',
-          }}
-        />
-
-
+        visible={historicoModalVisivel}
+        onClose={() => {
+          setHistoricoModalVisivel(false);
+          setItemHistorico(null);
+        }}
+        item={{
+          idCompra: itemHistorico?.idCompra ?? itemHistorico?.id,
+          descricao: itemHistorico?.descricao,
+          collectionName:
+            abaAtiva === 'cartoes'
+              ? 'cartoes'
+              : abaAtiva === 'emprestimos'
+              ? 'emprestimos'
+              : 'gastos',
+        }}
+      />
 
       <ModalParcelasAdiantamento
         visivel={modalAdiantamentoVisivel}

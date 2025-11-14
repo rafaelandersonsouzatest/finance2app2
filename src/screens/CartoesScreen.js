@@ -1,8 +1,9 @@
+// src/screens/CartoesScreen.js
 import { useMemo, useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDateFilter } from '../contexts/DateFilterContext';
-import { useCartoesEmprestados } from '../hooks/useFirestore';
+import { useCartoes } from '../hooks/useCartoes';
 import { useAdiantamento } from '../hooks/useAdiantamento';
 import GastoCartaoCard from '../components/GastoCartaoCard';
 import CartaoCard from '../components/CartaoCard';
@@ -12,7 +13,6 @@ import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import ModernTabs from '../components/ModernTabs';
 
-// 🧩 Função auxiliar: extrai data do item
 const extractDate = (item) => {
   const possible = [
     item.dataVencimento,
@@ -27,13 +27,13 @@ const extractDate = (item) => {
     const parsed = new Date(d);
     if (!isNaN(parsed)) return parsed;
   }
-  return new Date(8640000000000000); // data muito distante caso não exista
+  return new Date(8640000000000000);
 };
 
 export default function CartoesScreen({ isEmbedded = false, onPressItem, onDeleteItem }) {
   const { selectedMonth, selectedYear } = useDateFilter();
   const { cartoes: cartoesData = [], updateCartao, deleteCartao, toggleCartaoStatus } =
-    useCartoesEmprestados(selectedMonth, selectedYear);
+    useCartoes(selectedMonth, selectedYear);
 
   const {
     modalAdiantamentoVisivel,
@@ -43,11 +43,10 @@ export default function CartoesScreen({ isEmbedded = false, onPressItem, onDelet
     fecharModalAdiantamento,
     alerta,
     setAlerta,
-  } = useAdiantamento('cartoesEmprestados');
+  } = useAdiantamento('cartoes');
 
   const [abaInterna, setAbaInterna] = useState('mes');
 
-  // 🔹 Ordenar gastos por data e nome
   const sortedCartoes = useMemo(() => {
     return [...cartoesData].sort((a, b) => {
       const dateA = extractDate(a);
@@ -58,7 +57,6 @@ export default function CartoesScreen({ isEmbedded = false, onPressItem, onDelet
     });
   }, [cartoesData]);
 
-  // 🔹 Agrupar gastos por cartão
   const agrupadoPorCartao = useMemo(() => {
     const grupos = {};
     sortedCartoes.forEach((item) => {
@@ -119,13 +117,27 @@ export default function CartoesScreen({ isEmbedded = false, onPressItem, onDelet
                 corCartao={item.corCartao || colors.byInstitution.Default}
                 onPressItem={() => onPressItem?.(item)}
                 onToggleStatus={() => handleToggleStatus(item.id, item.pago)}
-                onAdiantar={() => iniciarAdiantamento([item])}
+                onAdiantar={() => iniciarAdiantamento(item)}
                 onDelete={() =>
                   isEmbedded ? onDeleteItem?.(item) : handleExcluir(item)
                 }
               />
             ))
           )}
+
+          {/* ✅ Modal dentro da aba “Gastos do mês” */}
+          <ModalParcelasAdiantamento
+            visivel={modalAdiantamentoVisivel}
+            aoFechar={fecharModalAdiantamento}
+            parcelasFuturas={parcelasParaAdiantar}
+            aoConfirmar={confirmarAdiantamento}
+          />
+
+          <AlertaModal
+            visible={alerta?.visivel}
+            onClose={() => setAlerta({ ...alerta, visivel: false })}
+            {...alerta}
+          />
         </ScrollView>
 
         {/* 🔹 Aba: Por Cartão */}
@@ -150,11 +162,8 @@ export default function CartoesScreen({ isEmbedded = false, onPressItem, onDelet
               <CartaoCard key={nome} cartao={{ nome }} gastos={gastos} />
             ))
           )}
-        </ScrollView>
-      </ModernTabs>
 
-      {!isEmbedded && (
-        <>
+          {/* ✅ Modal também dentro da aba “Por Cartão” */}
           <ModalParcelasAdiantamento
             visivel={modalAdiantamentoVisivel}
             aoFechar={fecharModalAdiantamento}
@@ -167,8 +176,8 @@ export default function CartoesScreen({ isEmbedded = false, onPressItem, onDelet
             onClose={() => setAlerta({ ...alerta, visivel: false })}
             {...alerta}
           />
-        </>
-      )}
+        </ScrollView>
+      </ModernTabs>
     </View>
   );
 }

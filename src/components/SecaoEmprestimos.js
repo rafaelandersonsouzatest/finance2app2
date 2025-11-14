@@ -4,7 +4,7 @@ import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import { useVisibility } from '../contexts/VisibilityContext'; // 👈 novo
 
-const SecaoEmprestimos = ({ loans = [] }) => {
+const SecaoEmprestimos = ({ emprestimos = [] }) => {
   const { formatValue } = useVisibility(); // 👈 usar o contexto
 
   return (
@@ -12,12 +12,12 @@ const SecaoEmprestimos = ({ loans = [] }) => {
       <Text style={globalStyles.subtitle}>Empréstimos</Text>
 
       <View style={globalStyles.gap12}>
-        {loans.length > 0 ? (
-          loans.map((loan, index) => {
-            const descricao = loan.description || 'Empréstimo sem nome';
-            const parcelaAtual = loan.parcelaAtual ?? '?';
-            const totalParcelas = loan.totalParcelas ?? '?';
-            const pago = loan.pago ?? false;
+        {emprestimos.length > 0 ? (
+          emprestimos.map((emprestimo, index) => {
+            const descricao = emprestimo.description || 'Empréstimo sem nome';
+            const parcelaAtual = emprestimo.parcelaAtual ?? '?';
+            const totalParcelas = emprestimo.totalParcelas ?? '?';
+            const pago = emprestimo.pago ?? false;
 
             return (
               <View
@@ -36,7 +36,7 @@ const SecaoEmprestimos = ({ loans = [] }) => {
                     {`Parcela ${parcelaAtual} / ${totalParcelas}`}
                   </Text>
                   <Text style={[globalStyles.textSecondary, globalStyles.mt2]}>
-                    {formatValue(loan.amount, { prefix: 'R$ ' })} {/* 👈 usando visibilidade */}
+                    {formatValue(emprestimo.amount, { prefix: 'R$ ' })} {/* 👈 usando visibilidade */}
                   </Text>
                 </View>
 

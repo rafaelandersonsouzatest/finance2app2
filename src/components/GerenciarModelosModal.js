@@ -10,17 +10,19 @@ import {
   ScrollView,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MembroSelect } from '../components/MembroSelect';
 import { globalStyles } from "../styles/globalStyles";
 import { colors } from "../styles/colors";
 import ModernTabs from "./ModernTabs";
 import AlertaModal from "./AlertaModal";
 import CategoriaSelect from "./CategoriaSelect";
-import { useFirestoreModelos, useIncomes } from "../hooks/useFirestore";
+import { useModelos } from "../hooks/useModelos";
+import { useEntradas } from "../hooks/useEntradas";
 import { useDateFilter } from "../contexts/DateFilterContext";
 
 const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
   const { selectedMonth, selectedYear } = useDateFilter();
-  const { incomes, loading: loadingEntradas } = useIncomes(selectedMonth, selectedYear);
+  const { entradas, loading: loadingEntradas } = useEntradas(selectedMonth, selectedYear);
 
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
@@ -115,7 +117,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
     setEntradasPorMes((prev) => {
       const todas = prev[keyMes] || [];
       const novas =
-        todas.length === incomes.length ? [] : incomes.map((e) => e.id);
+        todas.length === entradas.length ? [] : entradas.map((e) => e.id);
       return { ...prev, [keyMes]: novas };
     });
   };
@@ -123,7 +125,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
   // 🧮 Texto com nomes das entradas selecionadas
   const getTextoSelecionadas = () => {
     if (!entradasSelecionadas.length) return "Selecionar Entradas";
-    const nomes = incomes
+    const nomes = entradas
       .filter((e) => entradasSelecionadas.includes(e.id))
       .map((e) => e.descricao);
     if (nomes.length <= 2) return nomes.join(", ");
@@ -180,8 +182,13 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
         }}
         keyboardType="decimal-pad"
         placeholderTextColor={colors.textSecondary}
-        style={[globalStyles.input, erros.valor && globalStyles.inputError]}
+        style={[
+          globalStyles.input,
+          erros.valor && globalStyles.inputError,
+          tipo === "entrada" && { marginTop: 12 }, // 👈 espaçamento extra só para entradas
+        ]}
       />
+
       {erros.valor && <Text style={globalStyles.errorMessage}>{erros.valor}</Text>}
 
       {/* 💰 Entradas — quando porcentagem */}
@@ -348,7 +355,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
                     >
                       <MaterialCommunityIcons
                         name={
-                          entradasSelecionadas.length === incomes.length && incomes.length > 0
+                          entradasSelecionadas.length === entradas.length && entradas.length > 0
                             ? "checkbox-marked"
                             : "checkbox-blank-outline"
                         }
@@ -360,7 +367,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
                       </Text>
                     </TouchableOpacity>
 
-                    {incomes.map((entrada) => (
+                    {entradas.map((entrada) => (
                       <TouchableOpacity
                         key={entrada.id}
                         onPress={() => toggleEntrada(entrada.id)}
@@ -403,20 +410,20 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
       )}
 
       {/* Categoria */}
-      <View style={{ marginTop: 12 }}>
+      <View style={{ marginTop: 12,  marginBottom: 12,}}>
         <CategoriaSelect value={categoria} onChange={setCategoria} />
       </View>
 
       {/* Membro (entradas apenas) */}
       {tipo === "entrada" && (
-        <TextInput
-          placeholder="Membro *"
-          value={membro}
-          onChangeText={setMembro}
-          placeholderTextColor={colors.textSecondary}
-          style={[globalStyles.input, { marginTop: 12 }]}
+        <MembroSelect
+          membroSelecionado={membro}
+          onSelecionar={(m) => setMembro(typeof m === "object" ? m.nome : m)}
+          tipo="membro"
+          mostrarLabel={false} 
         />
-      )}
+    )}
+
 
       {/* Dia */}
       <TextInput
@@ -445,7 +452,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
 
 // MODAL PRINCIPAL
 export default function GerenciarModelosModal({ visible, onClose, tipo = "gasto" }) {
-  const { modelos, loading, addModelo, updateModelo, deleteModelo } = useFirestoreModelos(tipo);
+  const { modelos, loading, addModelo, updateModelo, deleteModelo } = useModelos(tipo);
 
   const [editingItem, setEditingItem] = useState(null);
   const [abaAtiva, setAbaAtiva] = useState("modelos");

@@ -1,19 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import AlertaModal from '../components/AlertaModal';
 import { useDateFilter } from '../contexts/DateFilterContext';
-import {
-  useIncomes,
-  useFixedExpenses,
-  useLoans,
-  useInvestments,
-  useCartoesEmprestados,
-} from '../hooks/useFirestore';
+import {useInvestimentos } from '../hooks/useInvestimentos';
+import { useCartoes } from '../hooks/useCartoes';
+import { useEntradas } from "../hooks/useEntradas";
+import { useGastos } from "../hooks/useGastos";
+import { useEmprestimos } from '../hooks/useEmprestimos';
 import TelaPadrao from '../components/TelaPadrao';
 import SecaoEntradas from '../components/SecaoEntradas';
-import SecaoGastosFixos from '../components/SecaoGastosFixos';
+import SecaoGastos from '../components/SecaoGastos';
 import SecaoEmprestimos from '../components/SecaoEmprestimos';
 import SecaoInvestimentos from '../components/SecaoInvestimentos';
 import SecaoCartoes from '../components/SecaoCartoes';
@@ -26,18 +24,21 @@ const ResumoMensal = () => {
   const [alerta, setAlerta] = useState({ visivel: false });
   const { selectedMonth, selectedYear } = useDateFilter();
 
-  const { incomes, error: incomesError } = useIncomes(selectedMonth, selectedYear);
-  const { fixedExpenses, error: fixedExpensesError } = useFixedExpenses(selectedMonth, selectedYear);
-  const { loans, error: loansError } = useLoans(selectedMonth, selectedYear);
-  const { investments, error: investmentsError } = useInvestments();
-  const { cartoes, error: cartoesError } = useCartoesEmprestados(selectedMonth, selectedYear);
+  const { entradas, error: entradasError } = useEntradas(selectedMonth, selectedYear);
+  const { gastos, error: gastosError } = useGastos(selectedMonth, selectedYear);
+  const { emprestimos, error: emprestimosError } = useEmprestimos(selectedMonth, selectedYear);
+  const { investimentos, error: investimentosError } = useInvestimentos();
+  const { cartoes, error: cartoesError } = useCartoes(selectedMonth, selectedYear);
 
+  // ======================================================
+  // ⚠️ Tratamento de erros unificado
+  // ======================================================
   useEffect(() => {
     const errors = [
-      incomesError,
-      fixedExpensesError,
-      loansError,
-      investmentsError,
+      entradasError,
+      gastosError,
+      emprestimosError,
+      investimentosError,
       cartoesError,
     ].filter(Boolean);
 
@@ -51,105 +52,123 @@ const ResumoMensal = () => {
         textoBotao: 'Entendi',
       });
     }
-  }, [incomesError, fixedExpensesError, loansError, investmentsError, cartoesError]);
-
+  }, [entradasError, gastosError, emprestimosError, investimentosError, cartoesError]);
 
   // ======================================================
   // ✅ CÁLCULOS ATUALIZADOS (Realizado vs. Previsto)
   // ======================================================
 
   // --- PREVISTO (Soma todos os itens do mês) ---
-  const totalIncomePrevisto = incomes.reduce((sum, income) => sum + (income.valor || 0), 0);
-  const totalFixedExpensesPrevisto = fixedExpenses.reduce(
-    (sum, expense) => sum + (expense.valor || 0),
+  const totalEntradaPrevisto = entradas.reduce(
+    (sum, entrada) => sum + (entrada.valor || 0),
     0
   );
-  const totalLoansPrevisto = loans.reduce((sum, loan) => sum + (loan.valor || 0), 0);
-  const totalCartoesPrevisto = cartoes.reduce((sum, c) => sum + (c.valor || 0), 0);
 
-  const totalExpensesPrevisto =
-    totalFixedExpensesPrevisto + totalLoansPrevisto + totalCartoesPrevisto;
-  const finalBalancePrevisto = totalIncomePrevisto - totalExpensesPrevisto;
+  const totalGastosPrevisto = gastos.reduce(
+    (sum, gasto) => sum + (gasto.valor || 0),
+    0
+  );
+
+  const totalEmprestimosPrevisto = emprestimos.reduce(
+    (sum, emprestimo) => sum + (emprestimo.valor || 0),
+    0
+  );
+
+  const totalCartoesPrevisto = cartoes.reduce(
+    (sum, c) => sum + (c.valor || 0),
+    0
+  );
+
+  // Soma geral de todos os tipos de gasto
+  const totalGastosPrevistoGeral =
+    totalGastosPrevisto + totalEmprestimosPrevisto + totalCartoesPrevisto;
+
+  const finalBalancePrevisto = totalEntradaPrevisto - totalGastosPrevistoGeral;
 
   // --- REALIZADO (Soma apenas os itens com 'pago: true') ---
-  const totalIncomeRealizado = incomes
+  const totalEntradaRealizado = entradas
     .filter((item) => item.pago === true)
-    .reduce((sum, income) => sum + (income.valor || 0), 0);
+    .reduce((sum, entrada) => sum + (entrada.valor || 0), 0);
 
-  const totalFixedExpensesRealizado = fixedExpenses
+  const totalGastosRealizado = gastos
     .filter((item) => item.pago === true)
-    .reduce((sum, expense) => sum + (expense.valor || 0), 0);
+    .reduce((sum, gasto) => sum + (gasto.valor || 0), 0);
 
-  const totalLoansRealizado = loans
+  const totalEmprestimosRealizado = emprestimos
     .filter((item) => item.pago === true)
-    .reduce((sum, loan) => sum + (loan.valor || 0), 0);
+    .reduce((sum, emprestimo) => sum + (emprestimo.valor || 0), 0);
 
   const totalCartoesRealizado = cartoes
     .filter((item) => item.pago === true)
     .reduce((sum, c) => sum + (c.valor || 0), 0);
 
-  const totalExpensesRealizado =
-    totalFixedExpensesRealizado + totalLoansRealizado + totalCartoesRealizado;
-  const finalBalanceRealizado = totalIncomeRealizado - totalExpensesRealizado;
+  const totalGastosRealizadoGeral =
+    totalGastosRealizado + totalEmprestimosRealizado + totalCartoesRealizado;
 
-return (
-  <>
-    <TelaPadrao titulo="Resumo Mensal" tipo="resumo">
-      <>
-        <View style={globalStyles.mb16}>
-          <MiniResumo
-            totalIncomePrevisto={totalIncomePrevisto}
-            totalExpensesPrevisto={totalExpensesPrevisto}
-            finalBalancePrevisto={finalBalancePrevisto}
-            totalIncomeRealizado={totalIncomeRealizado}
-            totalExpensesRealizado={totalExpensesRealizado}
-            finalBalanceRealizado={finalBalanceRealizado}
-          />
-        </View>
+  const finalBalanceRealizado = totalEntradaRealizado - totalGastosRealizadoGeral;
 
-        <View style={globalStyles.mb30}>
-          <SecaoEntradas incomes={incomes} />
-        </View>
+  // ======================================================
+  // ✅ Renderização
+  // ======================================================
+  return (
+    <>
+      <TelaPadrao titulo="Resumo Mensal" tipo="resumo">
+        <>
+          <View style={globalStyles.mb16}>
+            <MiniResumo
+              totalEntradaPrevisto={totalEntradaPrevisto}
+              totalGastosPrevisto={totalGastosPrevistoGeral}
+              finalBalancePrevisto={finalBalancePrevisto}
+              totalEntradaRealizado={totalEntradaRealizado}
+              totalGastosRealizado={totalGastosRealizadoGeral}
+              finalBalanceRealizado={finalBalanceRealizado}
+            />
+          </View>
 
-        <View style={globalStyles.mb30}>
-          <SecaoGastosFixos
-            expenses={fixedExpenses.map((expense) => ({
-              name: expense.nome || expense.name || expense.descricao,
-              icon: expense.icone || expense.icon,
-              amount: expense.valor || expense.amount,
-              pago: expense.pago ?? false,
-            }))}
-          />
-        </View>
+          <View style={globalStyles.mb30}>
+            <SecaoEntradas entradas={entradas} />
+          </View>
 
-        <View style={globalStyles.mb30}>
-          <SecaoEmprestimos
-            loans={loans.map((loan) => ({
-              description: loan.descricao || 'Empréstimo sem nome',
-              amount: loan.valor || 0,
-              parcelaAtual: loan.parcelaAtual || 1,
-              totalParcelas: loan.totalParcelas || 1,
-              pago: loan.pago ?? false,
-            }))}
-          />
-        </View>
+          <View style={globalStyles.mb30}>
+            <SecaoGastos
+              gastos={gastos.map((gasto) => ({
+                name: gasto.nome || gasto.name || gasto.descricao,
+                icon: gasto.icone || gasto.icon,
+                amount: gasto.valor || gasto.amount,
+                pago: gasto.pago ?? false,
+              }))}
+            />
+          </View>
 
-        <View style={globalStyles.mb30}>
-          <SecaoCartoes cartoes={cartoes} />
-        </View>
+          <View style={globalStyles.mb30}>
+            <SecaoEmprestimos
+              emprestimos={emprestimos.map((emprestimo) => ({
+                description: emprestimo.descricao || 'Empréstimo sem nome',
+                amount: emprestimo.valor || 0,
+                parcelaAtual: emprestimo.parcelaAtual || 1,
+                totalParcelas: emprestimo.totalParcelas || 1,
+                pago: emprestimo.pago ?? false,
+              }))}
+            />
+          </View>
 
-        <View style={globalStyles.mb12}>
-          <SecaoInvestimentos investments={investments} />
-        </View>
-      </>
-    </TelaPadrao>
+          <View style={globalStyles.mb30}>
+            <SecaoCartoes cartoes={cartoes} />
+          </View>
 
-    <AlertaModal
-      visible={alerta.visivel}
-      onClose={() => setAlerta({ visivel: false })}
-      {...alerta}
-    />
-  </>
-);
+          <View style={globalStyles.mb12}>
+            <SecaoInvestimentos investimentos={investimentos} />
+          </View>
+        </>
+      </TelaPadrao>
+
+      <AlertaModal
+        visible={alerta.visivel}
+        onClose={() => setAlerta({ visivel: false })}
+        {...alerta}
+      />
+    </>
+  );
 };
+
 export default ResumoMensal;

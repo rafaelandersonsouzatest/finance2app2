@@ -8,15 +8,15 @@ const SecaoCartoes = ({ cartoes = [] }) => {
   if (!cartoes || cartoes.length === 0) {
     return (
       <View style={[globalStyles.card, globalStyles.mb4]}>
-        <Text style={globalStyles.subtitle}>Cartões Emprestados</Text>
-        <Text style={globalStyles.noDataText}>Nenhum cartão emprestado neste mês.</Text>
+        <Text style={globalStyles.subtitle}>Cartões</Text>
+        <Text style={globalStyles.noDataText}>Nenhum gasto no cartão neste mês.</Text>
       </View>
     );
   }
 
   return (
     <View style={[globalStyles.card, globalStyles.mb4]}>
-      <Text style={globalStyles.subtitle}>Cartões Emprestados</Text>
+      <Text style={globalStyles.subtitle}>Cartões</Text>
 
       <View style={globalStyles.gap12}>
         {cartoes.map((item, index) => {

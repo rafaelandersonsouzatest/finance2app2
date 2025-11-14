@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { colors } from './colors';
+import { Platform, Dimensions } from 'react-native';
 
 export const globalStyles = StyleSheet.create({
   container: {
@@ -82,7 +83,7 @@ export const globalStyles = StyleSheet.create({
   totalAmount: {
     fontSize: 24,
     fontWeight: '700',
-    color: colors.expense,
+    color: colors.gasto,
     letterSpacing: -0.3,
   },
 
@@ -240,11 +241,11 @@ statusButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
   },
-  valueIncome: {
+  valorEentrada: {
     color: colors.balance,
   },
-  valueExpense: {
-    color: colors.expense,
+  valueGasto: {
+    color: colors.gasto,
   },
   italic: {
     fontStyle: 'italic',
@@ -663,7 +664,7 @@ listAvatar: {
     backgroundColor: colors.balance,
   },
   tipoBotaoAtivoVermelho: {
-    backgroundColor: colors.expense,
+    backgroundColor: colors.gasto,
   },
   tipoTextoAtivo: {
     color: colors.textPrimary,
@@ -726,7 +727,7 @@ iconButton: {
 iconButtonWarning: {
   backgroundColor: colors.pending + '20',
 },
-// --- Cartões de lista menores (CartaoEmprestadoCard, etc)
+// --- Cartões de lista menores (CartaoCard, etc)
 smallCard: {
   padding: 16,
   marginBottom: 12,
@@ -782,12 +783,20 @@ footerContainer: {
 },
 
 // =================================================
-// 🔹 ESTILOS PARA O MENU FAB (Floating Action Button) - VERSÃO CORRIGIDA
+// 🔹 ESTILOS PARA O MENU FAB (Floating Action Button)
 // =================================================
 fabMenuContainer: {
   position: 'absolute',
-  right: 20, // Um pouco mais de espaço da borda
-  bottom: 65, // Sobe um pouco para não ficar colado na Tab Bar
+  right: 20,
+  // 🔹 Ajuste dinâmico de altura com base no sistema e tamanho da tela
+  bottom:
+    Platform.OS === 'ios'
+      ? Dimensions.get('window').height < 750
+        ? 70 // iPhones menores
+        : 100 // iPhones normais
+      : Dimensions.get('window').height < 750
+      ? 80 // Android menor
+      : 65, // Android normal
   alignItems: 'flex-end',
 },
 // 👇 REMOVIDO: 'position: absolute' daqui. O container pai já é absoluto.
@@ -1272,5 +1281,81 @@ screenTitle: {
   textAlign: "left",
   marginBottom: 16,
 },
+
+
+
+
+
+
+
+
+  // // =================================================
+  // // 🔹 PADRONIZAÇÃO GLOBAL DE INPUTS (campos de formulário) fazer isso futuramente
+  // // =================================================
+  // inputContainer: {
+  //   marginBottom: 16,
+  // },
+
+  // inputLabel: {
+  //   fontSize: 14,
+  //   color: colors.textSecondary,
+  //   marginBottom: 6,
+  // },
+
+  // input: {
+  //   backgroundColor: colors.cardBackground,
+  //   color: colors.textPrimary,
+  //   borderRadius: 8,
+  //   paddingHorizontal: 12,
+  //   paddingVertical: Platform.OS === 'ios' ? 14 : 10,
+  //   fontSize: 16,
+  //   borderWidth: 1,
+  //   borderColor: colors.borderLight,
+  //   transition: 'border-color 0.2s ease-in-out',
+  // },
+
+  // inputFocused: {
+  //   borderColor: colors.primary,
+  //   shadowColor: colors.primary,
+  //   shadowOffset: { width: 0, height: 1 },
+  //   shadowOpacity: 0.1,
+  //   shadowRadius: 2,
+  //   elevation: 2,
+  // },
+
+  // inputError: {
+  //   borderColor: colors.error,
+  //   shadowColor: colors.error,
+  //   shadowOpacity: 0.15,
+  // },
+
+  // inputSuccess: {
+  //   borderColor: colors.balance,
+  // },
+
+  // inputDisabled: {
+  //   opacity: 0.6,
+  //   backgroundColor: colors.cardBackground + '80',
+  // },
+
+  //   💡 Como usar
+
+  // Basta envolver seu TextInput com onFocus e onBlur para aplicar o estilo dinamicamente:
+
+  // const [focused, setFocused] = useState(false);
+
+  // <TextInput
+  //   style={[
+  //     globalStyles.input,
+  //     focused && globalStyles.inputFocused,
+  //     error && globalStyles.inputError,
+  //     success && globalStyles.inputSuccess,
+  //   ]}
+  //   onFocus={() => setFocused(true)}
+  //   onBlur={() => setFocused(false)}
+  //   placeholder="E-mail"
+  //   placeholderTextColor={colors.textSecondary}
+  // />
+
 
 });

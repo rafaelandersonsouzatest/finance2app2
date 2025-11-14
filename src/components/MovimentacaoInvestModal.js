@@ -30,7 +30,7 @@ export default function MovimentacaoInvestModal({
     titulo: '',
     mensagem: '',
     icone: 'alert-circle',
-    cor: colors.expense,
+    cor: colors.gasto,
   });
 
   // 🔄 Resetar os campos ao abrir ou quando mudar a movimentação
@@ -78,7 +78,7 @@ export default function MovimentacaoInvestModal({
           minimumFractionDigits: 2,
         })}.`,
         icone: 'alert-circle',
-        cor: colors.expense,
+        cor: colors.gasto,
       });
       return;
     }

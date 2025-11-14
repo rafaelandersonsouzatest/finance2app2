@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { Platform, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { globalStyles } from '../styles/globalStyles';
@@ -18,10 +19,14 @@ import ModalEdicao from '../components/ModalEdicao';
 import ModalDetalhes from './ModalDetalhes';
 import ToggleVisibilidade from '../components/ToggleVisibilidade';
 import { vibrarLeve, vibrarSucesso, vibrarAlerta, vibrarMedio } from '../utils/haptics';
-import FabMenu from '../components/FabMenu'; // ✨ 1. Importa o FabMenu
+import FabMenu from '../components/FabMenu';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+
 
 const InfoRow = ({ icon, label, value, color = colors.textPrimary, isMonetary = false }) => {
   const { formatValue } = useVisibility();
+
 
   const displayValue = isMonetary ? formatValue(value) : String(value ?? '');
 
@@ -42,6 +47,7 @@ const InfoRow = ({ icon, label, value, color = colors.textPrimary, isMonetary = 
 };
 
 export default function TelaPadrao({
+  
   titulo,
   tipo,
   dados = [],
@@ -64,6 +70,9 @@ export default function TelaPadrao({
   fabActions = [],
   disableDefaultList = false,
 }) {
+    const insets = useSafeAreaInsets();
+const { height } = Dimensions.get('window');
+
   const [modalCriacaoVisivel, setModalCriacaoVisivel] = useState(false);
   const [modalEdicaoVisivel, setModalEdicaoVisivel] = useState(false);
   const [modalDetalhesVisivel, setModalDetalhesVisivel] = useState(false);
@@ -196,7 +205,7 @@ export default function TelaPadrao({
 
       return (
         <>
-          <InfoRow icon="cash" label="Valor" value={item.valor} color={colors.income} isMonetary={true} />
+          <InfoRow icon="cash" label="Valor" value={item.valor} color={colors.entrada} isMonetary={true} />
           <InfoRow icon="shape-outline" label="Categoria" value={item.categoria || 'Não informada'} />
           <InfoRow icon="calendar-arrow-left" label="Data do Recebimento" value={dataExibicao} />
           <InfoRow icon={item.pago ? "check-circle-outline" : "alert-circle-outline"} label="Status" value={item.pago ? "Recebido" : "Pendente"} color={statusCor} />
@@ -211,7 +220,7 @@ export default function TelaPadrao({
 
       return (
         <>
-          <InfoRow icon="cash" label="Valor" value={item.valor} color={colors.expense} isMonetary={true} />
+          <InfoRow icon="cash" label="Valor" value={item.valor} color={colors.gasto} isMonetary={true} />
           <InfoRow icon="shape-outline" label="Categoria" value={item.categoria || 'Não informada'} />
           <InfoRow icon="calendar-arrow-right" label="Data de Vencimento" value={dataExibicao} />
           <InfoRow icon={item.pago ? "check-circle-outline" : "alert-circle-outline"} label="Status" value={item.pago ? "Pago" : "Pendente"} color={statusCor} />
@@ -226,7 +235,7 @@ export default function TelaPadrao({
 
       return (
         <>
-          <InfoRow icon="cash" label="Valor da Parcela" value={item.valor} color={colors.expense} isMonetary={true} />
+          <InfoRow icon="cash" label="Valor da Parcela" value={item.valor} color={colors.gasto} isMonetary={true} />
           <InfoRow icon="account-group-outline" label="Pessoa/Instituição" value={item.pessoa || 'Não informada'} />
           <InfoRow icon="calendar-arrow-right" label="Vencimento da Parcela" value={dataExibicao} />
           <InfoRow
@@ -247,7 +256,7 @@ export default function TelaPadrao({
 
       return (
         <>
-          <InfoRow icon="cash" label="Valor da Parcela" value={item.valor} color={colors.expense} isMonetary={true} />
+          <InfoRow icon="cash" label="Valor da Parcela" value={item.valor} color={colors.gasto} isMonetary={true} />
           <InfoRow icon="credit-card-outline" label="Cartão" value={item.cartao || 'Não informado'} />
           <InfoRow icon="account-group-outline" label="Pessoa" value={item.pessoa || 'Não informada'} />
           <InfoRow
@@ -433,7 +442,7 @@ const renderHeader = () => (
                           color: item.adiantada
                             ? colors.warning
                             : item.pago
-                            ? colors.income
+                            ? colors.entrada
                             : colors.pending,
                         },
                       ]}
@@ -484,7 +493,7 @@ const renderHeader = () => (
                         globalStyles.statusButton,
                         {
                           backgroundColor: item.pago
-                            ? colors.income + '20'
+                            ? colors.entrada + '20'
                             : colors.pending + '20',
                         },
                       ]}
@@ -497,7 +506,7 @@ const renderHeader = () => (
                       <MaterialCommunityIcons
                         name={item.pago ? 'check-circle' : 'calendar-clock-outline'}
                         size={16}
-                        color={item.pago ? colors.income : colors.pending}
+                        color={item.pago ? colors.entrada : colors.pending}
                       />
                     </TouchableOpacity>
                   </View>
@@ -521,15 +530,29 @@ const renderHeader = () => (
       {!hideAddButton && fabActions.length > 0 ? (
         <FabMenu actions={fabActions} />
       ) : !hideAddButton ? (
-        <TouchableOpacity
-          style={[globalStyles.fabPrimary, { position: 'absolute', bottom: 65, right: 20 }]} // Adiciona posicionamento para o fallback
-          onPress={() => {
-            vibrarMedio();
-            setModalCriacaoVisivel(true);
-          }}
-        >
-          <MaterialCommunityIcons name="plus" size={30} color="#FFF" />
-        </TouchableOpacity>
+<TouchableOpacity
+  style={[
+    globalStyles.fabPrimary,
+    {
+      right: 20,
+      // 🔹 Ajuste dinâmico para iPhones e telas menores, sem precisar do expo-device
+      bottom:
+        Platform.OS === 'ios'
+          ? insets.bottom > 0
+            ? insets.bottom + (height < 750 ? 100 : 80) // iPhones menores sobem mais
+            : 100 // iPhones antigos sem notch
+          : height < 750
+          ? 90 // Android pequeno
+          : 70, // Android normal
+    },
+  ]}
+  onPress={() => {
+    vibrarMedio();
+    setModalCriacaoVisivel(true);
+  }}
+>
+  <MaterialCommunityIcons name="plus" size={30} color="#FFF" />
+</TouchableOpacity>
       ) : null}
 
       <ModalCriacao

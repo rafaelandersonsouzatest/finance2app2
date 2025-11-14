@@ -1,5 +1,5 @@
 // ======================================================
-// 👥 GerenciarMembrosModal.js — versão unificada e estilizada
+// 👥 GerenciarMembrosModal.js — versão com subcoleção por usuário
 // ======================================================
 import React, { useState, useEffect } from "react";
 import {
@@ -22,12 +22,14 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { useAuth } from "../auth/useAuth";
 import { colors } from "../styles/colors";
 import { globalStyles } from "../styles/globalStyles";
 import { vibrarLeve, vibrarSucesso } from "../utils/haptics";
 import AlertaModal from "./AlertaModal";
 
 export const GerenciarMembrosModal = ({ visivel, onFechar, onAtualizarLista }) => {
+  const { user } = useAuth(); // ✅ pega o usuário logado
   const [membros, setMembros] = useState([]);
   const [novoNome, setNovoNome] = useState("");
   const [carregando, setCarregando] = useState(false);
@@ -36,7 +38,7 @@ export const GerenciarMembrosModal = ({ visivel, onFechar, onAtualizarLista }) =
     titulo: "",
     mensagem: "",
     icone: "alert-circle-outline",
-    corIcone: colors.expense,
+    corIcone: colors.gasto,
     botoes: [],
   });
 
@@ -44,12 +46,14 @@ export const GerenciarMembrosModal = ({ visivel, onFechar, onAtualizarLista }) =
   // 🔹 Carregar membros
   // ======================================================
   useEffect(() => {
-    if (visivel) carregarMembros();
-  }, [visivel]);
+    if (visivel && user?.uid) carregarMembros();
+  }, [visivel, user]);
 
   const carregarMembros = async () => {
     try {
-      const snapshot = await getDocs(collection(db, "membros"));
+      if (!user?.uid) return;
+      const ref = collection(db, "users", user.uid, "membros");
+      const snapshot = await getDocs(ref);
       const lista = snapshot.docs.map((doc) => ({
         id: doc.id,
         nome: doc.data().nome || "Sem nome",
@@ -72,7 +76,7 @@ export const GerenciarMembrosModal = ({ visivel, onFechar, onAtualizarLista }) =
         titulo: "Campo vazio",
         mensagem: "Digite um nome antes de adicionar.",
         icone: "alert-circle-outline",
-        corIcone: colors.expense,
+        corIcone: colors.gasto,
       });
       return;
     }
@@ -89,9 +93,11 @@ export const GerenciarMembrosModal = ({ visivel, onFechar, onAtualizarLista }) =
       return;
     }
 
+    if (!user?.uid) return;
+
     setCarregando(true);
     try {
-      await addDoc(collection(db, "membros"), {
+      await addDoc(collection(db, "users", user.uid, "membros"), {
         nome,
         ativo: true,
         criadoEm: serverTimestamp(),
@@ -107,7 +113,7 @@ export const GerenciarMembrosModal = ({ visivel, onFechar, onAtualizarLista }) =
         titulo: "Erro",
         mensagem: "Não foi possível adicionar o membro.",
         icone: "alert-circle-outline",
-        corIcone: colors.expense,
+        corIcone: colors.gasto,
       });
     } finally {
       setCarregando(false);
@@ -118,6 +124,8 @@ export const GerenciarMembrosModal = ({ visivel, onFechar, onAtualizarLista }) =
   // 🔹 Excluir membro
   // ======================================================
   const handleExcluir = (id, nome) => {
+    if (!user?.uid) return;
+
     setAlerta({
       visivel: true,
       titulo: "Excluir membro",
@@ -134,7 +142,7 @@ export const GerenciarMembrosModal = ({ visivel, onFechar, onAtualizarLista }) =
           style: "destructive",
           onPress: async () => {
             try {
-              await deleteDoc(doc(db, "membros", id));
+              await deleteDoc(doc(db, "users", user.uid, "membros", id));
               setMembros((prev) => prev.filter((m) => m.id !== id));
               vibrarLeve();
               setAlerta((a) => ({ ...a, visivel: false }));
@@ -146,7 +154,7 @@ export const GerenciarMembrosModal = ({ visivel, onFechar, onAtualizarLista }) =
                 titulo: "Erro",
                 mensagem: "Não foi possível excluir o membro.",
                 icone: "alert-circle-outline",
-                corIcone: colors.expense,
+                corIcone: colors.gasto,
               });
             }
           },
@@ -163,7 +171,7 @@ export const GerenciarMembrosModal = ({ visivel, onFechar, onAtualizarLista }) =
       style={[
         globalStyles.listItem,
         {
-          borderLeftColor: colors.income,
+          borderLeftColor: colors.entrada,
           borderLeftWidth: 4,
           flexDirection: "row",
           alignItems: "center",
@@ -210,7 +218,6 @@ export const GerenciarMembrosModal = ({ visivel, onFechar, onAtualizarLista }) =
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={[globalStyles.modalContainer, { padding: 20 }]}
       >
-        {/* Modal de Alerta */}
         <AlertaModal
           visible={alerta.visivel}
           onClose={() => setAlerta((a) => ({ ...a, visivel: false }))}
@@ -221,7 +228,6 @@ export const GerenciarMembrosModal = ({ visivel, onFechar, onAtualizarLista }) =
           botoes={alerta.botoes}
         />
 
-        {/* Cabeçalho */}
         <View style={[globalStyles.modalHeader, { marginBottom: 10 }]}>
           <Text style={[globalStyles.modalTitle, { textAlign: "center" }]}>
             Gerenciar Membros
@@ -231,17 +237,12 @@ export const GerenciarMembrosModal = ({ visivel, onFechar, onAtualizarLista }) =
           </TouchableOpacity>
         </View>
 
-        {/* Campo de novo membro */}
         <View
           style={[
             globalStyles.card,
             globalStyles.row,
             globalStyles.alignCenter,
-            {
-              paddingVertical: 8,
-              paddingHorizontal: 12,
-              marginBottom: 20,
-            },
+            { paddingVertical: 8, paddingHorizontal: 12, marginBottom: 20 },
           ]}
         >
           <TextInput
@@ -256,12 +257,11 @@ export const GerenciarMembrosModal = ({ visivel, onFechar, onAtualizarLista }) =
             <MaterialCommunityIcons
               name="plus-circle"
               size={28}
-              color={colors.income}
+              color={colors.entrada}
             />
           </TouchableOpacity>
         </View>
 
-        {/* Lista de membros */}
         <FlatList
           data={membros}
           keyExtractor={(item) => item.id}
@@ -275,8 +275,6 @@ export const GerenciarMembrosModal = ({ visivel, onFechar, onAtualizarLista }) =
           }
           contentContainerStyle={{ paddingTop: 10 }}
         />
-
-        {/* Rodapé */}
       </KeyboardAvoidingView>
     </Modal>
   );

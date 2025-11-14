@@ -1,3 +1,4 @@
+// src/components/GastoCartaoCard.js
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -97,7 +98,7 @@ const GastoCartaoCard = ({
             {!isParcelaUnica && !transacao.pago && onAdiantar && (
               <TouchableOpacity
                 style={[globalStyles.iconButton, globalStyles.iconButtonWarning, { marginRight: 8 }]}
-                onPress={(e) => { e.stopPropagation(); vibrarLeve(); onAdiantar(); }}
+                onPress={(e) => { e.stopPropagation(); vibrarLeve(); onAdiantar?.(transacao); }} // <-- passamos a transacao inteira
               >
                 <MaterialCommunityIcons name="rocket-launch-outline" size={16} color={colors.pending} />
               </TouchableOpacity>
@@ -110,11 +111,11 @@ const GastoCartaoCard = ({
               </View>
             ) : (
               <TouchableOpacity
-                style={[styles.statusButton, { backgroundColor: transacao.pago ? colors.income + '20' : colors.pending + '20' }]}
+                style={[styles.statusButton, { backgroundColor: transacao.pago ? colors.entrada + '20' : colors.pending + '20' }]}
                 onPress={(e) => { e.stopPropagation(); vibrarSucesso(); onToggleStatus?.(transacao.id, transacao.pago); }}
               >
-                <MaterialCommunityIcons name={transacao.pago ? 'check-circle' : 'calendar-clock-outline'} size={16} color={transacao.pago ? colors.income : colors.pending} />
-                <Text style={[styles.statusButtonText, { color: transacao.pago ? colors.income : colors.pending }]}>{transacao.pago ? 'Pago' : 'Aguardando'}</Text>
+                <MaterialCommunityIcons name={transacao.pago ? 'check-circle' : 'calendar-clock-outline'} size={16} color={transacao.pago ? colors.entrada : colors.pending} />
+                <Text style={[styles.statusButtonText, { color: transacao.pago ? colors.entrada : colors.pending }]}>{transacao.pago ? 'Pago' : 'Aguardando'}</Text>
               </TouchableOpacity>
             )}
           </View>

@@ -42,7 +42,7 @@ export const handleGerarFixosUtil = async (gerarDoMes, setAlerta, tipo = 'gasto'
         titulo: 'Erro',
         mensagem: `❌ Ocorreu um problema ao tentar gerar ${artigo} ${textoTipo}. Tente novamente.`,
         icone: 'alert-circle-outline',
-        corIcone: colors.expense,
+        corIcone: colors.gasto,
       },
     };
 

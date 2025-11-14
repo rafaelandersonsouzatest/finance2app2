@@ -17,6 +17,8 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { useAuth } from '../auth/useAuth';
+import { getBasePath } from '../utils/firestorePaths';
 import AlertaModal from './AlertaModal';
 
 // ------------------------------------------------------
@@ -40,15 +42,21 @@ const InfoRow = ({ icon, label, value, color = colors.textPrimary }) => (
 // ------------------------------------------------------
 // 🔹 RESUMO FINANCEIRO
 // ------------------------------------------------------
-const ResumoFinanceiro = ({ totalPago, totalReal, totalParcelas, parcelasPagas, totalDescontos = 0 }) => {
+const ResumoFinanceiro = ({
+  totalPago,
+  totalReal,
+  totalParcelas,
+  parcelasPagas,
+  totalDescontos = 0,
+}) => {
   const progresso = totalReal > 0 ? (totalPago / totalReal) * 100 : 0;
 
   return (
     <View style={globalStyles.resumoFinanceiroContainer}>
       <View style={globalStyles.rowBetween}>
-      <Text style={globalStyles.resumoFinanceiroLabel}>
-        {totalDescontos > 0 ? 'Total Pago (com descontos)' : 'Total Pago'}
-      </Text>
+        <Text style={globalStyles.resumoFinanceiroLabel}>
+          {totalDescontos > 0 ? 'Total Pago (com descontos)' : 'Total Pago'}
+        </Text>
         <Text style={globalStyles.resumoFinanceiroLabel}>Valor Total</Text>
       </View>
 
@@ -71,7 +79,9 @@ const ResumoFinanceiro = ({ totalPago, totalReal, totalParcelas, parcelasPagas, 
       </View>
 
       {totalDescontos > 0 && (
-        <View style={[globalStyles.infoRow, { justifyContent: 'space-between' }]}>
+        <View
+          style={[globalStyles.infoRow, { justifyContent: 'space-between' }]}
+        >
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <MaterialCommunityIcons
               name="cash-refund"
@@ -79,12 +89,17 @@ const ResumoFinanceiro = ({ totalPago, totalReal, totalParcelas, parcelasPagas, 
               color={colors.textTertiary}
               style={{ marginRight: 8, marginTop: -10 }}
             />
-            <Text style={[globalStyles.infoRowLabel, { color: colors.textTertiary }]}>
+            <Text
+              style={[globalStyles.infoRowLabel, { color: colors.textTertiary }]}
+            >
               Total de Descontos
             </Text>
           </View>
           <Text style={[globalStyles.infoRowValue, { color: colors.balance }]}>
-            - R$ {totalDescontos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            - R${' '}
+            {totalDescontos.toLocaleString('pt-BR', {
+              minimumFractionDigits: 2,
+            })}
           </Text>
         </View>
       )}
@@ -110,81 +125,88 @@ export default function ModalDetalhes({
   const [alerta, setAlerta] = useState({ visivel: false });
   const [totalDescontos, setTotalDescontos] = useState(0);
 
+  const { user } = useAuth();
 
   // ------------------------------------------------------
-  // 🔹 CARREGAR TOTAIS PARA EMPRÉSTIMOS
+  // 🔹 CARREGAR TOTAIS PARA EMPRÉSTIMOS E CARTÕES
   // ------------------------------------------------------
-// 🔹 CARREGAR TOTAIS PARA EMPRÉSTIMOS E CARTÕES
-useEffect(() => {
-  const carregarTotais = async () => {
-    if (!item?.idCompra) return;
+  useEffect(() => {
+    const carregarTotais = async () => {
+      if (!item?.idCompra) return;
 
-    try {
-      const nomeColecao =
-        tipo === 'emprestimo' ? 'emprestimos' :
-        tipo === 'cartao' ? 'cartoesEmprestados' :
-        null;
+      try {
+        const nomeColecao =
+          tipo === 'emprestimo'
+            ? 'emprestimos'
+            : tipo === 'cartao'
+            ? 'cartoes'
+            : null;
 
-      if (!nomeColecao) return;
+        if (!nomeColecao) return;
 
-      const parcelasSnap = await getDocs(
-        query(collection(db, nomeColecao), where('idCompra', '==', item.idCompra))
-      );
+        // ✅ Caminho com o UID do usuário
+        const basePath = getBasePath(user);
+        const parcelasSnap = await getDocs(
+          query(
+            collection(db, `${basePath}/${nomeColecao}`),
+            where('idCompra', '==', item.idCompra)
+          )
+        );
 
-      if (parcelasSnap.empty) {
-        setTotalReal(0);
-        setTotalPago(0);
-        setParcelasPagas(0);
-        setTotalParcelas(0);
-        return;
+        if (parcelasSnap.empty) {
+          setTotalReal(0);
+          setTotalPago(0);
+          setParcelasPagas(0);
+          setTotalParcelas(0);
+          return;
+        }
+
+        const parcelas = parcelasSnap.docs.map((d) => d.data());
+
+        const somaDescontos = parcelas.reduce(
+          (acc, p) => acc + (parseFloat(p.descontoAplicado) || 0),
+          0
+        );
+        setTotalDescontos(somaDescontos);
+
+        const somaTotal = parcelas.reduce(
+          (acc, p) => acc + (parseFloat(p.valor) || 0),
+          0
+        );
+
+        const somaPagas = parcelas.reduce(
+          (acc, p) =>
+            acc +
+            ((p.pago === true || p.adiantada === true
+              ? parseFloat(p.valor)
+              : 0) || 0),
+          0
+        );
+
+        const pagas = parcelas.filter((p) => p.pago || p.adiantada).length;
+
+        setTotalReal(somaTotal);
+        setTotalPago(somaPagas);
+        setParcelasPagas(pagas);
+        setTotalParcelas(parcelas.length);
+      } catch (err) {
+        console.error('Erro ao calcular totais:', err);
+        setAlerta({
+          visivel: true,
+          titulo: 'Erro ao carregar dados',
+          mensagem: 'Não foi possível calcular os totais.',
+          icone: 'wifi-off',
+          corIcone: colors.error,
+          textoBotao: 'Entendi',
+        });
       }
+    };
 
-      const parcelas = parcelasSnap.docs.map((d) => d.data());
-
-      // 🔹 Descontos (se houver)
-      const somaDescontos = parcelas.reduce(
-        (acc, p) => acc + (parseFloat(p.descontoAplicado) || 0),
-        0
-      );
-      setTotalDescontos(somaDescontos);
-
-      // 🔹 Totais reais
-      const somaTotal = parcelas.reduce(
-        (acc, p) => acc + (parseFloat(p.valor) || 0),
-        0
-      );
-
-      const somaPagas = parcelas.reduce(
-        (acc, p) => acc + ((p.pago === true || p.adiantada === true) ? parseFloat(p.valor) || 0 : 0),
-        0
-      );
-
-      const pagas = parcelas.filter((p) => p.pago || p.adiantada).length;
-
-      setTotalReal(somaTotal);
-      setTotalPago(somaPagas);
-      setParcelasPagas(pagas);
-      setTotalParcelas(parcelas.length);
-    } catch (err) {
-      console.error('Erro ao calcular totais:', err);
-      setAlerta({
-        visivel: true,
-        titulo: 'Erro ao carregar dados',
-        mensagem: 'Não foi possível calcular os totais.',
-        icone: 'wifi-off',
-        corIcone: colors.error,
-        textoBotao: 'Entendi',
-      });
-    }
-  };
-
-  if (visible && (tipo === 'emprestimo' || tipo === 'cartao')) carregarTotais();
-}, [visible, item, tipo]);
+    if (visible && (tipo === 'emprestimo' || tipo === 'cartao'))
+      carregarTotais();
+  }, [visible, item, tipo, user]);
 
   if (!visible) return null;
-
-  const statusCor = item?.pago ? colors.balance : colors.pending;
-
 
   // ------------------------------------------------------
   // 🔹 CONTEÚDO PRINCIPAL DO MODAL
@@ -194,47 +216,58 @@ useEffect(() => {
       const dataValida = data1 || data2;
       if (!dataValida) return 'Não informada';
       const dataObj = new Date(dataValida + 'T00:00:00');
-      return isNaN(dataObj) ? 'Não informada' : dataObj.toLocaleDateString('pt-BR');
+      return isNaN(dataObj)
+        ? 'Não informada'
+        : dataObj.toLocaleDateString('pt-BR');
     };
-    const desconto = item?.descontoAplicado ? Number(item.descontoAplicado) : 0;
-const valorIcon = desconto > 0 ? 'cash-minus' : 'cash';
-const valorColor = desconto > 0 ? colors.warning : colors.expense;
 
+    const desconto = item?.descontoAplicado ? Number(item.descontoAplicado) : 0;
+    const valorIcon = desconto > 0 ? 'cash-minus' : 'cash';
+    const valorColor = desconto > 0 ? colors.warning : colors.gasto;
 
     switch (tipo) {
       case 'entrada':
         return (
           <>
             <InfoRow
-  icon="cash"
-  label="Valor"
-  value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-  color={colors.income}
-/>
-<InfoRow icon="shape-outline" label="Categoria" value={item.categoria || 'Não informada'} />
+              icon="cash"
+              label="Valor"
+              value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+              })}`}
+              color={colors.entrada}
+            />
+            <InfoRow
+              icon="shape-outline"
+              label="Categoria"
+              value={item.categoria || 'Não informada'}
+            />
 
-{item.pago ? (
-  <InfoRow
-    icon="calendar-check"
-    label="Data de Recebimento"
-    value={formatarData(item.dataPagamento, item.data)}
-    color={colors.balance}
-  />
-) : (
-  <InfoRow
-    icon="calendar-outline"
-    label="Data Prevista de Recebimento"
-    value={formatarData(item.data, item.dataPagamento)}
-  />
-)}
+            {item.pago ? (
+              <InfoRow
+                icon="calendar-check"
+                label="Data de Recebimento"
+                value={formatarData(item.dataPagamento, item.data)}
+                color={colors.balance}
+              />
+            ) : (
+              <InfoRow
+                icon="calendar-outline"
+                label="Data Prevista de Recebimento"
+                value={formatarData(item.data, item.dataPagamento)}
+              />
+            )}
 
-<InfoRow
-  icon={item.pago ? 'check-circle-outline' : 'alert-circle-outline'}
-  label="Status"
-  value={item.pago ? 'Recebido' : 'Pendente'}
-  color={item.pago ? colors.balance : colors.pending}
-/>
-
+            <InfoRow
+              icon={
+                item.pago
+                  ? 'check-circle-outline'
+                  : 'alert-circle-outline'
+              }
+              label="Status"
+              value={item.pago ? 'Recebido' : 'Pendente'}
+              color={item.pago ? colors.balance : colors.pending}
+            />
           </>
         );
 
@@ -242,138 +275,173 @@ const valorColor = desconto > 0 ? colors.warning : colors.expense;
         return (
           <>
             <InfoRow
-  icon="cash"
-  label="Valor"
-  value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-  color={colors.expense}
-/>
-<InfoRow icon="shape-outline" label="Categoria" value={item.categoria || 'Não informada'} />
+              icon="cash"
+              label="Valor"
+              value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+              })}`}
+              color={colors.gasto}
+            />
+            <InfoRow
+              icon="shape-outline"
+              label="Categoria"
+              value={item.categoria || 'Não informada'}
+            />
 
-{item.pago ? (
-  <InfoRow
-    icon="calendar-check"
-    label="Data de Pagamento"
-    value={formatarData(item.dataPagamento, item.dataVencimento)}
-    color={colors.balance}
-  />
-) : (
-  <InfoRow
-    icon="calendar-outline"
-    label="Data de Vencimento"
-    value={formatarData(item.dataVencimento, item.dataPagamento)}
-  />
-)}
+            {item.pago ? (
+              <InfoRow
+                icon="calendar-check"
+                label="Data de Pagamento"
+                value={formatarData(item.dataPagamento, item.dataVencimento)}
+                color={colors.balance}
+              />
+            ) : (
+              <InfoRow
+                icon="calendar-outline"
+                label="Data de Vencimento"
+                value={formatarData(item.dataVencimento, item.dataPagamento)}
+              />
+            )}
 
-<InfoRow
-  icon={item.pago ? 'check-circle-outline' : 'alert-circle-outline'}
-  label="Status"
-  value={item.pago ? 'Pago' : 'Pendente'}
-  color={item.pago ? colors.balance : colors.pending}
-/>
-
+            <InfoRow
+              icon={
+                item.pago
+                  ? 'check-circle-outline'
+                  : 'alert-circle-outline'
+              }
+              label="Status"
+              value={item.pago ? 'Pago' : 'Pendente'}
+              color={item.pago ? colors.balance : colors.pending}
+            />
           </>
         );
 
       case 'cartao':
         return (
           <>
-<InfoRow
-  icon={valorIcon}
-  label={desconto > 0 ? 'Valor com Desconto' : 'Valor da Parcela'}
-  value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-  color={valorColor}
-/>
+            <InfoRow
+              icon={valorIcon}
+              label={desconto > 0 ? 'Valor com Desconto' : 'Valor da Parcela'}
+              value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+              })}`}
+              color={valorColor}
+            />
 
-{desconto > 0 && (
-  <InfoRow
-    icon="sale"
-    label="Desconto Aplicado"
-    value={`- R$ ${desconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-    color={colors.success}
-  />
-)}
+            {desconto > 0 && (
+              <InfoRow
+                icon="sale"
+                label="Desconto Aplicado"
+                value={`- R$ ${desconto.toLocaleString('pt-BR', {
+                  minimumFractionDigits: 2,
+                })}`}
+                color={colors.success}
+              />
+            )}
 
-<InfoRow icon="credit-card-outline" label="Cartão" value={item.cartao || 'Não informado'} />
-<InfoRow icon="chart-donut" label="Progresso" value={`${item.parcelaAtual} de ${item.totalParcelas}`} />
+            <InfoRow
+              icon="credit-card-outline"
+              label="Cartão"
+              value={item.cartao || 'Não informado'}
+            />
+            <InfoRow
+              icon="chart-donut"
+              label="Progresso"
+              value={`${item.parcelaAtual} de ${item.totalParcelas}`}
+            />
 
-{item.pago ? (
-  <InfoRow
-    icon="calendar-check"
-    label="Data de Pagamento"
-    value={formatarData(item.dataPagamento, item.dataVencimento)}
-    color={colors.balance}
-  />
-) : (
-  <InfoRow
-    icon="calendar-outline"
-    label="Vencimento da Parcela"
-    value={formatarData(item.dataVencimento, item.dataPagamento)}
-  />
-)}
+            {item.pago ? (
+              <InfoRow
+                icon="calendar-check"
+                label="Data de Pagamento"
+                value={formatarData(item.dataPagamento, item.dataVencimento)}
+                color={colors.balance}
+              />
+            ) : (
+              <InfoRow
+                icon="calendar-outline"
+                label="Vencimento da Parcela"
+                value={formatarData(item.dataVencimento, item.dataPagamento)}
+              />
+            )}
 
-<TouchableOpacity onPress={onHistoryPress}>
-  <InfoRow
-    icon="history"
-    label="Histórico da Compra"
-    value="Ver todas as parcelas"
-    color={colors.primary}
-  />
-</TouchableOpacity>
-
+            <TouchableOpacity onPress={onHistoryPress}>
+              <InfoRow
+                icon="history"
+                label="Histórico da Compra"
+                value="Ver todas as parcelas"
+                color={colors.primary}
+              />
+            </TouchableOpacity>
           </>
         );
 
       case 'emprestimo':
         return (
           <>
-<InfoRow
-  icon={valorIcon}
-  label={desconto > 0 ? 'Valor com Desconto' : 'Valor da Parcela'}
-  value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-  color={valorColor}
-/>
+            <InfoRow
+              icon={valorIcon}
+              label={desconto > 0 ? 'Valor com Desconto' : 'Valor da Parcela'}
+              value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+              })}`}
+              color={valorColor}
+            />
 
-{desconto > 0 && (
-  <InfoRow
-    icon="sale"
-    label="Desconto Aplicado"
-    value={`- R$ ${desconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-    color={colors.success}
-  />
-)}
+            {desconto > 0 && (
+              <InfoRow
+                icon="sale"
+                label="Desconto Aplicado"
+                value={`- R$ ${desconto.toLocaleString('pt-BR', {
+                  minimumFractionDigits: 2,
+                })}`}
+                color={colors.success}
+              />
+            )}
 
-<InfoRow icon="account-group-outline" label="Pessoa/Instituição" value={item.pessoa || 'Não informada'} />
-<InfoRow icon="chart-donut" label="Progresso" value={`${item.parcelaAtual} de ${item.totalParcelas}`} />
+            <InfoRow
+              icon="account-group-outline"
+              label="Pessoa/Instituição"
+              value={item.pessoa || 'Não informada'}
+            />
+            <InfoRow
+              icon="chart-donut"
+              label="Progresso"
+              value={`${item.parcelaAtual} de ${item.totalParcelas}`}
+            />
 
-{item.pago ? (
-  <InfoRow
-    icon="calendar-check"
-    label="Data de Pagamento"
-    value={formatarData(item.dataPagamento, item.dataVencimento)}
-    color={colors.balance}
-  />
-) : (
-  <InfoRow
-    icon="calendar-outline"
-    label="Vencimento da Parcela"
-    value={formatarData(item.dataVencimento, item.dataPagamento)}
-  />
-)}
+            {item.pago ? (
+              <InfoRow
+                icon="calendar-check"
+                label="Data de Pagamento"
+                value={formatarData(item.dataPagamento, item.dataVencimento)}
+                color={colors.balance}
+              />
+            ) : (
+              <InfoRow
+                icon="calendar-outline"
+                label="Vencimento da Parcela"
+                value={formatarData(item.dataVencimento, item.dataPagamento)}
+              />
+            )}
 
-<TouchableOpacity onPress={onHistoryPress}>
-  <InfoRow
-    icon="history"
-    label="Histórico da Dívida"
-    value="Ver todas as parcelas"
-    color={colors.primary}
-  />
-</TouchableOpacity>
-
+            <TouchableOpacity onPress={onHistoryPress}>
+              <InfoRow
+                icon="history"
+                label="Histórico da Dívida"
+                value="Ver todas as parcelas"
+                color={colors.primary}
+              />
+            </TouchableOpacity>
           </>
         );
 
       default:
-        return <Text style={globalStyles.infoRowLabel}>Nenhum detalhe disponível</Text>;
+        return (
+          <Text style={globalStyles.infoRowLabel}>
+            Nenhum detalhe disponível
+          </Text>
+        );
     }
   };
 
@@ -382,29 +450,50 @@ const valorColor = desconto > 0 ? colors.warning : colors.expense;
   // ------------------------------------------------------
   return (
     <>
-      <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <Modal
+        visible={visible}
+        animationType="slide"
+        transparent
+        onRequestClose={onClose}
+      >
         <View style={globalStyles.modalOverlay}>
           <View style={globalStyles.modalContainer}>
             <View style={globalStyles.modalHeader}>
-              <Text style={globalStyles.modalTitle}>{item.descricao || item.nome || 'Detalhes'}</Text>
+              <Text style={globalStyles.modalTitle}>
+                {item.descricao || item.nome || 'Detalhes'}
+              </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <TouchableOpacity onPress={() => { vibrarLeve(); onEditPress?.(item); }} style={{ marginRight: 15 }}>
-                  <MaterialCommunityIcons name="pencil-circle-outline" size={32} color={colors.textTertiary} />
+                <TouchableOpacity
+                  onPress={() => {
+                    vibrarLeve();
+                    onEditPress?.(item);
+                  }}
+                  style={{ marginRight: 15 }}
+                >
+                  <MaterialCommunityIcons
+                    name="pencil-circle-outline"
+                    size={32}
+                    color={colors.textTertiary}
+                  />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={onClose}>
-                  <MaterialCommunityIcons name="close-circle" size={32} color={colors.textTertiary} />
+                  <MaterialCommunityIcons
+                    name="close-circle"
+                    size={32}
+                    color={colors.textTertiary}
+                  />
                 </TouchableOpacity>
               </View>
             </View>
 
-            {tipo === 'emprestimo' && (
-<ResumoFinanceiro
-  totalPago={totalPago}
-  totalReal={totalReal}
-  parcelasPagas={parcelasPagas}
-  totalParcelas={totalParcelas}
-  totalDescontos={totalDescontos}
-/>
+            {(tipo === 'emprestimo' || tipo === 'cartao') && (
+              <ResumoFinanceiro
+                totalPago={totalPago}
+                totalReal={totalReal}
+                parcelasPagas={parcelasPagas}
+                totalParcelas={totalParcelas}
+                totalDescontos={totalDescontos}
+              />
             )}
 
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -414,7 +503,11 @@ const valorColor = desconto > 0 ? colors.warning : colors.expense;
         </View>
       </Modal>
 
-      <AlertaModal visible={alerta.visivel} onClose={() => setAlerta({ visivel: false })} {...alerta} />
+      <AlertaModal
+        visible={alerta.visivel}
+        onClose={() => setAlerta({ visivel: false })}
+        {...alerta}
+      />
     </>
   );
 }

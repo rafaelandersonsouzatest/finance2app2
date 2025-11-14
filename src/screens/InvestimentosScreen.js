@@ -1,18 +1,18 @@
 import { useState, useMemo } from 'react';
 import TelaPadrao from '../components/TelaPadrao';
 import DetalhesInvestimentoModal from '../components/DetalhesInvestimentoModal';
-import { useInvestments } from '../hooks/useFirestore';
+import { useInvestimentos } from '../hooks/useInvestimentos';
 
 export default function InvestimentosScreen() {
   const {
-    investments,
+    investimentos,
     addInvestment,
     updateInvestment,
     deleteInvestment,
     addTransaction,
     updateTransaction,
     deleteTransaction, 
-  } = useInvestments();
+  } = useInvestimentos();
 
   // 1. MUDANÇA: O estado agora guarda apenas o ID do investimento, não o objeto todo.
   const [selectedInvestmentId, setSelectedInvestmentId] = useState(null);
@@ -20,18 +20,18 @@ export default function InvestimentosScreen() {
 
   // 2. LÓGICA NOVA: Encontra o objeto de investimento completo e ATUALIZADO.
   // Este 'useMemo' garante que 'investimentoSelecionado' sempre tenha os dados mais recentes
-  // da lista 'investments', que é atualizada em tempo real pelo Firebase.
+  // da lista 'investimentos', que é atualizada em tempo real pelo Firebase.
   const investimentoSelecionado = useMemo(() => {
     if (!selectedInvestmentId) return null;
-    return investments.find(inv => inv.id === selectedInvestmentId);
-  }, [selectedInvestmentId, investments]); // Re-executa se o ID ou a lista mudar
+    return investimentos.find(inv => inv.id === selectedInvestmentId);
+  }, [selectedInvestmentId, investimentos]); // Re-executa se o ID ou a lista mudar
 
   const totalInvestido = useMemo(() => {
-    return investments.reduce((sum, item) => {
+    return investimentos.reduce((sum, item) => {
       const valor = Number(item?.valorAtual);
       return sum + (isNaN(valor) ? 0 : valor);
     }, 0);
-  }, [investments]);
+  }, [investimentos]);
 
 const handleAdicionar = async (novo) => {
   const investimento = {
@@ -63,7 +63,7 @@ const getIconePorCategoria = (categoria) => {
       <TelaPadrao
         titulo="Investimentos"
         tipo="investimento"
-        dados={investments}
+        dados={investimentos}
         total={totalInvestido}
         onAdd={handleAdicionar}
         onEdit={() => {}}

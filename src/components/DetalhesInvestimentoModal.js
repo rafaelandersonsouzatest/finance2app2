@@ -45,7 +45,7 @@ export default function DetalhesInvestimentoModal({
     titulo: '',
     mensagem: '',
     icone: 'alert-circle-outline',
-    corIcone: colors.expense,
+    corIcone: colors.gasto,
     botoes: [],
   });
 
@@ -221,8 +221,8 @@ export default function DetalhesInvestimentoModal({
                             {
                               color:
                                 item.tipo === 'Aporte'
-                                  ? colors.income
-                                  : colors.expense,
+                                  ? colors.entrada
+                                  : colors.gasto,
                             },
                           ]}
                         >

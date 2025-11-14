@@ -1,34 +1,48 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TouchableOpacity, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
+import { useState, useEffect } from 'react';
+import {
+  Modal,
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  ActivityIndicator,
+} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
+import { useAuth } from '../auth/useAuth';
 
-// Componente para renderizar cada linha da lista de parcelas
+// ==========================================================
+// 🧩 COMPONENTE: LINHA DE PARCELA INDIVIDUAL
+// ==========================================================
 const ParcelaItem = ({ item }) => {
   const isPago = item.pago;
   const isAdiantada = item.adiantada;
 
-  let statusIcon = "calendar-clock-outline";
+  let statusIcon = 'calendar-clock-outline';
   let statusColor = colors.pending;
-  let statusText = "Pendente";
-  let dateText = `Vence em: ${new Date(item.dataVencimento + 'T00:00:00').toLocaleDateString('pt-BR')}`;
+  let statusText = 'Pendente';
+  let dateText = `Vence em: ${
+    item.dataVencimento
+      ? new Date(item.dataVencimento + 'T00:00:00').toLocaleDateString('pt-BR')
+      : 'Data não informada'
+  }`;
 
   if (isAdiantada) {
-    statusIcon = "rocket-launch-outline";
+    statusIcon = 'rocket-launch-outline';
     statusColor = colors.chartPurple;
-    statusText = "Antecipada";
+    statusText = 'Antecipada';
     dateText = `Paga em: ${
       item.dataPagamento
         ? new Date(item.dataPagamento + 'T00:00:00').toLocaleDateString('pt-BR')
         : 'Data não registrada'
     }`;
   } else if (isPago) {
-    statusIcon = "check-circle-outline";
+    statusIcon = 'check-circle-outline';
     statusColor = colors.balance;
-    statusText = "Paga";
+    statusText = 'Paga';
     dateText = `Paga em: ${
       item.dataPagamento
         ? new Date(item.dataPagamento + 'T00:00:00').toLocaleDateString('pt-BR')
@@ -36,98 +50,248 @@ const ParcelaItem = ({ item }) => {
     }`;
   }
 
-  // 💰 Cálculo do desconto (se houver)
-  const valorOriginal = parseFloat(item.valorOriginal || item.valor || 0);
-  const valorPago = parseFloat(item.valorPago || item.valor || 0);
+  const valorOriginal = Number(item.valorOriginal ?? item.valor ?? 0);
+  const valorPago = Number(item.valorPago ?? item.valor ?? 0);
   const desconto = valorOriginal - valorPago;
-  const descontoPercentual = valorOriginal > 0 ? (desconto / valorOriginal) * 100 : 0;
+  const descontoPercentual =
+    valorOriginal > 0 ? (desconto / valorOriginal) * 100 : 0;
 
   return (
-    <View style={[styles.parcelaItemContainer, { borderLeftColor: statusColor }]}>
-      <View style={styles.parcelaInfo}>
-        <Text style={styles.parcelaNumero}>
+    <View
+      style={[
+        globalStyles.listItem,
+        { borderLeftColor: statusColor, borderLeftWidth: 4, marginBottom: 6 },
+      ]}
+    >
+      <View style={globalStyles.listItemInfo}>
+        <Text style={globalStyles.listItemTitle}>
           Parcela {item.parcelaAtual}/{item.totalParcelas}
         </Text>
-        <Text style={styles.parcelaData}>{dateText}</Text>
+        <Text style={globalStyles.listItemSubtitle}>{dateText}</Text>
 
-        {/* 💵 Exibir valores */}
         {desconto > 0 ? (
           <>
-            <Text style={[styles.parcelaValor, { color: colors.textPrimary }]}>
+            <Text
+              style={[
+                globalStyles.text,
+                { color: colors.textPrimary, marginTop: 2 },
+              ]}
+            >
               Valor Original: R$ {valorOriginal.toFixed(2)}
             </Text>
-            <Text style={[styles.parcelaValor, { color: colors.balance }]}>
+            <Text
+              style={[
+                globalStyles.text,
+                { color: colors.balance, marginTop: 1 },
+              ]}
+            >
               Pago com Desconto: R$ {valorPago.toFixed(2)} (-{descontoPercentual.toFixed(1)}%)
             </Text>
           </>
         ) : (
-          <Text style={[styles.parcelaValor, { color: colors.textPrimary }]}>
+          <Text
+            style={[
+              globalStyles.text,
+              { color: colors.textPrimary, marginTop: 2 },
+            ]}
+          >
             Valor: R$ {valorPago.toFixed(2)}
           </Text>
         )}
       </View>
 
-      <View style={styles.parcelaStatus}>
-        <MaterialCommunityIcons name={statusIcon} size={20} color={statusColor} />
-        <Text style={[styles.parcelaStatusText, { color: statusColor }]}>{statusText}</Text>
+      <View
+        style={[globalStyles.listItemActions, { alignItems: 'center' }]}
+      >
+        <MaterialCommunityIcons
+          name={statusIcon}
+          size={20}
+          color={statusColor}
+        />
+        <Text
+          style={[
+            globalStyles.listItemStatus,
+            { color: statusColor, marginTop: 4 },
+          ]}
+        >
+          {statusText}
+        </Text>
       </View>
     </View>
   );
 };
 
-// Componente principal do Modal
+// ==========================================================
+// 💰 COMPONENTE: RESUMO FINANCEIRO
+// ==========================================================
+const ResumoFinanceiro = ({
+  totalPago,
+  totalReal,
+  totalDescontos,
+  parcelasPagas,
+  totalParcelas,
+}) => {
+  const progresso = totalReal > 0 ? (totalPago / totalReal) * 100 : 0;
+
+  return (
+    <View
+      style={[
+        globalStyles.resumoFinanceiroContainer,
+        { marginVertical: 5, paddingVertical: 8 },
+      ]}
+    >
+      <View style={globalStyles.rowBetween}>
+        <Text style={globalStyles.resumoFinanceiroLabel}>Pago</Text>
+        <Text style={globalStyles.resumoFinanceiroLabel}>Total</Text>
+      </View>
+
+      <View style={globalStyles.rowBetween}>
+        <Text style={globalStyles.resumoFinanceiroValor}>
+          R$ {totalPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+        </Text>
+        <Text style={globalStyles.resumoFinanceiroValor}>
+          R$ {totalReal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+        </Text>
+      </View>
+
+      <View
+        style={[globalStyles.progressBackground, { marginTop: 6 }]}
+      >
+        <View
+          style={[
+            globalStyles.progressFill,
+            { width: `${progresso}%`, backgroundColor: colors.balance },
+          ]}
+        />
+      </View>
+
+      <Text
+        style={[
+          globalStyles.resumoFinanceiroLabel,
+          { marginTop: 2, fontSize: 13, color: colors.textSecondary },
+        ]}
+      >
+        {parcelasPagas}/{totalParcelas} pagas
+      </Text>
+
+      {totalDescontos > 0 && (
+        <Text
+          style={[
+            globalStyles.resumoFinanceiroLabel,
+            { marginTop: 3, color: colors.balance, fontSize: 13 },
+          ]}
+        >
+          Descontos: R${' '}
+          {totalDescontos.toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+          })}
+        </Text>
+      )}
+    </View>
+  );
+};
+
+// ==========================================================
+// 📦 MODAL PRINCIPAL COM RESUMO E HISTÓRICO
+// ==========================================================
 export default function ModalHistoricoParcelas({ visible, onClose, item }) {
+  const { user, membroSelecionado } = useAuth();
   const [parcelas, setParcelas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [resumo, setResumo] = useState({
+    totalPago: 0,
+    totalReal: 0,
+    totalDescontos: 0,
+    parcelasPagas: 0,
+    totalParcelas: 0,
+  });
 
   useEffect(() => {
-    // Só busca os dados se o modal estiver visível e tiver um item válido
-    if (visible && item?.idCompra && item?.collectionName) {
-      const fetchParcelas = async () => {
-        setLoading(true);
-        setError(null);
-        setParcelas([]); // Limpa parcelas anteriores
+    const fetchParcelas = async () => {
+      if (!visible || !item?.idCompra || !item?.collectionName || !user) return;
 
-        try {
-          // Cria a query para buscar todos os documentos com o mesmo idCompra
-          const q = query(
-            collection(db, item.collectionName),
-            where('idCompra', '==', item.idCompra),
-            orderBy('parcelaAtual', 'asc') // Ordena pela parcela
-          );
+      setLoading(true);
+      setError(null);
+      setParcelas([]);
 
-          const querySnapshot = await getDocs(q);
-          const dados = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          
-          setParcelas(dados);
-        } catch (err) {
-          console.error("Erro ao buscar histórico de parcelas:", err);
-          setError("Não foi possível carregar o histórico. Tente novamente.");
-        } finally {
-          setLoading(false);
-        }
-      };
+      try {
+        const usuarioDestino =
+          item?.compartilhadoCom || membroSelecionado?.uid || user.uid;
+        const path = `users/${usuarioDestino}/${item.collectionName}`;
+        const ref = collection(db, path);
+        const q = query(
+          ref,
+          where('idCompra', '==', item.idCompra),
+          orderBy('parcelaAtual', 'asc')
+        );
+        const querySnapshot = await getDocs(q);
 
-      fetchParcelas();
-    }
-  }, [visible, item]);
+        const dados = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        const totalReal = dados.reduce(
+          (acc, p) => acc + (parseFloat(p.valorOriginal || p.valor) || 0),
+          0
+        );
+        const totalPago = dados.reduce(
+          (acc, p) =>
+            acc +
+            ((p.pago === true || p.adiantada === true
+              ? parseFloat(p.valor)
+              : 0) || 0),
+          0
+        );
+        const totalDescontos = dados.reduce(
+          (acc, p) => acc + (parseFloat(p.descontoAplicado) || 0),
+          0
+        );
+        const parcelasPagas = dados.filter((p) => p.pago || p.adiantada).length;
+
+        setResumo({
+          totalPago,
+          totalReal,
+          totalDescontos,
+          parcelasPagas,
+          totalParcelas: dados.length,
+        });
+        setParcelas(dados);
+      } catch (err) {
+        console.error('❌ Erro ao carregar histórico de parcelas:', err);
+        setError('Erro ao carregar histórico.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchParcelas();
+  }, [visible, item, user, membroSelecionado]);
 
   const renderContent = () => {
-    if (loading) {
-      return <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: 40 }} />;
-    }
-    if (error) {
-      return <Text style={globalStyles.noDataText}>{error}</Text>;
-    }
-    if (parcelas.length === 0) {
-      return <Text style={globalStyles.noDataText}>Nenhuma parcela encontrada.</Text>;
-    }
+    if (loading)
+      return (
+        <ActivityIndicator
+          size="large"
+          color={colors.primary}
+          style={{ marginVertical: 40 }}
+        />
+      );
+    if (error) return <Text style={globalStyles.noDataText}>{error}</Text>;
+    if (parcelas.length === 0)
+      return (
+        <Text style={globalStyles.noDataText}>
+          Nenhuma parcela encontrada.
+        </Text>
+      );
+
     return (
       <FlatList
         data={parcelas}
         keyExtractor={(p) => p.id}
         renderItem={({ item }) => <ParcelaItem item={item} />}
+        ListHeaderComponent={<ResumoFinanceiro {...resumo} />}
         showsVerticalScrollIndicator={false}
       />
     );
@@ -136,64 +300,34 @@ export default function ModalHistoricoParcelas({ visible, onClose, item }) {
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={globalStyles.modalOverlay}>
-        <View style={globalStyles.modalContainer}>
+        <View style={[globalStyles.modalContainer, { maxHeight: '85%' }]}>
           <View style={globalStyles.modalHeader}>
-            <Text style={globalStyles.modalTitle} numberOfLines={2}>
-              Histórico da Compra
+            <Text style={globalStyles.modalTitle}>
+              {item?.collectionName === 'emprestimos'
+                ? 'Histórico do Empréstimo'
+                : 'Histórico da Compra'}
             </Text>
             <TouchableOpacity onPress={onClose}>
-              <MaterialCommunityIcons name="close-circle" size={32} color={colors.textTertiary} />
+              <MaterialCommunityIcons
+                name="close-circle"
+                size={32}
+                color={colors.textTertiary}
+              />
             </TouchableOpacity>
           </View>
-          {/* Subtítulo com a descrição da compra */}
-          <Text style={[globalStyles.modalSubtitle, { marginTop: -10, marginBottom: 15 }]}>
+
+          <Text
+            style={[
+              globalStyles.modalSubtitle,
+              { marginTop: -10, marginBottom: 10 },
+            ]}
+          >
             {item?.descricao || ''}
           </Text>
-          
+
           {renderContent()}
         </View>
       </View>
     </Modal>
   );
 }
-
-// Estilos específicos para este modal
-const styles = StyleSheet.create({
-  parcelaItemContainer: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderLeftWidth: 4,
-  },
-  parcelaInfo: {
-    flex: 1,
-  },
-  parcelaNumero: {
-    color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  parcelaData: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    marginTop: 4,
-  },
-  parcelaStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  parcelaStatusText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-    parcelaValor: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-
-});

@@ -1,8 +1,8 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import EntradasScreen from '../screens/EntradasScreen';
-import GastosFixosScreen from '../screens/GastosFixosScreen';
+import GastosScreen from '../screens/GastosScreen';
 import EmprestimosScreen from '../screens/EmprestimosScreen';
-import CartoesEmprestadosScreen from '../screens/CartoesEmprestadosScreen';
+import CartoesScreen from '../screens/CartoesScreen';
 import InvestimentosScreen from '../screens/InvestimentosScreen';
 import ResumoMensal from '../screens/ResumoMensal';
 import CustomTabBar from '../components/CustomTabBar';
@@ -52,7 +52,7 @@ export default function BottomTabs() {
       />
       {/* <Tab.Screen 
         name="Cartão" 
-        component={CartoesEmprestadosScreen}
+        component={CartoesScreen}
         options={{
           tabBarLabel: 'Cartões',
           tabBarIcon: 'card-outline',

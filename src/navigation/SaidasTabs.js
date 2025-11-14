@@ -1,7 +1,6 @@
-import React from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
-import GastosFixosScreen from '../screens/GastosFixosScreen';
+import GastosScreen from '../screens/GastosScreen';
 import EmprestimosScreen from '../screens/EmprestimosScreen';
 import CartoesScreen from '../screens/CartoesScreen';
 import { globalStyles } from '../styles/globalStyles';
@@ -48,7 +47,7 @@ export default function SaidasTabs() {
         tabBarPressColor: colors.primary + '15',
       }}
     >
-      <Tab.Screen name="Gastos Fixos" component={GastosFixosScreen} />
+      <Tab.Screen name="Gastos" component={GastosScreen} />
       <Tab.Screen name="Empréstimos" component={EmprestimosScreen} />
       <Tab.Screen name="Cartões" component={CartoesScreen} />
     </Tab.Navigator>

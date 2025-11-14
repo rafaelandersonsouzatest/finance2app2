@@ -91,7 +91,7 @@ export default function ModalParcelasAdiantamento({
             </Text>
           </View>
         </View>
-        <Text style={[globalStyles.listItemAmount, { color: colors.expense }]}>
+        <Text style={[globalStyles.listItemAmount, { color: colors.gasto }]}>
           R$ {item.valor.toFixed(2)}
         </Text>
       </TouchableOpacity>
@@ -99,7 +99,7 @@ export default function ModalParcelasAdiantamento({
   };
 
   return (
-    <Modal visible={visivel} transparent animationType="fade" onRequestClose={aoFechar}>
+    <Modal visible={!!visivel} transparent animationType="fade" onRequestClose={aoFechar}>
       <View style={globalStyles.fullScreenModalOverlay}>
         <View style={[globalStyles.managementModalContainer, { maxHeight: '85%' }]}>
           <View style={globalStyles.managementModalHeader}>
@@ -137,6 +137,11 @@ export default function ModalParcelasAdiantamento({
               <>
                 <Text style={globalStyles.label}>Data personalizada:</Text>
                 <SeletorData
+                  value={`${String(dataEscolhida.mes).padStart(2, '0')}-${dataEscolhida.ano}`}
+                  onChangeText={(novaData) => {
+                    const [dia, mes, ano] = novaData.split('-');
+                    setDataEscolhida({ mes: parseInt(mes), ano: parseInt(ano) });
+                  }}
                 />
               </>
             )}

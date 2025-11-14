@@ -15,8 +15,8 @@ export const colors = {
   textTertiary: '#BBBBBB',
 
   // --- Valores financeiros ---
-  income: '#4FC3F7',
-  expense: '#FF8A65',
+  entrada: '#4FC3F7',
+  gasto: '#FF8A65',
   balance: '#81C784',
   warning: '#AB47BC',
 

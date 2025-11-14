@@ -1,11 +1,9 @@
-// components/SecaoInvestimentos.js
-import React from 'react';
 import { View, Text } from 'react-native';
 import { colors } from '../styles/colors';
 import { globalStyles } from '../styles/globalStyles';
 import { useVisibility } from '../contexts/VisibilityContext'; // 👈 novo
 
-const SecaoInvestimentos = ({ investments = [] }) => {
+const SecaoInvestimentos = ({ investimentos = [] }) => {
   const { formatValue } = useVisibility(); // 👈 usar o contexto
 
   const getProgressPercentage = (invested, target) => {
@@ -16,12 +14,12 @@ const SecaoInvestimentos = ({ investments = [] }) => {
   };
 
   const getProgressColor = (percentage) => {
-    if (percentage < 33) return colors.expense;
+    if (percentage < 33) return colors.gasto;
     if (percentage < 66) return colors.pending;
     return colors.balance;
   };
 
-  if (!investments || investments.length === 0) {
+  if (!investimentos || investimentos.length === 0) {
     return (
       <View style={[globalStyles.card, globalStyles.mb16]}>
         <Text style={globalStyles.subtitle}>Investimentos</Text>
@@ -35,7 +33,7 @@ const SecaoInvestimentos = ({ investments = [] }) => {
       <Text style={globalStyles.subtitle}>Investimentos</Text>
 
       <View style={globalStyles.gap16}>
-        {investments.map((investment, index) => {
+        {investimentos.map((investment, index) => {
           const progress = getProgressPercentage(investment.valorAtual, investment.meta);
           const progressColor = getProgressColor(progress);
 

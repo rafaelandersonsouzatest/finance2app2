@@ -62,11 +62,11 @@ const createDonutSegmentPath = (cx, cy, outerR, innerR, startAngle, endAngle) =>
 };
 // --- Fim das Funções Auxiliares ---
 
-export default function SecaoEntradas({ incomes = [] }) {
+export default function SecaoEntradas({ entradas = [] }) {
   const { formatValue } = useVisibility(); // 👈 usar contexto
 
-    const normalizedIncomes = useMemo(() => {
-      return incomes.map((i) => {
+    const normalizedEntradas = useMemo(() => {
+      return entradas.map((i) => {
         const memberName = i.member?.nome || i.membro?.nome || i.fonte?.nome || i.source?.nome || i.member || i.membro || i.fonte || i.source || 'Desconhecido';
         return {
           member: String(memberName),
@@ -74,10 +74,10 @@ export default function SecaoEntradas({ incomes = [] }) {
           paid: i.pago === true,
         };
       });
-    }, [incomes]);
+    }, [entradas]);
 
   const groupedByMember = useMemo(() => {
-    return normalizedIncomes.reduce((acc, it) => {
+    return normalizedEntradas.reduce((acc, it) => {
       const key = it.member;
       if (!acc[key]) acc[key] = { total: 0, paid: 0, awaiting: 0 };
       acc[key].total += it.amount;
@@ -85,7 +85,7 @@ export default function SecaoEntradas({ incomes = [] }) {
       else acc[key].awaiting += it.amount;
       return acc;
     }, {});
-  }, [normalizedIncomes]);
+  }, [normalizedEntradas]);
 
   const totalRealizado = useMemo(
     () => Object.values(groupedByMember).reduce((sum, v) => sum + v.paid, 0),
@@ -210,7 +210,7 @@ segs.push({
 
         <View style={[globalStyles.centerContent, { position: 'absolute' }]}>
           <Text style={globalStyles.textSecondary}>Recebido</Text>
-          <Text style={[globalStyles.value, globalStyles.valueIncome, { fontSize: 22 }]}>
+          <Text style={[globalStyles.value, globalStyles.valorEentrada, { fontSize: 22 }]}>
             {formatValue(totalRealizado)} {/* 👈 antes usava toLocaleString */}
           </Text>
           <Text style={globalStyles.miniCardNote}>

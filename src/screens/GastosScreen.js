@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useDateFilter } from '../contexts/DateFilterContext';
-import { useFixedExpenses } from '../hooks/useFirestore';
+import { useGastos } from '../hooks/useGastos';
 import EstatisticasComponent from '../components/EstatisticasComponent';
 import ListItemGasto from '../components/ListItemGasto';
 import ModalCriacao from '../components/ModalCriacao';
@@ -9,7 +9,7 @@ import GerenciarModelosModal from '../components/GerenciarModelosModal';
 import AlertaModal from '../components/AlertaModal';
 import { handleGerarFixosUtil } from '../utils/handleGerarFixos';
 
-export default function GastosFixosScreen({
+export default function GastosScreen({
   isEmbedded = false,
   onPressItem,       
   onEditItem,        
@@ -17,34 +17,34 @@ export default function GastosFixosScreen({
 }) {
   const { selectedMonth, selectedYear } = useDateFilter();
   const {
-    fixedExpenses,
-    addFixedExpense,
-    updateFixedExpense,
-    deleteFixedExpense,
+    gastos,
+    addGasto,
+    updateGasto,
+    deleteGasto,
     gerarFixosDoMes,
-  } = useFixedExpenses(selectedMonth, selectedYear);
+  } = useGastos(selectedMonth, selectedYear);
 
   const [modalCriacaoVisivel, setModalCriacaoVisivel] = useState(false);
   const [modalModelosVisivel, setModalModelosVisivel] = useState(false);
   const [alerta, setAlerta] = useState({ visivel: false, titulo: '', mensagem: '', botoes: [] });
 
   const total = useMemo(
-    () => fixedExpenses.filter((g) => g.pago).reduce((s, g) => s + (Number(g.valor) || 0), 0),
-    [fixedExpenses]
+    () => gastos.filter((g) => g.pago).reduce((s, g) => s + (Number(g.valor) || 0), 0),
+    [gastos]
   );
 
   const estatisticas = useMemo(
     () => ({
       total,
-      pagos: fixedExpenses.filter((g) => g.pago).length,
-      emAberto: fixedExpenses.filter((g) => !g.pago).length,
-      totalItens: fixedExpenses.length,
+      pagos: gastos.filter((g) => g.pago).length,
+      emAberto: gastos.filter((g) => !g.pago).length,
+      totalItens: gastos.length,
     }),
-    [fixedExpenses, total]
+    [gastos, total]
   );
 
   const handleAdicionar = async (novoGasto) => {
-    await addFixedExpense({ ...novoGasto, mes: selectedMonth, ano: selectedYear });
+    await addGasto({ ...novoGasto, mes: selectedMonth, ano: selectedYear });
     setModalCriacaoVisivel(false);
   };
 
@@ -60,7 +60,7 @@ export default function GastosFixosScreen({
           texto: 'Excluir',
           style: 'destructive',
           onPress: async () => {
-            await deleteFixedExpense(item.id);
+            await deleteGasto(item.id);
             setAlerta({ visivel: false });
           },
         },
@@ -69,8 +69,8 @@ export default function GastosFixosScreen({
   };
 
   const handleToggleStatus = async (id) => {
-    const item = fixedExpenses.find((g) => g.id === id);
-    if (item) await updateFixedExpense(id, { ...item, pago: !item.pago });
+    const item = gastos.find((g) => g.id === id);
+    if (item) await updateGasto(id, { ...item, pago: !item.pago });
   };
 
   const handleGerarFixos = () =>
@@ -79,7 +79,7 @@ export default function GastosFixosScreen({
   return (
     <View style={{ flex: 1 }}>
 
-      {fixedExpenses.map((item) => (
+      {gastos.map((item) => (
         <ListItemGasto
           key={item.id}
           item={item}

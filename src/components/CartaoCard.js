@@ -1,3 +1,4 @@
+// src/components/CartaoCard.js
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -6,15 +7,30 @@ import { colors } from '../styles/colors';
 import GastoCartaoCard from './GastoCartaoCard';
 import { vibrarLeve } from '../utils/haptics';
 
-export default function CartaoCard({ cartao = {}, gastos = [] }) {
+import { useAdiantamento } from '../hooks/useAdiantamento';
+import ModalParcelasAdiantamento from './ModalParcelasAdiantamento';
+import AlertaModal from './AlertaModal';
+
+export default function CartaoCard({ cartao = {}, gastos = [], onToggleStatus, onDelete }) {
   const [modalVisivel, setModalVisivel] = useState(false);
+
+  // 🔹 Hook de adiantamento local (cartoes)
+  const {
+    modalAdiantamentoVisivel,
+    parcelasParaAdiantar,
+    iniciarAdiantamento,
+    confirmarAdiantamento,
+    fecharModalAdiantamento,
+    alerta,
+    setAlerta,
+  } = useAdiantamento('cartoes');
 
   // 🔹 Garantir que cartao.nome exista
   const nomeCartao = cartao.nome || 'Outro';
 
   // 🔹 Cor segura
   const corCartao =
-    colors.byInstitution[nomeCartao.trim()] || colors.byInstitution.Default;
+    colors.byInstitution?.[nomeCartao.trim()] || colors.byInstitution?.Default || '#666';
 
   // 🔹 Total gasto seguro
   const totalGasto = gastos.reduce((acc, g) => acc + (g.valor || 0), 0);
@@ -24,6 +40,8 @@ export default function CartaoCard({ cartao = {}, gastos = [] }) {
     vibrarLeve();
     setModalVisivel(true);
   };
+
+  const handleClose = () => setModalVisivel(false);
 
   return (
     <>
@@ -43,6 +61,7 @@ export default function CartaoCard({ cartao = {}, gastos = [] }) {
         <View style={globalStyles.rowBetween}>
           <Text
             style={[globalStyles.cardTitle, { color: '#fff', fontWeight: '700', flex: 1 }]}
+            numberOfLines={1}
           >
             {nomeCartao}
           </Text>
@@ -95,7 +114,7 @@ export default function CartaoCard({ cartao = {}, gastos = [] }) {
               <Text style={[globalStyles.modalTitle, { color: '#fff' }]}>
                 {nomeCartao}
               </Text>
-              <TouchableOpacity onPress={() => setModalVisivel(false)}>
+              <TouchableOpacity onPress={handleClose}>
                 <MaterialCommunityIcons name="close" size={22} color="#fff" />
               </TouchableOpacity>
             </View>
@@ -115,8 +134,9 @@ export default function CartaoCard({ cartao = {}, gastos = [] }) {
                     key={gasto.id || index}
                     transacao={gasto}
                     corCartao={corCartao}
-                    onToggleStatus={() => {}}
-                    onAdiantar={() => {}}
+                    onToggleStatus={(id, pago) => onToggleStatus?.(id, pago)}
+                    onAdiantar={(transacao) => iniciarAdiantamento(transacao)} // <-- integra com o hook
+                    onPressItem={() => {}}
                   />
                 ))
               ) : (
@@ -133,6 +153,20 @@ export default function CartaoCard({ cartao = {}, gastos = [] }) {
           </View>
         </View>
       </Modal>
+
+      {/* Modal de adiantamento local (igual ao da tela de empréstimos) */}
+      <ModalParcelasAdiantamento
+        visivel={modalAdiantamentoVisivel}
+        aoFechar={fecharModalAdiantamento}
+        parcelasFuturas={parcelasParaAdiantar}
+        aoConfirmar={confirmarAdiantamento}
+      />
+
+      <AlertaModal
+        visible={alerta?.visivel}
+        onClose={() => setAlerta({ ...alerta, visivel: false })}
+        {...alerta}
+      />
     </>
   );
 }

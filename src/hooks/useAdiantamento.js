@@ -1,15 +1,20 @@
+// src/hooks/useAdiantamento.js
 import { useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { useCartoesEmprestados, useLoans } from './useFirestore';
 import { useDateFilter } from '../contexts/DateFilterContext';
+import { useAuth } from '../auth/useAuth';
+import { getBasePath } from '../utils/firestorePaths';
+import { useCartoes } from './useCartoes';
+import { useEmprestimos } from './useEmprestimos';
 
-export const useAdiantamento = (collectionName) => {
+export const useAdiantamento = (collectionName, anteciparParcelasEmprestimoExternas) => {
   const [modalVisivel, setModalVisivel] = useState(false);
   const [parcelasFuturas, setParcelasFuturas] = useState([]);
   const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+  const { selectedMonth, selectedYear } = useDateFilter();
 
-  // 🔹 Estado do alerta modal padronizado
   const [alerta, setAlerta] = useState({
     visivel: false,
     titulo: '',
@@ -19,22 +24,17 @@ export const useAdiantamento = (collectionName) => {
     botoes: [],
   });
 
-  // 🔹 Mês/ano atuais
-  const { selectedMonth, selectedYear } = useDateFilter();
+  // 🔹 Hooks separados, mas só usamos o que for necessário
+  const { anteciparParcelas: anteciparParcelasCartao } = useCartoes(selectedMonth, selectedYear);
+  const { anteciparParcelasEmprestimo } = useEmprestimos(selectedMonth, selectedYear);
 
-  // 🔹 Hooks de Firestore
-  const { anteciparParcelas } = useCartoesEmprestados(selectedMonth, selectedYear);
-  const { anteciparParcelasEmprestimo } = useLoans(selectedMonth, selectedYear);
-
-  // ===============================================
   // 🔹 Buscar parcelas futuras para antecipação
-  // ===============================================
   const iniciarAdiantamento = async (item) => {
     if (!item || !item.idCompra) {
       setAlerta({
         visivel: true,
         titulo: 'Erro',
-        mensagem: 'Este item não pode ser antecipado pois não possui um ID de compra agrupador.',
+        mensagem: 'Este item não pode ser antecipado, pois não possui um identificador de compra (idCompra).',
         icone: 'alert-circle-outline',
         corIcone: '#E53935',
         botoes: [{ texto: 'Entendi', onPress: () => setAlerta({ visivel: false }) }],
@@ -44,7 +44,12 @@ export const useAdiantamento = (collectionName) => {
 
     setLoading(true);
     try {
-      const q = query(collection(db, collectionName), where('idCompra', '==', item.idCompra));
+      const basePath = getBasePath(user);
+      const q = query(
+        collection(db, `${basePath}/${collectionName}`),
+        where('idCompra', '==', item.idCompra)
+      );
+
       const snapshot = await getDocs(q);
       const todasAsParcelas = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -57,8 +62,8 @@ export const useAdiantamento = (collectionName) => {
 
       setParcelasFuturas(futuras);
       setModalVisivel(true);
-    } catch (error) {
-      console.error('Erro ao buscar parcelas para antecipação:', error);
+    } catch (err) {
+      console.error('Erro ao buscar parcelas:', err);
       setAlerta({
         visivel: true,
         titulo: 'Erro ao buscar parcelas',
@@ -72,50 +77,50 @@ export const useAdiantamento = (collectionName) => {
     }
   };
 
-  // ===============================================
   // 🔹 Confirmar antecipação (cartões ou empréstimos)
-  // ===============================================
   const confirmarAdiantamento = async (idsSelecionados, dataPagamento, valorComDesconto) => {
     if (!idsSelecionados.length) return;
     setLoading(true);
 
     try {
-    if (collectionName === 'cartoesEmprestados') {
-      await anteciparParcelas(idsSelecionados, dataPagamento, valorComDesconto);
+      if (collectionName === 'cartoes') {
+        await anteciparParcelasCartao(idsSelecionados, dataPagamento, valorComDesconto);
+      } else if (collectionName === 'emprestimos') {
+        const fn =
+          typeof anteciparParcelasEmprestimoExternas === 'function'
+            ? anteciparParcelasEmprestimoExternas
+            : anteciparParcelasEmprestimo;
+        await fn(idsSelecionados, dataPagamento, valorComDesconto);
+      }
+
       setAlerta({
         visivel: true,
         titulo: 'Parcelas Antecipadas',
-        mensagem: 'Parcelas de cartão antecipadas com sucesso!',
+        mensagem: 'As parcelas selecionadas foram antecipadas com sucesso!',
         icone: 'check-circle-outline',
         corIcone: '#4CAF50',
-        botoes: [{
-          texto: 'OK',
-          onPress: () => {
-            setAlerta({ visivel: false });
-            setModalVisivel(false); // 👈 fecha o modal junto
+        botoes: [
+          {
+            texto: 'OK',
+            onPress: () => {
+              setAlerta({ visivel: false });
+              setModalVisivel(false);
+            },
           },
-        }],
+        ],
       });
-    } else if (collectionName === 'emprestimos') {
-      await anteciparParcelasEmprestimo(idsSelecionados, dataPagamento, valorComDesconto);
+    } catch (err) {
+      console.error('Erro ao antecipar parcelas:', err);
       setAlerta({
         visivel: true,
-        titulo: 'Parcelas Antecipadas',
-        mensagem: 'Parcelas de empréstimo antecipadas com sucesso!',
-        icone: 'check-circle-outline',
-        corIcone: '#4CAF50',
-        botoes: [{
-          texto: 'OK',
-          onPress: () => {
-            setAlerta({ visivel: false });
-            setModalVisivel(false); // 👈 fecha o modal junto
-          },
-        }],
+        titulo: 'Erro',
+        mensagem: 'Não foi possível antecipar as parcelas. Tente novamente.',
+        icone: 'alert-circle-outline',
+        corIcone: '#E53935',
+        botoes: [{ texto: 'OK', onPress: () => setAlerta({ visivel: false }) }],
       });
-    }
     } finally {
       setLoading(false);
-      setModalVisivel(false);
     }
   };
 
@@ -124,9 +129,6 @@ export const useAdiantamento = (collectionName) => {
     setParcelasFuturas([]);
   };
 
-  // ===============================================
-  // 🔹 Retorno unificado
-  // ===============================================
   return {
     modalAdiantamentoVisivel: modalVisivel,
     parcelasParaAdiantar: parcelasFuturas,
