@@ -65,23 +65,41 @@ export default function DetalhesInvestimentoModal({
   const progresso =
     metaSegura > 0 ? Math.min(valorAtualSeguro / metaSegura, 1) : 0;
 
+  const mostrarErro = (titulo, err) => {
+    setAlerta({
+      visible: true,
+      titulo,
+      mensagem: err?.message || 'Ocorreu um erro inesperado.',
+      icone: 'alert-circle-outline',
+      corIcone: colors.gasto,
+      botoes: [
+        { texto: 'Entendi', onPress: () => setAlerta((a) => ({ ...a, visible: false })) },
+      ],
+    });
+  };
+
   const handleSalvarMovimentacao = async (novaMovimentacao) => {
-    if (movimentoEmEdicao) {
-      // editar movimentação existente
-      await updateTransaction(id, movimentoEmEdicao.id, {
-        ...movimentoEmEdicao,
-        ...novaMovimentacao,
-        valor: Number(novaMovimentacao.valor ?? 0),
-      });
-      setMovimentoEmEdicao(null);
-    } else {
-      // adicionar movimentação nova
-      await addTransaction(id, {
-        ...novaMovimentacao,
-        valor: Number(novaMovimentacao.valor ?? 0),
-      });
+    try {
+      if (movimentoEmEdicao) {
+        // editar movimentação existente
+        await updateTransaction(id, movimentoEmEdicao.id, {
+          ...movimentoEmEdicao,
+          ...novaMovimentacao,
+          valor: Number(novaMovimentacao.valor ?? 0),
+        });
+        setMovimentoEmEdicao(null);
+      } else {
+        // adicionar movimentação nova
+        await addTransaction(id, {
+          ...novaMovimentacao,
+          valor: Number(novaMovimentacao.valor ?? 0),
+        });
+      }
+      setModalMovVisible(false);
+    } catch (err) {
+      // 🔹 Mantém o modal de movimentação aberto para o usuário corrigir o valor.
+      mostrarErro('Não foi possível salvar', err);
     }
-    setModalMovVisible(false);
   };
 
   const handleLongPress = (mov) => {
@@ -105,8 +123,12 @@ export default function DetalhesInvestimentoModal({
           texto: 'Excluir',
           style: 'destructive',
           onPress: async () => {
-            await deleteTransaction(id, mov.id);
-            setAlerta((a) => ({ ...a, visible: false }));
+            try {
+              await deleteTransaction(id, mov.id);
+              setAlerta((a) => ({ ...a, visible: false }));
+            } catch (err) {
+              mostrarErro('Não foi possível excluir', err);
+            }
           },
         },
         {
@@ -284,9 +306,14 @@ export default function DetalhesInvestimentoModal({
   visivel={modalEdicaoVisible}
   aoFechar={() => setModalEdicaoVisible(false)}
   aoSalvar={async (dados) => {
-    // ✅ Corrigido: passa apenas id e dados, conforme assinatura do hook
-    await onUpdateInvestment(id, dados);
-    setModalEdicaoVisible(false);
+    try {
+      // ✅ Corrigido: passa apenas id e dados, conforme assinatura do hook
+      await onUpdateInvestment(id, dados);
+      setModalEdicaoVisible(false);
+    } catch (err) {
+      // Mantém o ModalEdicao aberto para o usuário corrigir o valor.
+      mostrarErro('Não foi possível salvar', err);
+    }
   }}
   aoExcluir={async () => {
     await onDeleteInvestment(id);

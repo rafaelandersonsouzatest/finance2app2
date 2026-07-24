@@ -68,8 +68,8 @@ export const MembroSelect = ({
   useEffect(() => {
     carregarMembros();
     if (tipo === "pessoa") carregarRecentes();
-  }, [lista, tipo, user]);
-
+  }, [lista, tipo, user?.uid]);
+  
   // =========================================================
   // 🔹 Recentes (modo pessoa)
   // =========================================================
@@ -132,8 +132,8 @@ export const MembroSelect = ({
         <Text style={globalStyles.text}>
           {membroSelecionado
             ? Array.isArray(membroSelecionado)
-              ? membroSelecionado.map((c) => c.nome).join(", ")
-              : membroSelecionado.nome
+              ? membroSelecionado.map((c) => c?.nome || c).join(", ")
+              : membroSelecionado?.nome || membroSelecionado
             : `Selecionar ${label.toLowerCase()}`}
         </Text>
         <MaterialIcons name="keyboard-arrow-down" size={24} color={colors.textSecondary} />
@@ -169,7 +169,7 @@ export const MembroSelect = ({
                 renderItem={({ item }) => (
                   <TouchableOpacity onPress={() => handleSelecionar(item)} style={globalStyles.listItem}>
                     <Text style={globalStyles.listItemTitle}>{item.nome}</Text>
-                    {membroSelecionado?.id === item.id && (
+                    {(membroSelecionado?.id || membroSelecionado) === item.id && (
                       <MaterialIcons name="check" size={20} color={colors.primary} />
                     )}
                   </TouchableOpacity>

@@ -27,15 +27,22 @@ const parseNumber = (raw) => {
   return isNaN(n) ? 0 : n;
 };
 
-// Recalcula o valor atual de um investimento
-const calcValorAtual = (valorInicial, movimentacoes = []) => {
+// 🔹 Regra de negócio: o saldo de um investimento nunca pode ficar negativo.
+// calcSaldoReal calcula o valor sem esconder nada — é essa versão que as
+// operações abaixo usam para DECIDIR se podem prosseguir. calcValorAtual
+// (com Math.max) é só a rede de segurança visual para exibir dados antigos
+// que porventura já estejam inconsistentes; não é mais a fonte da regra.
+const calcSaldoReal = (valorInicial, movimentacoes = []) => {
   const base = parseNumber(valorInicial);
-  const somaMovs = movimentacoes.reduce((acc, mov) => {
+  return movimentacoes.reduce((acc, mov) => {
     const v = parseNumber(mov.valor ?? 0);
     return acc + (mov.tipo === 'Aporte' ? v : -v);
-  }, 0);
-  return Math.max(0, base + somaMovs);
+  }, base);
 };
+
+// Recalcula o valor atual de um investimento (para exibição)
+const calcValorAtual = (valorInicial, movimentacoes = []) =>
+  Math.max(0, calcSaldoReal(valorInicial, movimentacoes));
 
 // ================================
 // 🔹 HOOK PRINCIPAL
@@ -136,7 +143,14 @@ export const useInvestimentos = () => {
       const novoValorInicial = parseNumber(
         dadosAtualizados.valorInicial ?? atual.valorInicial ?? 0
       );
-      const novoValorAtual = calcValorAtual(novoValorInicial, movs);
+
+      const saldoReal = calcSaldoReal(novoValorInicial, movs);
+      if (saldoReal < 0) {
+        throw new Error(
+          'Esse valor inicial deixaria o saldo do investimento negativo, considerando as movimentações já registradas.'
+        );
+      }
+      const novoValorAtual = saldoReal;
 
       await updateDoc(investmentRef, {
         nome: dadosAtualizados.nome || atual.nome || 'Sem nome',
@@ -193,11 +207,14 @@ export const useInvestimentos = () => {
       };
 
       const novasMovs = [...movs, novaMov];
-      const valorAtual = calcValorAtual(data.valorInicial, novasMovs);
+      const saldoReal = calcSaldoReal(data.valorInicial, novasMovs);
+      if (saldoReal < 0) {
+        throw new Error('Saldo insuficiente para essa retirada.');
+      }
 
       await updateDoc(investmentRef, {
         movimentacoes: novasMovs,
-        valorAtual,
+        valorAtual: saldoReal,
         atualizadoEm: serverTimestamp(),
       });
     } catch (err) {
@@ -233,11 +250,17 @@ export const useInvestimentos = () => {
             }
           : mov
       );
-      const valorAtual = calcValorAtual(data.valorInicial, novasMovs);
+
+      const saldoReal = calcSaldoReal(data.valorInicial, novasMovs);
+      if (saldoReal < 0) {
+        throw new Error(
+          'Essa alteração deixaria o saldo do investimento negativo.'
+        );
+      }
 
       await updateDoc(investmentRef, {
         movimentacoes: novasMovs,
-        valorAtual,
+        valorAtual: saldoReal,
         atualizadoEm: serverTimestamp(),
       });
     } catch (err) {
@@ -261,11 +284,17 @@ export const useInvestimentos = () => {
       const movs = data.movimentacoes || [];
 
       const novasMovs = movs.filter((mov) => mov.id !== transactionId);
-      const valorAtual = calcValorAtual(data.valorInicial, novasMovs);
+
+      const saldoReal = calcSaldoReal(data.valorInicial, novasMovs);
+      if (saldoReal < 0) {
+        throw new Error(
+          'Não é possível excluir: essa movimentação deixaria o saldo do investimento negativo (provavelmente há uma retirada registrada que depende dela).'
+        );
+      }
 
       await updateDoc(investmentRef, {
         movimentacoes: novasMovs,
-        valorAtual,
+        valorAtual: saldoReal,
         atualizadoEm: serverTimestamp(),
       });
     } catch (err) {

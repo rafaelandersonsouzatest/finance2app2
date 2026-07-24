@@ -1,0 +1,39 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Cada usuário só pode ler/escrever o próprio documento de perfil
+    // (users/{userId}) e tudo dentro dele: gastos, entradas, emprestimos,
+    // cartoes, investimentos, modelosDeGasto, modelosDeEntrada.
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Reserva de CPF/CNPJ usada no cadastro para checar duplicidade sem
+    // precisar consultar a coleção inteira de usuários (o que a regra acima
+    // não permite). O documento não guarda nenhum dado pessoal — só existe
+    // para responder "esse CPF/CNPJ já tem conta?" antes de criar qualquer
+    // coisa. "get" (documento específico, ID já conhecido) é liberado mesmo
+    // sem login, porque a checagem acontece antes da conta existir; "list"
+    // (consultar a coleção inteira) não é liberado em nenhum lugar, então não
+    // é possível descobrir CPFs que não sejam informados de antemão.
+    match /documentosCadastrados/{docId} {
+      allow get: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    // O caminho tenants/{tenantId} já existe no código (getBasePath) para o
+    // futuro Modo Família, mas não é usado hoje em nenhum fluxo do app.
+    // Fica bloqueado por padrão até essa fase ser implementada com regras
+    // próprias de acesso por membro do tenant.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

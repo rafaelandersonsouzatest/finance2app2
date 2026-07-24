@@ -78,14 +78,16 @@ const validarCNPJ = (cnpj) => {
 // =======================================================
 // 🔹 Validação de senha
 // =======================================================
-const validarSenha = (senha) => {
-  // 🧩 Versão COMPLETA (deixe comentada por enquanto, para testes)
-  // const regexSenhaForte =
-  //   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])[A-Za-z\d!@#$%^&*(),.?":{}|<>]{8,}$/;
-  // return regexSenhaForte.test(senha);
+// Em produção, exige senha forte de verdade (8+ caracteres, maiúscula,
+// minúscula, número e símbolo — os mesmos critérios já mostrados na barra de
+// força abaixo). Em desenvolvimento (__DEV__), mantemos só o mínimo de 6
+// caracteres para facilitar testes.
+const REGEX_SENHA_FORTE =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])[A-Za-z\d!@#$%^&*(),.?":{}|<>]{8,}$/;
 
-  // 💡 Versão SIMPLIFICADA (fase de testes)
-  return senha.length >= 6;
+const validarSenha = (senha) => {
+  if (__DEV__) return senha.length >= 6;
+  return REGEX_SENHA_FORTE.test(senha);
 };
 
 // =======================================================
@@ -138,6 +140,15 @@ export default function RegisterScreen({ navigation }) {
         tipo: "error",
       });
 
+    if (!validarSenha(senha))
+      return global.alertaGlobal({
+        titulo: "Erro",
+        mensagem: __DEV__
+          ? "Senha muito curta. Use pelo menos 6 caracteres."
+          : "Senha muito fraca. Use pelo menos 8 caracteres, com maiúscula, minúscula, número e símbolo.",
+        tipo: "error",
+      });
+
     if (!docValido)
       return global.alertaGlobal({
         titulo: "Erro",
@@ -148,12 +159,7 @@ export default function RegisterScreen({ navigation }) {
     try {
       setLoading(true);
       await register(email.trim(), senha, cleanDoc, tipoDoc, apelido);
-      global.alertaGlobal({
-        titulo: "Sucesso",
-        mensagem: "Conta criada com sucesso!",
-        tipo: "success",
-      });
-      navigation.navigate("Login");
+
     } catch (e) {
       console.error("Erro ao registrar:", e);
 
@@ -162,8 +168,6 @@ export default function RegisterScreen({ navigation }) {
         mensagem: e?.message || "Falha ao registrar. Tente novamente.",
         tipo: "error",
       });
-
-
     } finally {
       setLoading(false);
     }
@@ -422,6 +426,17 @@ export default function RegisterScreen({ navigation }) {
         keyboardType="numeric"
         maxLength={18}
       />
+
+      <Text
+        style={{
+          color: colors.textSecondary,
+          fontSize: 12,
+          marginTop: 4,
+        }}
+      >
+        Pedimos isso para preparar sua conta para recursos futuros, como
+        compartilhar as finanças com família ou parceiro(a).
+      </Text>
 
       {documento.length > 0 && (
         <Text

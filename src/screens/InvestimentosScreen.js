@@ -6,12 +6,13 @@ import { useInvestimentos } from '../hooks/useInvestimentos';
 export default function InvestimentosScreen() {
   const {
     investimentos,
+    loading,
     addInvestment,
     updateInvestment,
     deleteInvestment,
     addTransaction,
     updateTransaction,
-    deleteTransaction, 
+    deleteTransaction,
   } = useInvestimentos();
 
   // 1. MUDANÇA: O estado agora guarda apenas o ID do investimento, não o objeto todo.
@@ -75,6 +76,7 @@ const getIconePorCategoria = (categoria) => {
         hideDateFilter={true}
         refreshing={refreshing}
         setRefreshing={setRefreshing}
+        loading={loading}
       />
 
 <DetalhesInvestimentoModal

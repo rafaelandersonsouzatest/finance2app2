@@ -7,12 +7,17 @@ export const formatarBRL = (valor) => {
   }).format(Number(valor || 0));
 };
 
-// 🔹 converte string BRL → número
-export const parseBRL = (valor) =>
-  parseFloat(
-    String(valor || '')
-      .replace(/\s/g, '')
-      .replace('R$', '')
-      .replace(/\./g, '')
-      .replace(',', '.')
-  ) || 0;
+// 🔹 converte string BRL → número (aceita também um número já pronto)
+export const parseBRL = (valor) => {
+  if (typeof valor === 'number') return isNaN(valor) ? 0 : valor;
+
+  return (
+    parseFloat(
+      String(valor || '')
+        .replace(/\s/g, '')
+        .replace('R$', '')
+        .replace(/\./g, '')
+        .replace(',', '.')
+    ) || 0
+  );
+};

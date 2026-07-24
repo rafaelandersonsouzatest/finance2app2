@@ -10,7 +10,7 @@ import {
   ScrollView,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { MembroSelect } from '../components/MembroSelect';
+import { MembroSelect } from "../components/MembroSelect";
 import { globalStyles } from "../styles/globalStyles";
 import { colors } from "../styles/colors";
 import ModernTabs from "./ModernTabs";
@@ -22,29 +22,59 @@ import { useDateFilter } from "../contexts/DateFilterContext";
 
 const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
   const { selectedMonth, selectedYear } = useDateFilter();
-  const { entradas, loading: loadingEntradas } = useEntradas(selectedMonth, selectedYear);
+  const { entradas, loading: loadingEntradas } = useEntradas(
+    selectedMonth,
+    selectedYear
+  );
 
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
   const [categoria, setCategoria] = useState("");
   const [dia, setDia] = useState("");
-  const [membro, setMembro] = useState("");
+  const [membro, setMembro] = useState(null);
   const [modoCalculo, setModoCalculo] = useState("valor");
   const [entradasPorMes, setEntradasPorMes] = useState({});
-  const keyMes = `${selectedYear}-${selectedMonth}`;
-  const entradasSelecionadas = entradasPorMes[keyMes] || [];
   const [fixacao, setFixacao] = useState("dinamico");
   const [miniModalEntradas, setMiniModalEntradas] = useState(false);
   const [erros, setErros] = useState({});
+
+  const keyMes = `${selectedYear}-${selectedMonth}`;
+  const entradasSelecionadas = entradasPorMes[keyMes] || [];
+
+  // 💰 Formata como moeda (R$ 0,00)
+  const formatarMoeda = (texto) => {
+    const numeros = String(texto || "").replace(/\D/g, "");
+    const valorNumerico = Number(numeros) / 100;
+
+    return valorNumerico.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  };
+
+  // 🔢 Remove máscara e devolve número limpo
+  const desformatarMoeda = (texto) => {
+    return String(texto || "").replace(/[R$\s.]/g, "").replace(",", ".");
+  };
 
   // 🔄 Preenche ao editar
   useEffect(() => {
     if (initialData) {
       setDescricao(initialData.descricao || "");
-      setValor(String(initialData.valor ?? ""));
+      setValor(
+        initialData?.modoCalculo === "porcentagem"
+          ? String(initialData.valor ?? "")
+          : formatarMoeda(String(initialData.valor ?? 0))
+      );
       setCategoria(initialData.categoria || "");
       setDia(String(initialData.diaVencimento || initialData.diaDoMes || ""));
-      setMembro(initialData.membro || "");
+      setMembro(
+        typeof initialData?.membro === "object"
+          ? initialData.membro
+          : initialData?.membro
+          ? { id: initialData.membro, nome: initialData.membro }
+          : null
+      );
       setModoCalculo(initialData.modoCalculo || "valor");
       setFixacao(initialData.fixacao || "dinamico");
 
@@ -59,26 +89,40 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
       setValor("");
       setCategoria("");
       setDia("");
-      setMembro("");
+      setMembro(null);
       setModoCalculo("valor");
       setFixacao("dinamico");
+      setEntradasPorMes({});
     }
+
     setErros({});
   }, [initialData, keyMes]);
 
   // ✅ Validação
   const validarCampos = () => {
     const novosErros = {};
-    const valorNum = parseFloat(String(valor).replace(",", ".")) || 0;
+    const valorNum =
+      parseFloat(
+        modoCalculo === "porcentagem"
+          ? String(valor).replace(",", ".")
+          : desformatarMoeda(valor)
+      ) || 0;
+
     const diaNum = parseInt(dia, 10);
 
     if (!descricao.trim()) novosErros.descricao = "A descrição é obrigatória.";
-    if (modoCalculo === "valor" && valorNum <= 0)
+
+    if (modoCalculo === "valor" && valorNum <= 0) {
       novosErros.valor = "O valor deve ser maior que zero.";
-    if (modoCalculo === "porcentagem" && (valorNum <= 0 || valorNum > 100))
+    }
+
+    if (modoCalculo === "porcentagem" && (valorNum <= 0 || valorNum > 100)) {
       novosErros.valor = "A porcentagem deve estar entre 1 e 100.";
-    if (!dia || isNaN(diaNum) || diaNum < 1 || diaNum > 31)
+    }
+
+    if (!dia || isNaN(diaNum) || diaNum < 1 || diaNum > 31) {
       novosErros.dia = "O dia deve ser um número entre 1 e 31.";
+    }
 
     setErros(novosErros);
     return Object.keys(novosErros).length === 0;
@@ -90,10 +134,15 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
 
     const modelo = {
       descricao: descricao.trim(),
-      valor: parseFloat(String(valor).replace(",", ".")) || 0,
+      valor:
+        parseFloat(
+          modoCalculo === "porcentagem"
+            ? String(valor).replace(",", ".")
+            : desformatarMoeda(valor)
+        ) || 0,
       categoria: categoria.trim() || "Outros",
       ativo: true,
-      membro: membro.trim(),
+      membro: membro?.nome || null,
       modoCalculo,
       diaVencimento: Number(dia),
       fixacao,
@@ -109,6 +158,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
       const novas = atuais.includes(id)
         ? atuais.filter((e) => e !== id)
         : [...atuais, id];
+
       return { ...prev, [keyMes]: novas };
     });
   };
@@ -118,6 +168,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
       const todas = prev[keyMes] || [];
       const novas =
         todas.length === entradas.length ? [] : entradas.map((e) => e.id);
+
       return { ...prev, [keyMes]: novas };
     });
   };
@@ -125,14 +176,15 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
   // 🧮 Texto com nomes das entradas selecionadas
   const getTextoSelecionadas = () => {
     if (!entradasSelecionadas.length) return "Selecionar Entradas";
+
     const nomes = entradas
       .filter((e) => entradasSelecionadas.includes(e.id))
       .map((e) => e.descricao);
+
     if (nomes.length <= 2) return nomes.join(", ");
     return `${nomes.slice(0, 2).join(", ")} e +${nomes.length - 2}`;
   };
 
-  // 💡 Interface
   return (
     <ScrollView
       style={globalStyles.formContainer}
@@ -145,7 +197,9 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
         value={descricao}
         onChangeText={(t) => {
           setDescricao(t);
-          if (erros.descricao) setErros({});
+          if (erros.descricao) {
+            setErros((prev) => ({ ...prev, descricao: null }));
+          }
         }}
         placeholderTextColor={colors.textSecondary}
         style={[globalStyles.input, erros.descricao && globalStyles.inputError]}
@@ -164,7 +218,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
               { key: "porcentagem", label: "Porcentagem", icon: "percent" },
             ]}
             activeTab={modoCalculo}
-            setActiveTab={(tab) => setModoCalculo(tab)}
+            setActiveTab={setModoCalculo}
             backgroundColor="transparent"
           />
         </View>
@@ -177,19 +231,27 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
         }
         value={valor}
         onChangeText={(t) => {
-          setValor(t);
-          if (erros.valor) setErros({});
+          if (modoCalculo === "porcentagem") {
+            setValor(t.replace(/[^0-9.,]/g, ""));
+          } else {
+            setValor(formatarMoeda(t));
+          }
+
+          if (erros.valor) {
+            setErros((prev) => ({ ...prev, valor: null }));
+          }
         }}
         keyboardType="decimal-pad"
         placeholderTextColor={colors.textSecondary}
         style={[
           globalStyles.input,
           erros.valor && globalStyles.inputError,
-          tipo === "entrada" && { marginTop: 12 }, // 👈 espaçamento extra só para entradas
+          tipo === "entrada" && { marginTop: 12 },
         ]}
       />
-
-      {erros.valor && <Text style={globalStyles.errorMessage}>{erros.valor}</Text>}
+      {erros.valor && (
+        <Text style={globalStyles.errorMessage}>{erros.valor}</Text>
+      )}
 
       {/* 💰 Entradas — quando porcentagem */}
       {modoCalculo === "porcentagem" && (
@@ -231,7 +293,9 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
                 borderColor: colors.border,
               }}
             >
-              <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
+              >
                 <MaterialCommunityIcons
                   name="checkbox-multiple-marked-outline"
                   size={20}
@@ -250,6 +314,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
                   {getTextoSelecionadas()}
                 </Text>
               </View>
+
               <MaterialCommunityIcons
                 name="chevron-down"
                 size={22}
@@ -289,14 +354,22 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
               <TouchableOpacity
                 key={op.key}
                 onPress={() => setFixacao(op.key)}
-                style={{ flexDirection: "row", alignItems: "center", marginBottom: 6 }}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  marginBottom: 6,
+                }}
               >
                 <MaterialCommunityIcons
-                  name={fixacao === op.key ? "radiobox-marked" : "radiobox-blank"}
+                  name={
+                    fixacao === op.key ? "radiobox-marked" : "radiobox-blank"
+                  }
                   size={20}
                   color={colors.primary}
                 />
-                <Text style={{ marginLeft: 6, color: colors.textPrimary }}>{op.label}</Text>
+                <Text style={{ marginLeft: 6, color: colors.textPrimary }}>
+                  {op.label}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -333,16 +406,32 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
                     alignItems: "center",
                   }}
                 >
-                  <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: "600" }}>
+                  <Text
+                    style={{
+                      color: colors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: "600",
+                    }}
+                  >
                     Selecionar Entradas
                   </Text>
-                  <TouchableOpacity onPress={() => setMiniModalEntradas(false)}>
-                    <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+
+                  <TouchableOpacity
+                    onPress={() => setMiniModalEntradas(false)}
+                  >
+                    <MaterialCommunityIcons
+                      name="close"
+                      size={22}
+                      color={colors.textSecondary}
+                    />
                   </TouchableOpacity>
                 </View>
 
                 {loadingEntradas ? (
-                  <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
+                  <ActivityIndicator
+                    color={colors.primary}
+                    style={{ marginTop: 20 }}
+                  />
                 ) : (
                   <ScrollView
                     style={{ marginTop: 12 }}
@@ -351,18 +440,25 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
                   >
                     <TouchableOpacity
                       onPress={toggleTodas}
-                      style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        marginBottom: 8,
+                      }}
                     >
                       <MaterialCommunityIcons
                         name={
-                          entradasSelecionadas.length === entradas.length && entradas.length > 0
+                          entradasSelecionadas.length === entradas.length &&
+                          entradas.length > 0
                             ? "checkbox-marked"
                             : "checkbox-blank-outline"
                         }
                         size={20}
                         color={colors.primary}
                       />
-                      <Text style={{ marginLeft: 6, color: colors.textPrimary }}>
+                      <Text
+                        style={{ marginLeft: 6, color: colors.textPrimary }}
+                      >
                         Selecionar todas
                       </Text>
                     </TouchableOpacity>
@@ -371,7 +467,11 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
                       <TouchableOpacity
                         key={entrada.id}
                         onPress={() => toggleEntrada(entrada.id)}
-                        style={{ flexDirection: "row", alignItems: "center", paddingVertical: 6 }}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          paddingVertical: 6,
+                        }}
                       >
                         <MaterialCommunityIcons
                           name={
@@ -382,8 +482,11 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
                           size={20}
                           color={colors.primary}
                         />
-                        <Text style={{ marginLeft: 6, color: colors.textPrimary }}>
-                          {entrada.descricao} — R$ {entrada.valor.toFixed(2)} (
+                        <Text
+                          style={{ marginLeft: 6, color: colors.textPrimary }}
+                        >
+                          {entrada.descricao} — R${" "}
+                          {Number(entrada.valor || 0).toFixed(2)} (
                           {typeof entrada.membro === "object"
                             ? entrada.membro?.nome || "Sem nome"
                             : entrada.membro || "Sem membro"}
@@ -401,7 +504,9 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
                     { marginTop: 10, paddingVertical: 10, borderRadius: 10 },
                   ]}
                 >
-                  <Text style={globalStyles.saveButtonText}>Confirmar Seleção</Text>
+                  <Text style={globalStyles.saveButtonText}>
+                    Confirmar Seleção
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -410,7 +515,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
       )}
 
       {/* Categoria */}
-      <View style={{ marginTop: 12,  marginBottom: 12,}}>
+      <View style={{ marginTop: 12, marginBottom: 12 }}>
         <CategoriaSelect value={categoria} onChange={setCategoria} />
       </View>
 
@@ -418,31 +523,45 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
       {tipo === "entrada" && (
         <MembroSelect
           membroSelecionado={membro}
-          onSelecionar={(m) => setMembro(typeof m === "object" ? m.nome : m)}
+          onSelecionar={(m) => setMembro(m)}
           tipo="membro"
-          mostrarLabel={false} 
+          mostrarLabel={false}
         />
-    )}
-
+      )}
 
       {/* Dia */}
       <TextInput
-        placeholder={tipo === "gasto" ? "Dia do Vencimento *" : "Dia do Recebimento *"}
+        placeholder={
+          tipo === "gasto" ? "Dia do Vencimento *" : "Dia do Recebimento *"
+        }
         value={dia}
-        onChangeText={setDia}
+        onChangeText={(t) => {
+          setDia(t);
+
+          if (erros.dia) {
+            setErros((prev) => ({ ...prev, dia: null }));
+          }
+        }}
         keyboardType="number-pad"
         maxLength={2}
         placeholderTextColor={colors.textSecondary}
-        style={[globalStyles.input, { marginTop: 12 }]}
+        style={[globalStyles.input, erros.dia && globalStyles.inputError, { marginTop: 12 }]}
       />
+      {erros.dia && <Text style={globalStyles.errorMessage}>{erros.dia}</Text>}
 
       {/* Botões */}
-      <TouchableOpacity onPress={handleSalvar} style={[globalStyles.saveButton, { marginTop: 24 }]}>
+      <TouchableOpacity
+        onPress={handleSalvar}
+        style={[globalStyles.saveButton, { marginTop: 24 }]}
+      >
         <Text style={globalStyles.saveButtonText}>Salvar Modelo</Text>
       </TouchableOpacity>
 
       {initialData && (
-        <TouchableOpacity onPress={onCancel} style={{ marginTop: 12, alignItems: "center" }}>
+        <TouchableOpacity
+          onPress={onCancel}
+          style={{ marginTop: 12, alignItems: "center" }}
+        >
           <Text style={{ color: colors.textSecondary }}>Cancelar Edição</Text>
         </TouchableOpacity>
       )}
@@ -451,8 +570,13 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
 };
 
 // MODAL PRINCIPAL
-export default function GerenciarModelosModal({ visible, onClose, tipo = "gasto" }) {
-  const { modelos, loading, addModelo, updateModelo, deleteModelo } = useModelos(tipo);
+export default function GerenciarModelosModal({
+  visible,
+  onClose,
+  tipo = "gasto",
+}) {
+  const { modelos, loading, addModelo, updateModelo, deleteModelo } =
+    useModelos(tipo);
 
   const [editingItem, setEditingItem] = useState(null);
   const [abaAtiva, setAbaAtiva] = useState("modelos");
@@ -460,8 +584,12 @@ export default function GerenciarModelosModal({ visible, onClose, tipo = "gasto"
 
   const handleSave = async (modelo) => {
     try {
-      if (editingItem) await updateModelo(editingItem.id, modelo);
-      else await addModelo(modelo);
+      if (editingItem) {
+        await updateModelo(editingItem.id, modelo);
+      } else {
+        await addModelo(modelo);
+      }
+
       setEditingItem(null);
       setAbaAtiva("modelos");
     } catch {
@@ -483,7 +611,10 @@ export default function GerenciarModelosModal({ visible, onClose, tipo = "gasto"
       icone: "trash-can-outline",
       corIcone: colors.error,
       botoes: [
-        { texto: "Cancelar", onPress: () => setAlerta({ visivel: false }) },
+        {
+          texto: "Cancelar",
+          onPress: () => setAlerta({ visivel: false }),
+        },
         {
           texto: "Excluir",
           style: "destructive",
@@ -502,7 +633,12 @@ export default function GerenciarModelosModal({ visible, onClose, tipo = "gasto"
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={handleClose}
+    >
       <View style={globalStyles.fullScreenModalOverlay}>
         <View style={globalStyles.managementModalContainer}>
           {/* Cabeçalho */}
@@ -510,8 +646,13 @@ export default function GerenciarModelosModal({ visible, onClose, tipo = "gasto"
             <Text style={globalStyles.managementModalTitle}>
               Modelos de {tipo === "gasto" ? "Gastos Fixos" : "Entradas"}
             </Text>
+
             <TouchableOpacity onPress={handleClose}>
-              <MaterialCommunityIcons name="close" size={24} color={colors.textPrimary} />
+              <MaterialCommunityIcons
+                name="close"
+                size={24}
+                color={colors.textPrimary}
+              />
             </TouchableOpacity>
           </View>
 
@@ -521,7 +662,11 @@ export default function GerenciarModelosModal({ visible, onClose, tipo = "gasto"
               compact
               tabs={[
                 { key: "modelos", label: "Modelos", icon: "view-list" },
-                { key: "novo", label: editingItem ? "Editar" : "Novo", icon: "plus-circle-outline" },
+                {
+                  key: "novo",
+                  label: editingItem ? "Editar" : "Novo",
+                  icon: "plus-circle-outline",
+                },
               ]}
               activeTab={abaAtiva}
               setActiveTab={(key) => {
@@ -542,14 +687,17 @@ export default function GerenciarModelosModal({ visible, onClose, tipo = "gasto"
               renderItem={({ item }) => (
                 <View style={globalStyles.modeloItemRow}>
                   <View>
-                    <Text style={globalStyles.modeloItemDescricao}>{item.descricao}</Text>
+                    <Text style={globalStyles.modeloItemDescricao}>
+                      {item.descricao}
+                    </Text>
                     <Text style={globalStyles.modeloItemDetalhes}>
                       {item.modoCalculo === "porcentagem"
-                        ? `${item.valor.toFixed(2)}%`
-                        : `R$ ${item.valor.toFixed(2)}`}{" "}
+                        ? `${Number(item.valor || 0).toFixed(2)}%`
+                        : `R$ ${Number(item.valor || 0).toFixed(2)}`}{" "}
                       - Dia {item.diaVencimento || item.diaDoMes}
                     </Text>
                   </View>
+
                   <View style={{ flexDirection: "row" }}>
                     <TouchableOpacity
                       onPress={() => {
@@ -558,13 +706,22 @@ export default function GerenciarModelosModal({ visible, onClose, tipo = "gasto"
                       }}
                       style={{ padding: 4 }}
                     >
-                      <MaterialCommunityIcons name="pencil-outline" size={22} color={colors.primary} />
+                      <MaterialCommunityIcons
+                        name="pencil-outline"
+                        size={22}
+                        color={colors.primary}
+                      />
                     </TouchableOpacity>
+
                     <TouchableOpacity
                       onPress={() => handleDeletar(item)}
                       style={{ padding: 4, marginLeft: 8 }}
                     >
-                      <MaterialCommunityIcons name="trash-can-outline" size={22} color={colors.error} />
+                      <MaterialCommunityIcons
+                        name="trash-can-outline"
+                        size={22}
+                        color={colors.error}
+                      />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -586,9 +743,11 @@ export default function GerenciarModelosModal({ visible, onClose, tipo = "gasto"
       </View>
 
       {/* Modal de Alerta */}
-      <AlertaModal {...alerta} visible={alerta.visivel} onClose={() => setAlerta({ visivel: false })} />
+      <AlertaModal
+        {...alerta}
+        visible={alerta.visivel}
+        onClose={() => setAlerta({ visivel: false })}
+      />
     </Modal>
-    
   );
-  
 }

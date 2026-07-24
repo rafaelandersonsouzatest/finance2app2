@@ -6,6 +6,7 @@ import { gerarDataComDia } from "../utils/gerarDataComDia";
 import { normalizarParaISO } from "../utils/formatarData";
 import { useAuth } from "../auth/useAuth";
 import { getBasePath } from "../utils/firestorePaths";
+import { parseBRL } from "../utils/formatarValor";
 
 // =========================================================
 // 🔹 HOOK: useGastos — preparado para multiusuário e modo família
@@ -35,7 +36,7 @@ export const useGastos = (mes, ano) => {
         const data = snapshot.docs.map((d) => ({
           id: d.id,
           ...d.data(),
-          valor: parseFloat(d.data().valor) || 0,
+          valor: parseBRL(d.data().valor),
         }));
 
         data.sort(
@@ -93,14 +94,14 @@ export const useGastos = (mes, ano) => {
       const entradas = entradasSnapshot.docs.map((d) => ({
         id: d.id,
         ...d.data(),
-        valor: parseFloat(d.data().valor) || 0,
+        valor: parseBRL(d.data().valor),
       }));
 
       const novosGastos = [];
 
       for (const docSnap of modelosSnapshot.docs) {
         const modelo = docSnap.data();
-        let valorFinal = parseFloat(modelo.valor) || 0;
+        let valorFinal = parseBRL(modelo.valor);
 
         // 🧮 Se for modo "porcentagem", calcula com base nas entradas selecionadas
         if (
@@ -113,11 +114,11 @@ export const useGastos = (mes, ano) => {
           );
 
           const totalEntradas = entradasSelecionadas.reduce(
-            (sum, e) => sum + (parseFloat(e.valor) || 0),
+            (sum, e) => sum + parseBRL(e.valor),
             0
           );
 
-          valorFinal = totalEntradas * (parseFloat(modelo.valor) / 100);
+          valorFinal = totalEntradas * (parseBRL(modelo.valor) / 100);
         }
 
         novosGastos.push({
@@ -126,7 +127,7 @@ export const useGastos = (mes, ano) => {
           valor: parseFloat(valorFinal.toFixed(2)),
           valorPercentual:
             modelo.modoCalculo === "porcentagem"
-              ? parseFloat(modelo.valor)
+              ? parseBRL(modelo.valor)
               : null,
           modoCalculo: modelo.modoCalculo || "valor",
           entradasSelecionadas: modelo.entradasSelecionadas || [],
@@ -170,7 +171,7 @@ export const useGastos = (mes, ano) => {
       await addDoc(collection(db, `${basePath}/gastos`), {
         ...gasto,
         dataVencimento: normalizarParaISO(dataFinal),
-        valor: parseFloat(gasto.valor),
+        valor: parseBRL(gasto.valor),
         compartilhado: false, // 👈 novo campo padrão
         criadoEm: serverTimestamp(),
       });
@@ -195,7 +196,7 @@ export const useGastos = (mes, ano) => {
 
       await updateDoc(doc(db, `${basePath}/gastos`, id), {
         ...dadosAtualizados,
-        valor: parseFloat(dadosAtualizados.valor),
+        valor: parseBRL(dadosAtualizados.valor),
         atualizadoEm: serverTimestamp(),
       });
     } catch (err) {

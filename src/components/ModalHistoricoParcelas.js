@@ -125,13 +125,18 @@ const ParcelaItem = ({ item }) => {
 // 💰 COMPONENTE: RESUMO FINANCEIRO
 // ==========================================================
 const ResumoFinanceiro = ({
+  ehEmprestimo,
   totalPago,
   totalReal,
   totalDescontos,
   parcelasPagas,
   totalParcelas,
 }) => {
-  const progresso = totalReal > 0 ? (totalPago / totalReal) * 100 : 0;
+  // 🔹 Empréstimo: valor contratado é fixo, a barra reflete parcelas pagas
+  // (ver mesmo raciocínio em ModalDetalhes.js).
+  const progresso = ehEmprestimo
+    ? (totalParcelas > 0 ? (parcelasPagas / totalParcelas) * 100 : 0)
+    : (totalReal > 0 ? (totalPago / totalReal) * 100 : 0);
 
   return (
     <View
@@ -205,6 +210,7 @@ export default function ModalHistoricoParcelas({ visible, onClose, item }) {
     totalDescontos: 0,
     parcelasPagas: 0,
     totalParcelas: 0,
+    ehEmprestimo: false,
   });
 
   useEffect(() => {
@@ -232,22 +238,41 @@ export default function ModalHistoricoParcelas({ visible, onClose, item }) {
           ...doc.data(),
         }));
 
-        const totalReal = dados.reduce(
-          (acc, p) => acc + (parseFloat(p.valorOriginal || p.valor) || 0),
-          0
-        );
-        const totalPago = dados.reduce(
-          (acc, p) =>
-            acc +
-            ((p.pago === true || p.adiantada === true
-              ? parseFloat(p.valor)
-              : 0) || 0),
-          0
-        );
-        const totalDescontos = dados.reduce(
-          (acc, p) => acc + (parseFloat(p.descontoAplicado) || 0),
-          0
-        );
+        const ehEmprestimo = item.collectionName === 'emprestimos';
+        const temCamposNovos =
+          ehEmprestimo && dados.some((p) => p.valorContratado !== undefined);
+
+        let totalReal, totalPago, totalDescontos;
+
+        if (temCamposNovos) {
+          // 🔹 Regra de negócio: valor contratado nunca muda; economia e
+          // valor pago são derivados dele (ver useEmprestimos.js).
+          const valorContratado = dados[0].valorContratado || 0;
+          const economiaTotal = dados[0].economiaTotal || 0;
+          totalReal = valorContratado;
+          totalDescontos = economiaTotal;
+          totalPago = valorContratado - economiaTotal;
+        } else {
+          // Fallback por soma — cobre cartões e empréstimos antigos sem os
+          // campos novos.
+          totalReal = dados.reduce(
+            (acc, p) => acc + (parseFloat(p.valorOriginal || p.valor) || 0),
+            0
+          );
+          totalPago = dados.reduce(
+            (acc, p) =>
+              acc +
+              ((p.pago === true || p.adiantada === true
+                ? parseFloat(p.valor)
+                : 0) || 0),
+            0
+          );
+          totalDescontos = dados.reduce(
+            (acc, p) => acc + (parseFloat(p.descontoAplicado) || 0),
+            0
+          );
+        }
+
         const parcelasPagas = dados.filter((p) => p.pago || p.adiantada).length;
 
         setResumo({
@@ -256,6 +281,7 @@ export default function ModalHistoricoParcelas({ visible, onClose, item }) {
           totalDescontos,
           parcelasPagas,
           totalParcelas: dados.length,
+          ehEmprestimo,
         });
         setParcelas(dados);
       } catch (err) {

@@ -5,6 +5,7 @@ import { normalizarParaISO } from "../utils/formatarData";
 import { useAuth } from "../auth/useAuth";
 import { getBasePath } from "../utils/firestorePaths";
 import { colors } from "../styles/colors";
+import { parseBRL } from "../utils/formatarValor";
 
 // =========================================================
 // 🔹 HOOK: useEmprestimos — multiusuário + preparado p/ modo família
@@ -34,7 +35,7 @@ export const useEmprestimos = (mes, ano) => {
         const dados = snapshot.docs.map((d) => ({
           id: d.id,
           ...d.data(),
-          valor: parseFloat(d.data().valor) || 0,
+          valor: parseBRL(d.data().valor),
         }));
 
         // Ordenar por data de vencimento
@@ -71,7 +72,8 @@ export const useEmprestimos = (mes, ano) => {
         categoria,
       } = emprestimo;
 
-      const valorParcela = parseFloat(valorTotal) / totalParcelas;
+      const valorContratado = parseBRL(valorTotal);
+      const valorParcela = valorContratado / totalParcelas;
       const dataBaseISO = normalizarParaISO(dataInicio);
       if (!dataBaseISO) throw new Error("Data de início inválida.");
 
@@ -86,6 +88,10 @@ export const useEmprestimos = (mes, ano) => {
           pessoa,
           categoria,
           valor: parseFloat(valorParcela.toFixed(2)),
+          // 🔹 Valor contratado original — nunca é reescrito depois da criação.
+          valorContratado,
+          // 🔹 Soma dos descontos de antecipação do empréstimo (ver anteciparParcelasEmprestimo).
+          economiaTotal: 0,
           parcelaAtual: i + 1,
           totalParcelas,
           dataVencimento: dataParcela.toISOString().split("T")[0],
@@ -112,7 +118,32 @@ export const useEmprestimos = (mes, ano) => {
   };
 
   // =========================================================
-  // 🔹 Atualizar empréstimo (inclui reversão e recálculo total)
+  // 🔹 Recalcula a economia total (soma de descontos) de um empréstimo,
+  // sem nunca tocar em valorContratado — só chamada quando um desconto
+  // realmente muda (antecipação ou reversão de antecipação).
+  // =========================================================
+  const recalcularEconomiaTotal = async (basePath, idCompra) => {
+    const qParcelas = query(
+      collection(db, `${basePath}/emprestimos`),
+      where("idCompra", "==", idCompra)
+    );
+    const snapshot = await getDocs(qParcelas);
+    const economiaTotal = snapshot.docs.reduce(
+      (soma, d) => soma + parseBRL(d.data().descontoAplicado),
+      0
+    );
+
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((docSnap) => {
+      batch.update(doc(db, `${basePath}/emprestimos`, docSnap.id), {
+        economiaTotal,
+      });
+    });
+    await batch.commit();
+  };
+
+  // =========================================================
+  // 🔹 Atualizar empréstimo (inclui reversão de antecipação)
   // =========================================================
   const updateEmprestimo = async (id, dados) => {
     if (!user?.uid) throw new Error("Usuário não autenticado.");
@@ -151,6 +182,9 @@ export const useEmprestimos = (mes, ano) => {
                       atualizadoEm: serverTimestamp(),
                     };
                     await updateDoc(ref, revertido);
+                    if (atual.idCompra) {
+                      await recalcularEconomiaTotal(basePath, atual.idCompra);
+                    }
                     resolve(true);
                   },
                 },
@@ -170,31 +204,12 @@ export const useEmprestimos = (mes, ano) => {
 
       await updateDoc(ref, {
         ...dadosAtualizados,
-        valor: parseFloat(dadosAtualizados.valor),
+        valor: parseBRL(dadosAtualizados.valor),
         atualizadoEm: serverTimestamp(),
       });
-
-      // 🔹 Recalcular total do empréstimo (somar parcelas)
-      if (dadosAtualizados.idCompra) {
-        const qParcelas = query(
-          collection(db, `${basePath}/emprestimos`),
-          where("idCompra", "==", dadosAtualizados.idCompra)
-        );
-        const snapshot = await getDocs(qParcelas);
-        const parcelas = snapshot.docs.map((d) => d.data());
-        const novoTotal = parcelas.reduce(
-          (soma, p) => soma + (parseFloat(p.valor) || 0),
-          0
-        );
-
-        const batch = writeBatch(db);
-        snapshot.docs.forEach((docSnap) => {
-          batch.update(doc(db, `${basePath}/emprestimos`, docSnap.id), {
-            valorTotal: novoTotal,
-          });
-        });
-        await batch.commit();
-      }
+      // 🔹 valorContratado e economiaTotal não são tocados aqui — só mudam
+      // na criação (valorContratado) ou numa antecipação/reversão real
+      // (economiaTotal, via recalcularEconomiaTotal).
     } catch (err) {
       console.error("Erro ao atualizar empréstimo:", err);
       setError(err.message);
@@ -251,6 +266,8 @@ export const useEmprestimos = (mes, ano) => {
       const mesPagamento = data.getMonth() + 1;
       const anoPagamento = data.getFullYear();
 
+      const idsCompraAfetados = new Set();
+
       for (const id of idsSelecionados) {
         const ref = doc(db, `${basePath}/emprestimos`, id);
         const docSnap = await getDoc(ref);
@@ -259,8 +276,8 @@ export const useEmprestimos = (mes, ano) => {
 
         const mesOriginal = atual.mes;
         const anoOriginal = atual.ano;
-        const valorOriginal = parseFloat(atual.valor) || 0;
-        const valorFinal = valorComDesconto || valorOriginal;
+        const valorOriginal = parseBRL(atual.valor);
+        const valorFinal = valorComDesconto ? parseBRL(valorComDesconto) : valorOriginal;
         const descontoAplicado = valorOriginal - valorFinal;
 
         const novosDados = {
@@ -279,9 +296,17 @@ export const useEmprestimos = (mes, ano) => {
         };
 
         batch.update(ref, novosDados);
+        if (atual.idCompra) idsCompraAfetados.add(atual.idCompra);
       }
 
       await batch.commit();
+
+      // 🔹 economiaTotal é recalculada só para o(s) empréstimo(s) que
+      // realmente tiveram parcela antecipada agora — valorContratado nunca
+      // é tocado.
+      for (const idCompra of idsCompraAfetados) {
+        await recalcularEconomiaTotal(basePath, idCompra);
+      }
 
       // Atualiza o estado local
       setEmprestimos((prev) =>

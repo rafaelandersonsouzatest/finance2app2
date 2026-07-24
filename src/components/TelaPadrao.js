@@ -69,6 +69,7 @@ export default function TelaPadrao({
   contentContainerStyle,
   fabActions = [],
   disableDefaultList = false,
+  loading = false,
 }) {
     const insets = useSafeAreaInsets();
 const { height } = Dimensions.get('window');
@@ -87,8 +88,6 @@ const { height } = Dimensions.get('window');
   } = useDateFilter();
 
   const { formatValue } = useVisibility();
-
-  const loading = false;
 
   const handleAbrirDetalhes = (item) => {
     onPressItem?.(item);
@@ -285,30 +284,41 @@ const { height } = Dimensions.get('window');
 
 const renderHeader = () => (
   <View style={[globalStyles.header, { flexDirection: 'column', alignItems: 'stretch' }]}>
-    {/* Linha superior: título + olhinho */}
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+    {/* Linha superior: título */}
+    <View style={{ alignItems: 'flex-start' }}>
       <Text style={globalStyles.headerTitle}>{titulo}</Text>
-      <ToggleVisibilidade size={20} />
     </View>
 
-    {/* Linha inferior: seletor de mês/ano */}
+    {/* Linha inferior: mês/ano + toggle */}
     {!hideDateFilter && (
       <View
         style={{
           marginTop: -17,
-          alignSelf: 'center',
+          flexDirection: 'row',
           alignItems: 'center',
+          justifyContent: 'space-between',
         }}
       >
-        <MonthYearPicker
-          selectedMonth={selectedMonth}
-          selectedYear={selectedYear}
-          onSelect={updateFilter}
-          compact
-          showNavigation
-          resetToCurrentMonth={resetToCurrentMonth}
-          isCurrentMonth={isCurrentMonth}
-        />
+        {/* Espaço vazio para balancear o Toggle à direita */}
+        <View style={{ width: 28 }} />
+
+        {/* Calendário centralizado */}
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <MonthYearPicker
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+            onSelect={updateFilter}
+            compact
+            showNavigation
+            resetToCurrentMonth={resetToCurrentMonth}
+            isCurrentMonth={isCurrentMonth}
+          />
+        </View>
+
+        {/* Toggle à direita */}
+        <View style={{ width: 38, alignItems: 'flex-end' }}>
+          <ToggleVisibilidade size={16} />
+        </View>
       </View>
     )}
   </View>

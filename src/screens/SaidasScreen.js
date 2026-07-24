@@ -271,13 +271,14 @@ export default function SaidasScreen() {
 
   const {
     cartoes,
+    loading: loadingCartoes,
     addCartao,
     updateCartao,
     deleteCartao,
   } = useCartoes(selectedMonth, selectedYear);
 
 
-  const loading = loadingGastos || loadingEmprestimos;
+  const loading = loadingGastos || loadingEmprestimos || loadingCartoes;
 
   // --- Totais gerais ---
   const totalGastosPagos = useMemo(
@@ -543,6 +544,7 @@ const handleExcluir = () => {
         total={totalSaidasGeral}
         fabActions={fabActions}
         disableDefaultList
+        loading={loading}
       >
     <ModernTabs
       tabs={[

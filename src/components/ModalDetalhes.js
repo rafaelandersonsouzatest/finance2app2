@@ -43,21 +43,35 @@ const InfoRow = ({ icon, label, value, color = colors.textPrimary }) => (
 // 🔹 RESUMO FINANCEIRO
 // ------------------------------------------------------
 const ResumoFinanceiro = ({
+  tipo,
   totalPago,
   totalReal,
   totalParcelas,
   parcelasPagas,
   totalDescontos = 0,
 }) => {
-  const progresso = totalReal > 0 ? (totalPago / totalReal) * 100 : 0;
+  const ehEmprestimo = tipo === 'emprestimo';
+
+  // 🔹 Empréstimo: valor contratado é fixo, então a barra de progresso deve
+  // refletir parcelas pagas, não uma razão de valores (que sempre ficaria
+  // perto de 100% por causa do desconto, mesmo sem nenhuma parcela paga).
+  const progresso = ehEmprestimo
+    ? (totalParcelas > 0 ? (parcelasPagas / totalParcelas) * 100 : 0)
+    : (totalReal > 0 ? (totalPago / totalReal) * 100 : 0);
+
+  const rotuloPago = ehEmprestimo
+    ? 'Valor Efetivamente Pago'
+    : totalDescontos > 0
+    ? 'Total Pago (com descontos)'
+    : 'Total Pago';
+  const rotuloTotal = ehEmprestimo ? 'Valor Contratado' : 'Valor Total';
+  const rotuloDesconto = ehEmprestimo ? 'Economia Obtida' : 'Total de Descontos';
 
   return (
     <View style={globalStyles.resumoFinanceiroContainer}>
       <View style={globalStyles.rowBetween}>
-        <Text style={globalStyles.resumoFinanceiroLabel}>
-          {totalDescontos > 0 ? 'Total Pago (com descontos)' : 'Total Pago'}
-        </Text>
-        <Text style={globalStyles.resumoFinanceiroLabel}>Valor Total</Text>
+        <Text style={globalStyles.resumoFinanceiroLabel}>{rotuloPago}</Text>
+        <Text style={globalStyles.resumoFinanceiroLabel}>{rotuloTotal}</Text>
       </View>
 
       <View style={globalStyles.rowBetween}>
@@ -92,7 +106,7 @@ const ResumoFinanceiro = ({
             <Text
               style={[globalStyles.infoRowLabel, { color: colors.textTertiary }]}
             >
-              Total de Descontos
+              {rotuloDesconto}
             </Text>
           </View>
           <Text style={[globalStyles.infoRowValue, { color: colors.balance }]}>
@@ -163,30 +177,54 @@ export default function ModalDetalhes({
 
         const parcelas = parcelasSnap.docs.map((d) => d.data());
 
-        const somaDescontos = parcelas.reduce(
-          (acc, p) => acc + (parseFloat(p.descontoAplicado) || 0),
-          0
-        );
-        setTotalDescontos(somaDescontos);
+        if (tipo === 'emprestimo') {
+          // 🔹 Regra de negócio: valor contratado nunca muda; economia e
+          // valor pago são sempre derivados dele (ver useEmprestimos.js).
+          // Fallback por soma cobre empréstimos criados antes dessa mudança,
+          // que não têm valorContratado/economiaTotal gravados.
+          const temCamposNovos = parcelas.some(
+            (p) => p.valorContratado !== undefined
+          );
 
-        const somaTotal = parcelas.reduce(
-          (acc, p) => acc + (parseFloat(p.valor) || 0),
-          0
-        );
+          const valorContratado = temCamposNovos
+            ? parcelas[0].valorContratado || 0
+            : parcelas.reduce((acc, p) => acc + (parseFloat(p.valor) || 0), 0);
 
-        const somaPagas = parcelas.reduce(
-          (acc, p) =>
-            acc +
-            ((p.pago === true || p.adiantada === true
-              ? parseFloat(p.valor)
-              : 0) || 0),
-          0
-        );
+          const economiaTotal = temCamposNovos
+            ? parcelas[0].economiaTotal || 0
+            : parcelas.reduce(
+                (acc, p) => acc + (parseFloat(p.descontoAplicado) || 0),
+                0
+              );
+
+          setTotalDescontos(economiaTotal);
+          setTotalReal(valorContratado);
+          setTotalPago(valorContratado - economiaTotal);
+        } else {
+          const somaDescontos = parcelas.reduce(
+            (acc, p) => acc + (parseFloat(p.descontoAplicado) || 0),
+            0
+          );
+          setTotalDescontos(somaDescontos);
+
+          const somaTotal = parcelas.reduce(
+            (acc, p) => acc + (parseFloat(p.valor) || 0),
+            0
+          );
+          setTotalReal(somaTotal);
+
+          const somaPagas = parcelas.reduce(
+            (acc, p) =>
+              acc +
+              ((p.pago === true || p.adiantada === true
+                ? parseFloat(p.valor)
+                : 0) || 0),
+            0
+          );
+          setTotalPago(somaPagas);
+        }
 
         const pagas = parcelas.filter((p) => p.pago || p.adiantada).length;
-
-        setTotalReal(somaTotal);
-        setTotalPago(somaPagas);
         setParcelasPagas(pagas);
         setTotalParcelas(parcelas.length);
       } catch (err) {
@@ -488,6 +526,7 @@ export default function ModalDetalhes({
 
             {(tipo === 'emprestimo' || tipo === 'cartao') && (
               <ResumoFinanceiro
+                tipo={tipo}
                 totalPago={totalPago}
                 totalReal={totalReal}
                 parcelasPagas={parcelasPagas}

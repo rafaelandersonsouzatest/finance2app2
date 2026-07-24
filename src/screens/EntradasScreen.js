@@ -140,6 +140,7 @@ export default function EntradasScreen() {
         onToggleStatus={handleToggleStatus}
         getIconePorCategoria={getIconePorCategoria}
         refreshing={loading}
+        loading={loading}
         fabActions={fabActions}
       />
 

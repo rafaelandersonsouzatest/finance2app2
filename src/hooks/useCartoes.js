@@ -17,6 +17,7 @@ import { getBasePath } from '../utils/firestorePaths';
 import { colors } from '../styles/colors';
 import { normalizarParaISO } from '../utils/formatarData';
 import { vencimentoCartaoPorNome } from '../utils/datasPadrao';
+import { parseBRL } from '../utils/formatarValor';
 
 
 // =======================================
@@ -52,7 +53,7 @@ export const useCartoes = (month, year) => {
           return {
             id: d.id,
             ...data,
-            valor: parseFloat(data.valor) || 0,
+            valor: parseBRL(data.valor),
             pago: data.pago === true,
             pessoa:
               typeof data.pessoa === 'object' ? data.pessoa?.nome : data.pessoa,
@@ -107,9 +108,9 @@ export const useCartoes = (month, year) => {
       } = cartao;
 
       const parcelas = parseInt(totalParcelas || 1, 10);
-      const valorTotalNum = parseFloat(valorTotal) || 0;
+      const valorTotalNum = parseBRL(valorTotal);
       const valorParcelaNum =
-        parseFloat(valorParcela) ||
+        parseBRL(valorParcela) ||
         (parcelas > 0 ? valorTotalNum / parcelas : 0);
 
       const corDoCartao = getCorDoCartao(nomeCartao);
@@ -219,7 +220,7 @@ export const useCartoes = (month, year) => {
 
       await updateDoc(cartaoRef, {
         ...dadosAtualizados,
-        valor: parseFloat(dadosAtualizados.valor),
+        valor: parseBRL(dadosAtualizados.valor),
         atualizadoEm: serverTimestamp(),
       });
     } catch (err) {
@@ -280,8 +281,8 @@ export const useCartoes = (month, year) => {
         if (!docSnap.exists()) continue;
 
         const atual = docSnap.data();
-        const valorOriginal = parseFloat(atual.valor) || 0;
-        const valorFinal = valorComDesconto ? parseFloat(valorComDesconto) : valorOriginal;
+        const valorOriginal = parseBRL(atual.valor);
+        const valorFinal = valorComDesconto ? parseBRL(valorComDesconto) : valorOriginal;
         const descontoAplicado = valorOriginal - valorFinal;
 
         const novosDados = {
