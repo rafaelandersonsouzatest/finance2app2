@@ -13,6 +13,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  updateDoc,
   writeBatch,
 } from "firebase/firestore";
 
@@ -79,6 +80,11 @@ export const AuthProvider = ({ children }) => {
           // 🔥 Controle de primeiro acesso
           primeiroAcesso: true,
           jaViuOnboarding: false,
+
+          // 🔥 Reservado para avatar de usuário (não implementado ainda —
+          // mesmo padrão do campo `avatar: null` já usado em useMembros.js,
+          // para essa funcionalidade futura não exigir migração de dados).
+          avatarUrl: null,
         };
 
         await setDoc(ref, userData);
@@ -194,6 +200,7 @@ export const AuthProvider = ({ children }) => {
         criadoEm: new Date().toISOString(),
         primeiroAcesso: true,
         jaViuOnboarding: false,
+        avatarUrl: null,
       };
 
       // 🔹 Grava o perfil e a reserva do documento juntos, em lote — os dois
@@ -222,6 +229,15 @@ export const AuthProvider = ({ children }) => {
     } finally {
       registrandoRef.current = false;
     }
+  };
+
+  // ===================================================
+  // 🔥 Atualizar dados do próprio perfil (ex.: nome de exibição)
+  // ===================================================
+  const atualizarPerfil = async (dados) => {
+    if (!user?.uid) throw new Error("Usuário não autenticado.");
+    await updateDoc(doc(db, "users", user.uid), dados);
+    setProfile((prev) => (prev ? { ...prev, ...dados } : prev));
   };
 
   // ===================================================
@@ -277,6 +293,7 @@ export const AuthProvider = ({ children }) => {
         logout,
         loginWithGoogle,
         carregarPerfil, // 🔥 agora está no contexto
+        atualizarPerfil,
       }}
     >
       {children}

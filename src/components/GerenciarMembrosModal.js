@@ -1,7 +1,7 @@
 // ======================================================
 // 👥 GerenciarMembrosModal.js — versão com subcoleção por usuário
 // ======================================================
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -13,24 +13,16 @@ import {
 } from "react-native";
 import Modal from "react-native-modal";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
-import {
-  collection,
-  addDoc,
-  deleteDoc,
-  doc,
-  getDocs,
-  serverTimestamp,
-} from "firebase/firestore";
-import { db } from "../config/firebase";
-import { useAuth } from "../auth/useAuth";
+import { useMembros } from "../hooks/useMembros";
 import { colors } from "../styles/colors";
 import { globalStyles } from "../styles/globalStyles";
 import { vibrarLeve, vibrarSucesso } from "../utils/haptics";
 import AlertaModal from "./AlertaModal";
 
-export const GerenciarMembrosModal = ({ visivel, onFechar, onAtualizarLista }) => {
-  const { user } = useAuth(); // ✅ pega o usuário logado
-  const [membros, setMembros] = useState([]);
+export const GerenciarMembrosModal = ({ visivel, onFechar }) => {
+  // 🔹 Fonte única de membros (mesma usada pelo MembroSelect e pela tela de
+  // administração) — este modal não acessa o Firestore diretamente.
+  const { membros, adicionarMembro, excluirMembro } = useMembros();
   const [novoNome, setNovoNome] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [alerta, setAlerta] = useState({
@@ -43,75 +35,20 @@ export const GerenciarMembrosModal = ({ visivel, onFechar, onAtualizarLista }) =
   });
 
   // ======================================================
-  // 🔹 Carregar membros
-  // ======================================================
-  useEffect(() => {
-    if (visivel && user?.uid) carregarMembros();
-  }, [visivel, user]);
-
-  const carregarMembros = async () => {
-    try {
-      if (!user?.uid) return;
-      const ref = collection(db, "users", user.uid, "membros");
-      const snapshot = await getDocs(ref);
-      const lista = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        nome: doc.data().nome || "Sem nome",
-      }));
-      setMembros(lista);
-    } catch (e) {
-      console.error("Erro ao carregar membros:", e);
-    }
-  };
-
-  // ======================================================
   // 🔹 Adicionar membro
   // ======================================================
   const handleAdicionar = async () => {
-    const nome = novoNome.trim();
-    if (!nome) {
-      vibrarLeve();
-      setAlerta({
-        visivel: true,
-        titulo: "Campo vazio",
-        mensagem: "Digite um nome antes de adicionar.",
-        icone: "alert-circle-outline",
-        corIcone: colors.gasto,
-      });
-      return;
-    }
-
-    if (membros.some((m) => m.nome.toLowerCase() === nome.toLowerCase())) {
-      vibrarLeve();
-      setAlerta({
-        visivel: true,
-        titulo: "Duplicado",
-        mensagem: "Já existe um membro com esse nome.",
-        icone: "account-multiple-outline",
-        corIcone: colors.warning,
-      });
-      return;
-    }
-
-    if (!user?.uid) return;
-
     setCarregando(true);
     try {
-      await addDoc(collection(db, "users", user.uid, "membros"), {
-        nome,
-        ativo: true,
-        criadoEm: serverTimestamp(),
-      });
+      await adicionarMembro(novoNome);
       vibrarSucesso();
       setNovoNome("");
-      await carregarMembros();
-      onAtualizarLista?.();
     } catch (e) {
-      console.error("Erro ao adicionar membro:", e);
+      vibrarLeve();
       setAlerta({
         visivel: true,
-        titulo: "Erro",
-        mensagem: "Não foi possível adicionar o membro.",
+        titulo: "Não foi possível adicionar",
+        mensagem: e?.message || "Não foi possível adicionar o membro.",
         icone: "alert-circle-outline",
         corIcone: colors.gasto,
       });
@@ -124,8 +61,6 @@ export const GerenciarMembrosModal = ({ visivel, onFechar, onAtualizarLista }) =
   // 🔹 Excluir membro
   // ======================================================
   const handleExcluir = (id, nome) => {
-    if (!user?.uid) return;
-
     setAlerta({
       visivel: true,
       titulo: "Excluir membro",
@@ -142,17 +77,14 @@ export const GerenciarMembrosModal = ({ visivel, onFechar, onAtualizarLista }) =
           style: "destructive",
           onPress: async () => {
             try {
-              await deleteDoc(doc(db, "users", user.uid, "membros", id));
-              setMembros((prev) => prev.filter((m) => m.id !== id));
+              await excluirMembro(id);
               vibrarLeve();
               setAlerta((a) => ({ ...a, visivel: false }));
-              onAtualizarLista?.();
             } catch (e) {
-              console.error("Erro ao excluir membro:", e);
               setAlerta({
                 visivel: true,
                 titulo: "Erro",
-                mensagem: "Não foi possível excluir o membro.",
+                mensagem: e?.message || "Não foi possível excluir o membro.",
                 icone: "alert-circle-outline",
                 corIcone: colors.gasto,
               });

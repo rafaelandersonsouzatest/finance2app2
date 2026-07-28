@@ -39,12 +39,15 @@ import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import BottomTabs from "./src/navigation/BottomTabs";
+import MainStack from "./src/navigation/MainStack";
+import { navigationRef } from "./src/navigation/navigationRef";
 
 import { DateFilterProvider } from "./src/contexts/DateFilterContext";
 import { VisibilityProvider } from "./src/contexts/VisibilityContext";
+import { UserMenuProvider } from "./src/contexts/UserMenuContext";
 
 import AlertaModal from "./src/components/AlertaModal";
+import UserMenu from "./src/components/UserMenu";
 import {
   AuthProvider,
   useAuth,
@@ -147,9 +150,12 @@ function AppContent() {
   // ================================
   return (
     <>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         {user ? (
-          <BottomTabs />
+          <UserMenuProvider>
+            <MainStack />
+            <UserMenu />
+          </UserMenuProvider>
         ) : (
           <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Login" component={LoginScreen} />

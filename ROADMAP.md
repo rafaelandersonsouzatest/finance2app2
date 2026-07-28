@@ -21,6 +21,7 @@
 - Correção dos bugs financeiros conhecidos (parse de valor, recálculo de parcelas de empréstimo, saldo de investimento).
 - Onboarding finalizado e commitado.
 - Decisão sobre o scaffolding de Modo Família: terminar ou remover (não deixar código morto/inconsistente atravessar para a fase de Publicação).
+- **Menu do Usuário / Hub de Configurações** (planejado para a Sprint 2, ver `ARQUITETURA.md` seção 11 e `PROJECT_STATUS.md`) — hoje não existe nenhum botão de logout em lugar nenhum da interface, o que por si só já bloquearia qualquer publicação real.
 
 ---
 
@@ -120,3 +121,38 @@ Análise de produto/UX/negócio (ver `PRODUCT_DISCOVERY.md`) sugeriu adições �
 | Fase 5 — Premium | Definir tiers concretos: histórico estendido, relatórios/exportação, família ampliada, MEI/Empresa |
 | Fase 6 — IA | Categorização automática por regra simples (não é IA) pode entregar valor percebido parecido antes da fase de IA de verdade |
 | **Nova fase a avaliar** | **Open Finance / Integração Bancária** — não estava contemplada nas fases originais. Importação automática de transações é apontada pelo discovery como a maior alavanca de retenção de longo prazo do produto, mas envolve regulação e parceria bancária — avaliar posicionamento (depois de Web, antes ou junto de Modo Empresa) quando o roadmap for revisitado |
+
+---
+
+## Atualização — Menu do Usuário / Hub de Configurações (2026-07-27)
+
+Nova diretriz de arquitetura e UX: criar um hub central de conta/configurações, acessado pelo cabeçalho (ver `ARQUITETURA.md` seção 11 para o desenho técnico completo, e `PROJECT_STATUS.md` para o escopo da Sprint 2). Esse hub não é só um item de MVP — é a estrutura que várias fases futuras vão usar como ponto de encaixe, sem precisar reorganizar a interface de novo:
+
+| Fase | Como o Hub se conecta a ela |
+|---|---|
+| Fase 0 — MVP Mobile | Resolve o bloqueador do logout ausente; categoria "Conta" nasce já com nome/e-mail/sair. |
+| Fase 2 — Modo Família | Categoria "Membros" passa a ter um local oficial de administração (hoje só existia dentro dos seletores); consolida a lógica em `useMembros.js`, único ponto a evoluir quando o Modo Família precisar de convite/permissões reais. |
+| Fase 4 — Modo Empresa | "Conta" é o lugar natural para exibir/gerenciar `tipoUsuario`/papéis quando essa fase chegar. |
+| Fase 5 — Premium | "Conta" é o lugar natural para mostrar o `plano` atual e um futuro upgrade — sem precisar inventar uma tela nova. |
+| Fase 6 — IA / Notificações | Categoria "Notificações" já nasce com a estrutura pronta para lembretes de vencimento, metas, alertas — só falta implementar o conteúdo. |
+| Product Discovery (PIN/biometria, exclusão de conta) | "Conta" e "Aparência" são os lugares naturais para esses itens quando entrarem em escopo. |
+
+---
+
+## Atualização — Agenda Financeira / Central de Avisos (2026-07-28)
+
+Nova diretriz de produto, registrada no discovery da Sprint 3 (`SPRINT3_DISCOVERY.md`) e confirmada pelo usuário: o app deve evoluir de "controle" (o que já aconteceu) para "planejamento" (o que vai acontecer, o que isso significa, o que fazer a respeito). Três camadas, entregues em sprints separadas — ver `ARQUITETURA.md` seção 12 para o desenho técnico da primeira:
+
+1. **"O que vai acontecer?"** — Agenda Financeira (calendário + linha do tempo) e Central de Avisos. ✅ Sprint 3 (2026-07-28).
+2. **"O que isso significa?"** — saldo projetado, "vou fechar o mês no positivo?", "posso antecipar essa parcela?". Candidata a Sprint 4, ainda não iniciada.
+3. **"O que eu deveria fazer?"** — recomendações comparativas (investir vs. quitar dívida), alertas de padrão de gasto. Fase futura, alinhada à Fase 6 (IA) abaixo.
+
+O hook `useEventosFinanceiros` (fonte única dos 4 domínios financeiros normalizados) é a peça que essa evolução toda usa como base — pensado desde a Sprint 3 para não precisar ser redesenhado quando as camadas 2 e 3 chegarem.
+
+| Fase | Como a Agenda Financeira se conecta a ela |
+|---|---|
+| Fase 0 — MVP Mobile | Notificação local de vencimento (Product Discovery, acima) passa a ter uma sprint própria já desenhada (ver `SPRINT3_DISCOVERY.md` seção 7): reaproveita `useEventosFinanceiros` para decidir o que agendar, só falta o build nativo com `expo-notifications`. |
+| Fase 2 — Modo Família | Notificação por aparelho (não por conta) é uma limitação a reavaliar quando o Modo Família tiver múltiplos usuários compartilhando o mesmo tenant — hoje cada membro precisaria configurar a própria notificação no próprio aparelho. |
+| Fase 5 — Premium | Histórico estendido/relatórios (tiers já cogitados no Product Discovery) poderiam usar a mesma Linha do Tempo como base visual, olhando para trás em vez de para frente. |
+| Fase 6 — IA | `useEventosFinanceiros` já separa "o que gera um evento" de "como ele é exibido/notificado" — regras de geração mais inteligentes (ex.: "gasto acima do padrão") entram nesse mesmo hook, sem mudar a camada de exibição. |
+| Nova fase a considerar (Widgets) | Estudo de viabilidade feito (`SPRINT3_DISCOVERY.md` seção 8) — exige build nativo por plataforma e Swift no iOS; permanece só documentado, sem sprint definida. |

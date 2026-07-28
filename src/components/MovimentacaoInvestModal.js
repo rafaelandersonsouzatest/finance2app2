@@ -12,6 +12,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import AlertaModal from './AlertaModal';
+import { useCurrencyInput } from '../hooks/useCurrencyInput';
+import { formatarBRL } from '../utils/formatarValor';
 
 export default function MovimentacaoInvestModal({
   visible,
@@ -21,7 +23,12 @@ export default function MovimentacaoInvestModal({
   saldoAtual = 0,
 }) {
   const [tipo, setTipo] = useState('Aporte');
-  const [valor, setValor] = useState('');
+  const [valor, setValor] = useState(0);
+  const {
+    texto: valorTexto,
+    handleChange: handleValorChange,
+    setTexto: setValorTexto,
+  } = useCurrencyInput(0, setValor);
   const [descricao, setDescricao] = useState('');
 
   // estado do alerta genérico
@@ -36,18 +43,21 @@ export default function MovimentacaoInvestModal({
   // 🔄 Resetar os campos ao abrir ou quando mudar a movimentação
   useEffect(() => {
     if (initialData) {
+      const valorInicial = Number(initialData.valor ?? 0);
       setTipo(initialData.tipo || 'Aporte');
-      setValor(initialData.valor !== undefined ? String(initialData.valor) : '');
+      setValor(valorInicial);
+      setValorTexto(formatarBRL(valorInicial));
       setDescricao(initialData.descricao || '');
     } else {
       setTipo('Aporte');
-      setValor('');
+      setValor(0);
+      setValorTexto('');
       setDescricao('');
     }
   }, [initialData, visible]);
 
   const handleSave = () => {
-    const valorNumerico = Number(String(valor).replace(',', '.'));
+    const valorNumerico = valor;
 
     if (isNaN(valorNumerico) || valorNumerico <= 0) {
       setAlerta({
@@ -155,8 +165,8 @@ export default function MovimentacaoInvestModal({
               placeholder="R$ 0,00"
               placeholderTextColor={colors.textSecondary}
               keyboardType="decimal-pad"
-              value={valor}
-              onChangeText={setValor}
+              value={valorTexto}
+              onChangeText={handleValorChange}
             />
 
             {/* Campo Descrição */}

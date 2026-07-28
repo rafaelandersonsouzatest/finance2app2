@@ -52,12 +52,15 @@ const ResumoFinanceiro = ({
 }) => {
   const ehEmprestimo = tipo === 'emprestimo';
 
-  // 🔹 Empréstimo: valor contratado é fixo, então a barra de progresso deve
-  // refletir parcelas pagas, não uma razão de valores (que sempre ficaria
-  // perto de 100% por causa do desconto, mesmo sem nenhuma parcela paga).
-  const progresso = ehEmprestimo
-    ? (totalParcelas > 0 ? (parcelasPagas / totalParcelas) * 100 : 0)
-    : (totalReal > 0 ? (totalPago / totalReal) * 100 : 0);
+  // 🔹 Empréstimo: totalReal é o valor CONTRATADO (fixo) — a barra precisa
+  // medir o progresso contra o que de fato será pago (contratado menos a
+  // economia já obtida), senão nunca chega a 100% havendo desconto.
+  // Cartão: totalReal já é a soma ao vivo das parcelas (já reflete qualquer
+  // desconto), então não subtraímos de novo.
+  const valorReferencia = ehEmprestimo ? totalReal - totalDescontos : totalReal;
+  const progresso =
+    valorReferencia > 0 ? Math.min((totalPago / valorReferencia) * 100, 100) : 0;
+  const quitado = totalParcelas > 0 && parcelasPagas === totalParcelas;
 
   const rotuloPago = ehEmprestimo
     ? 'Valor Efetivamente Pago'
@@ -91,6 +94,19 @@ const ResumoFinanceiro = ({
           ]}
         />
       </View>
+
+      {quitado && (
+        <Text
+          style={{
+            color: colors.balance,
+            fontWeight: '600',
+            textAlign: 'center',
+            marginTop: 8,
+          }}
+        >
+          ✅ {ehEmprestimo ? 'Empréstimo quitado' : 'Compra quitada'}
+        </Text>
+      )}
 
       {totalDescontos > 0 && (
         <View
@@ -177,11 +193,23 @@ export default function ModalDetalhes({
 
         const parcelas = parcelasSnap.docs.map((d) => d.data());
 
+        // 🔹 Valor efetivamente pago: soma das parcelas realmente pagas (ou
+        // antecipadas), já refletindo o desconto de cada uma — independe de
+        // quantas outras parcelas ainda faltam. Vale igual para empréstimo e cartão.
+        const somaPagas = parcelas.reduce(
+          (acc, p) =>
+            acc +
+            ((p.pago === true || p.adiantada === true
+              ? parseFloat(p.valor)
+              : 0) || 0),
+          0
+        );
+        setTotalPago(somaPagas);
+
         if (tipo === 'emprestimo') {
-          // 🔹 Regra de negócio: valor contratado nunca muda; economia e
-          // valor pago são sempre derivados dele (ver useEmprestimos.js).
-          // Fallback por soma cobre empréstimos criados antes dessa mudança,
-          // que não têm valorContratado/economiaTotal gravados.
+          // 🔹 Regra de negócio: valor contratado nunca muda; economia é
+          // derivada dele (ver useEmprestimos.js). Fallback por soma cobre
+          // empréstimos criados antes dessa mudança, sem esses campos.
           const temCamposNovos = parcelas.some(
             (p) => p.valorContratado !== undefined
           );
@@ -199,7 +227,6 @@ export default function ModalDetalhes({
 
           setTotalDescontos(economiaTotal);
           setTotalReal(valorContratado);
-          setTotalPago(valorContratado - economiaTotal);
         } else {
           const somaDescontos = parcelas.reduce(
             (acc, p) => acc + (parseFloat(p.descontoAplicado) || 0),
@@ -212,16 +239,6 @@ export default function ModalDetalhes({
             0
           );
           setTotalReal(somaTotal);
-
-          const somaPagas = parcelas.reduce(
-            (acc, p) =>
-              acc +
-              ((p.pago === true || p.adiantada === true
-                ? parseFloat(p.valor)
-                : 0) || 0),
-            0
-          );
-          setTotalPago(somaPagas);
         }
 
         const pagas = parcelas.filter((p) => p.pago || p.adiantada).length;
@@ -384,8 +401,8 @@ export default function ModalDetalhes({
             />
             <InfoRow
               icon="chart-donut"
-              label="Progresso"
-              value={`${item.parcelaAtual} de ${item.totalParcelas}`}
+              label="Parcelas Pagas"
+              value={`${parcelasPagas} de ${totalParcelas} parcelas pagas`}
             />
 
             {item.pago ? (
@@ -444,8 +461,8 @@ export default function ModalDetalhes({
             />
             <InfoRow
               icon="chart-donut"
-              label="Progresso"
-              value={`${item.parcelaAtual} de ${item.totalParcelas}`}
+              label="Parcelas Pagas"
+              value={`${parcelasPagas} de ${totalParcelas} parcelas pagas`}
             />
 
             {item.pago ? (

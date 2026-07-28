@@ -1,7 +1,14 @@
 // ======================================================
-// 👥 MembrosScreen.js — versão final unificada e estilizada
+// 👥 MembrosScreen.js — administração oficial de membros
 // ======================================================
-import React, { useEffect, useState } from "react";
+// Reescrita em 2026-07-27 (Sprint 2 — Menu do Usuário). A versão anterior
+// deste arquivo usava uma coleção Firestore GLOBAL ("membros", sem escopo de
+// usuário) — um bug de dados real, não só uma implementação duplicada: se
+// reativada como estava, misturaria membros de contas diferentes. Esta tela
+// agora consome o mesmo hook (`useMembros`) usado pelo seletor rápido
+// (`MembroSelect.js`) e pelo `GerenciarMembrosModal.js` — fonte única,
+// nenhuma lógica de Firestore própria.
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -12,23 +19,14 @@ import {
   Platform,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import {
-  collection,
-  addDoc,
-  onSnapshot,
-  deleteDoc,
-  doc,
-  query,
-  orderBy,
-} from "firebase/firestore";
-import { db } from "../config/firebase";
 import { colors } from "../styles/colors";
 import { globalStyles } from "../styles/globalStyles";
 import AlertaModal from "../components/AlertaModal";
 import { vibrarLeve, vibrarSucesso } from "../utils/haptics";
+import { useMembros } from "../hooks/useMembros";
 
 export default function MembrosScreen() {
-  const [membros, setMembros] = useState([]);
+  const { membros, loading, adicionarMembro, excluirMembro } = useMembros();
   const [novoNome, setNovoNome] = useState("");
   const [alerta, setAlerta] = useState({
     visivel: false,
@@ -39,72 +37,24 @@ export default function MembrosScreen() {
     botoes: [],
   });
 
-  // 🔹 Carrega membros em tempo real
-  useEffect(() => {
-    const q = query(collection(db, "membros"), orderBy("criadoEm", "asc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const lista = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setMembros(lista);
-    });
-    return unsubscribe;
-  }, []);
-
-  // 🔹 Adiciona novo membro
-  const adicionarMembro = async () => {
-    const nomeTrim = novoNome.trim();
-    if (!nomeTrim) {
-      vibrarLeve();
-      setAlerta({
-        visivel: true,
-        titulo: "Campo vazio",
-        mensagem: "Digite um nome antes de adicionar.",
-        icone: "alert-circle-outline",
-        corIcone: colors.gasto,
-      });
-      return;
-    }
-
-    // Evita duplicidade
-    const nomeExistente = membros.find(
-      (m) => m.nome.toLowerCase() === nomeTrim.toLowerCase()
-    );
-    if (nomeExistente) {
-      vibrarLeve();
-      setAlerta({
-        visivel: true,
-        titulo: "Duplicado",
-        mensagem: "Já existe um membro com esse nome.",
-        icone: "account-multiple-outline",
-        corIcone: colors.warning,
-      });
-      return;
-    }
-
+  const handleAdicionar = async () => {
     try {
-      await addDoc(collection(db, "membros"), {
-        nome: nomeTrim,
-        ativo: true,
-        criadoEm: new Date(),
-      });
+      await adicionarMembro(novoNome);
       vibrarSucesso();
       setNovoNome("");
     } catch (e) {
-      console.error("Erro ao adicionar membro:", e);
+      vibrarLeve();
       setAlerta({
         visivel: true,
-        titulo: "Erro",
-        mensagem: "Não foi possível adicionar o membro.",
+        titulo: "Não foi possível adicionar",
+        mensagem: e?.message || "Não foi possível adicionar o membro.",
         icone: "alert-circle-outline",
         corIcone: colors.gasto,
       });
     }
   };
 
-  // 🔹 Exclui membro (com modal personalizado)
-  const excluirMembro = (id, nome) => {
+  const handleExcluir = (id, nome) => {
     setAlerta({
       visivel: true,
       titulo: "Excluir membro",
@@ -121,15 +71,14 @@ export default function MembrosScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              await deleteDoc(doc(db, "membros", id));
+              await excluirMembro(id);
               vibrarLeve();
               setAlerta((a) => ({ ...a, visivel: false }));
             } catch (e) {
-              console.error("Erro ao excluir membro:", e);
               setAlerta({
                 visivel: true,
                 titulo: "Erro",
-                mensagem: "Não foi possível excluir o membro.",
+                mensagem: e?.message || "Não foi possível excluir o membro.",
                 icone: "alert-circle-outline",
                 corIcone: colors.gasto,
               });
@@ -140,7 +89,6 @@ export default function MembrosScreen() {
     });
   };
 
-  // 🔹 Renderiza cada membro
   const renderItem = ({ item }) => (
     <View
       style={[
@@ -155,6 +103,8 @@ export default function MembrosScreen() {
       ]}
     >
       <View style={{ flexDirection: "row", alignItems: "center" }}>
+        {/* 🔹 Avatar por membro é recurso futuro (ver PROJECT_STATUS.md) —
+            por enquanto, ícone genérico para todos. */}
         <MaterialCommunityIcons
           name="account-circle-outline"
           size={22}
@@ -165,7 +115,7 @@ export default function MembrosScreen() {
       </View>
 
       <TouchableOpacity
-        onPress={() => excluirMembro(item.id, item.nome)}
+        onPress={() => handleExcluir(item.id, item.nome)}
         style={[globalStyles.iconButton, { backgroundColor: "#ff444420" }]}
       >
         <MaterialCommunityIcons
@@ -182,7 +132,6 @@ export default function MembrosScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={[globalStyles.container, { padding: 20 }]}
     >
-      {/* 🔹 Modal de Alerta */}
       <AlertaModal
         visible={alerta.visivel}
         onClose={() => setAlerta((a) => ({ ...a, visivel: false }))}
@@ -193,32 +142,23 @@ export default function MembrosScreen() {
         botoes={alerta.botoes}
       />
 
-      <Text style={[globalStyles.headerTitle, { textAlign: "center" }]}>
-        Membros da Casa
-      </Text>
-
-      {/* Campo de cadastro */}
       <View
         style={[
           globalStyles.card,
           globalStyles.row,
           globalStyles.alignCenter,
-          {
-            paddingVertical: 8,
-            paddingHorizontal: 12,
-            marginBottom: 20,
-          },
+          { paddingVertical: 8, paddingHorizontal: 12, marginBottom: 20, marginTop: 16 },
         ]}
       >
         <TextInput
           placeholder="Nome do membro"
           value={novoNome}
           onChangeText={setNovoNome}
-          onSubmitEditing={adicionarMembro}
+          onSubmitEditing={handleAdicionar}
           placeholderTextColor={colors.textSecondary}
           style={[globalStyles.input, { flex: 1, borderWidth: 0 }]}
         />
-        <TouchableOpacity onPress={adicionarMembro} style={{ marginLeft: 8 }}>
+        <TouchableOpacity onPress={handleAdicionar} style={{ marginLeft: 8 }}>
           <MaterialCommunityIcons
             name="plus-circle"
             size={28}
@@ -227,17 +167,18 @@ export default function MembrosScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Lista de membros */}
       <FlatList
         data={membros}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         ListEmptyComponent={
-          <View style={globalStyles.emptyContainer}>
-            <Text style={globalStyles.noDataText}>
-              Nenhum membro cadastrado.
-            </Text>
-          </View>
+          !loading && (
+            <View style={globalStyles.emptyContainer}>
+              <Text style={globalStyles.noDataText}>
+                Nenhum membro cadastrado.
+              </Text>
+            </View>
+          )
         }
         contentContainerStyle={{ paddingTop: 10 }}
       />

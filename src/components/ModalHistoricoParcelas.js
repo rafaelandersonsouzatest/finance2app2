@@ -132,11 +132,14 @@ const ResumoFinanceiro = ({
   parcelasPagas,
   totalParcelas,
 }) => {
-  // 🔹 Empréstimo: valor contratado é fixo, a barra reflete parcelas pagas
-  // (ver mesmo raciocínio em ModalDetalhes.js).
-  const progresso = ehEmprestimo
-    ? (totalParcelas > 0 ? (parcelasPagas / totalParcelas) * 100 : 0)
-    : (totalReal > 0 ? (totalPago / totalReal) * 100 : 0);
+  // 🔹 Empréstimo: totalReal é o valor contratado (fixo) — a barra precisa
+  // medir contra o que de fato será pago (contratado menos economia), senão
+  // nunca chega a 100% havendo desconto. Cartão: totalReal já é a soma ao
+  // vivo das parcelas (já reflete desconto), não subtraímos de novo.
+  const valorReferencia = ehEmprestimo ? totalReal - totalDescontos : totalReal;
+  const progresso =
+    valorReferencia > 0 ? Math.min((totalPago / valorReferencia) * 100, 100) : 0;
+  const quitado = totalParcelas > 0 && parcelasPagas === totalParcelas;
 
   return (
     <View
@@ -178,6 +181,19 @@ const ResumoFinanceiro = ({
       >
         {parcelasPagas}/{totalParcelas} pagas
       </Text>
+
+      {quitado && (
+        <Text
+          style={{
+            color: colors.balance,
+            fontWeight: '600',
+            fontSize: 13,
+            marginTop: 3,
+          }}
+        >
+          ✅ {ehEmprestimo ? 'Empréstimo quitado' : 'Compra quitada'}
+        </Text>
+      )}
 
       {totalDescontos > 0 && (
         <Text
@@ -242,29 +258,30 @@ export default function ModalHistoricoParcelas({ visible, onClose, item }) {
         const temCamposNovos =
           ehEmprestimo && dados.some((p) => p.valorContratado !== undefined);
 
-        let totalReal, totalPago, totalDescontos;
+        // 🔹 Valor efetivamente pago: soma das parcelas realmente pagas (ou
+        // antecipadas), já refletindo o desconto de cada uma — vale igual
+        // para empréstimo e cartão, com ou sem os campos novos do A3.
+        const totalPago = dados.reduce(
+          (acc, p) =>
+            acc +
+            ((p.pago === true || p.adiantada === true
+              ? parseFloat(p.valor)
+              : 0) || 0),
+          0
+        );
+
+        let totalReal, totalDescontos;
 
         if (temCamposNovos) {
-          // 🔹 Regra de negócio: valor contratado nunca muda; economia e
-          // valor pago são derivados dele (ver useEmprestimos.js).
-          const valorContratado = dados[0].valorContratado || 0;
-          const economiaTotal = dados[0].economiaTotal || 0;
-          totalReal = valorContratado;
-          totalDescontos = economiaTotal;
-          totalPago = valorContratado - economiaTotal;
+          // 🔹 Regra de negócio: valor contratado nunca muda; economia é
+          // derivada dele (ver useEmprestimos.js).
+          totalReal = dados[0].valorContratado || 0;
+          totalDescontos = dados[0].economiaTotal || 0;
         } else {
           // Fallback por soma — cobre cartões e empréstimos antigos sem os
           // campos novos.
           totalReal = dados.reduce(
             (acc, p) => acc + (parseFloat(p.valorOriginal || p.valor) || 0),
-            0
-          );
-          totalPago = dados.reduce(
-            (acc, p) =>
-              acc +
-              ((p.pago === true || p.adiantada === true
-                ? parseFloat(p.valor)
-                : 0) || 0),
             0
           );
           totalDescontos = dados.reduce(

@@ -21,6 +21,11 @@ import ToggleVisibilidade from '../components/ToggleVisibilidade';
 import { vibrarLeve, vibrarSucesso, vibrarAlerta, vibrarMedio } from '../utils/haptics';
 import FabMenu from '../components/FabMenu';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../auth/useAuth';
+import { useUserMenu } from '../contexts/UserMenuContext';
+import { getNomeExibicao } from '../utils/perfil';
+import BotaoStatusPagamento from './BotaoStatusPagamento';
 
 
 
@@ -88,6 +93,9 @@ const { height } = Dimensions.get('window');
   } = useDateFilter();
 
   const { formatValue } = useVisibility();
+  const { profile } = useAuth();
+  const { open: abrirMenuUsuario } = useUserMenu();
+  const navigation = useNavigation();
 
   const handleAbrirDetalhes = (item) => {
     onPressItem?.(item);
@@ -284,43 +292,97 @@ const { height } = Dimensions.get('window');
 
 const renderHeader = () => (
   <View style={[globalStyles.header, { flexDirection: 'column', alignItems: 'stretch' }]}>
+    {/* Identidade do usuário (abre o Menu do Usuário/Configurações) + atalhos
+        diretos para Central de Avisos e Agenda Financeira — ver
+        SPRINT3_DISCOVERY.md seção 6. Aparece em todas as telas que usam
+        TelaPadrao. */}
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+      <TouchableOpacity
+        onPress={() => {
+          vibrarLeve();
+          abrirMenuUsuario();
+        }}
+        style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+      >
+        <MaterialCommunityIcons
+          name="account-circle-outline"
+          size={16}
+          color={colors.textSecondary}
+          style={{ marginRight: 4 }}
+        />
+        <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+          Olá, {getNomeExibicao(profile)}
+        </Text>
+        <MaterialCommunityIcons
+          name="chevron-down"
+          size={16}
+          color={colors.textSecondary}
+          style={{ marginLeft: 2 }}
+        />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => {
+          vibrarLeve();
+          navigation.navigate('CentralAvisos');
+        }}
+        style={{ marginLeft: 12, padding: 2 }}
+      >
+        <MaterialCommunityIcons name="bell-outline" size={20} color={colors.textSecondary} />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => {
+          vibrarLeve();
+          navigation.navigate('AgendaFinanceira');
+        }}
+        style={{ marginLeft: 12, padding: 2 }}
+      >
+        <MaterialCommunityIcons name="calendar-month-outline" size={20} color={colors.textSecondary} />
+      </TouchableOpacity>
+    </View>
+
     {/* Linha superior: título */}
     <View style={{ alignItems: 'flex-start' }}>
       <Text style={globalStyles.headerTitle}>{titulo}</Text>
     </View>
 
-    {/* Linha inferior: mês/ano + toggle */}
-    {!hideDateFilter && (
-      <View
-        style={{
-          marginTop: -17,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        {/* Espaço vazio para balancear o Toggle à direita */}
-        <View style={{ width: 28 }} />
+    {/* Linha inferior: mês/ano (quando houver) + toggle — o toggle aparece
+        sempre, independente de hideDateFilter (as duas coisas não deveriam
+        estar acopladas). */}
+    <View
+      style={{
+        marginTop: -17,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: hideDateFilter ? 'flex-end' : 'space-between',
+      }}
+    >
+      {!hideDateFilter && (
+        <>
+          {/* Espaço vazio para balancear o Toggle à direita */}
+          <View style={{ width: 28 }} />
 
-        {/* Calendário centralizado */}
-        <View style={{ flex: 1, alignItems: 'center' }}>
-          <MonthYearPicker
-            selectedMonth={selectedMonth}
-            selectedYear={selectedYear}
-            onSelect={updateFilter}
-            compact
-            showNavigation
-            resetToCurrentMonth={resetToCurrentMonth}
-            isCurrentMonth={isCurrentMonth}
-          />
-        </View>
+          {/* Calendário centralizado */}
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <MonthYearPicker
+              selectedMonth={selectedMonth}
+              selectedYear={selectedYear}
+              onSelect={updateFilter}
+              compact
+              showNavigation
+              resetToCurrentMonth={resetToCurrentMonth}
+              isCurrentMonth={isCurrentMonth}
+            />
+          </View>
+        </>
+      )}
 
-        {/* Toggle à direita */}
-        <View style={{ width: 38, alignItems: 'flex-end' }}>
-          <ToggleVisibilidade size={16} />
-        </View>
+      {/* Toggle à direita */}
+      <View style={{ width: 38, alignItems: 'flex-end' }}>
+        <ToggleVisibilidade size={16} />
       </View>
-    )}
+    </View>
   </View>
 );
 
@@ -498,27 +560,10 @@ const renderHeader = () => (
                       </TouchableOpacity>
                     )}
 
-                    <TouchableOpacity
-                      style={[
-                        globalStyles.statusButton,
-                        {
-                          backgroundColor: item.pago
-                            ? colors.entrada + '20'
-                            : colors.pending + '20',
-                        },
-                      ]}
-                      onPress={(e) => {
-                        e.stopPropagation?.();
-                        vibrarLeve();
-                        onToggleStatus(item.id);
-                      }}
-                    >
-                      <MaterialCommunityIcons
-                        name={item.pago ? 'check-circle' : 'calendar-clock-outline'}
-                        size={16}
-                        color={item.pago ? colors.entrada : colors.pending}
-                      />
-                    </TouchableOpacity>
+                    <BotaoStatusPagamento
+                      pago={item.pago}
+                      onPress={() => onToggleStatus(item.id)}
+                    />
                   </View>
                 </View>
               )}
@@ -544,6 +589,10 @@ const renderHeader = () => (
   style={[
     globalStyles.fabPrimary,
     {
+      // 🔹 fabPrimary não declara position/right/bottom (o FabMenu fornece
+      // isso via seu próprio wrapper) — aqui precisamos declarar explicitamente,
+      // senão o botão fica preso no fluxo normal do layout em vez de flutuar.
+      position: 'absolute',
       right: 20,
       // 🔹 Ajuste dinâmico para iPhones e telas menores, sem precisar do expo-device
       bottom:

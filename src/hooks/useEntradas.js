@@ -243,6 +243,7 @@ const gerarFixosDoMes = async () => {
       novosDocs.push({
         descricao: modelo.descricao,
         categoria: modelo.categoria,
+        membro: modelo.membro || null,
         valor: parseFloat(valorFinal.toFixed(2)),
         data: gerarDataComDia(modelo.diaVencimento, mes, ano),
         mes,

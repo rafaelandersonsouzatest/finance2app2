@@ -10,7 +10,6 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../styles/colors';
 import { globalStyles } from '../styles/globalStyles';
-import { formatarBRL, parseBRL } from '../utils/formatarValor';
 import { vibrarLeve } from '../utils/haptics';
 import SeletorData from './SeletorData';
 import { useCurrencyInput } from '../hooks/useCurrencyInput';
@@ -30,7 +29,12 @@ export default function ModalParcelasAdiantamento({
     ano: new Date().getFullYear(),
   });
   const [usarValorIntegral, setUsarValorIntegral] = useState(true);
-  const [valorComDesconto, setValorComDesconto] = useState('');
+  const [valorComDesconto, setValorComDesconto] = useState(0);
+  const {
+    texto: valorComDescontoTexto,
+    handleChange: handleValorComDescontoChange,
+    setTexto: setValorComDescontoTexto,
+  } = useCurrencyInput(0, setValorComDesconto);
 
   useEffect(() => {
     if (visivel) {
@@ -41,7 +45,8 @@ export default function ModalParcelasAdiantamento({
         ano: new Date().getFullYear(),
       });
       setUsarValorIntegral(true);
-      setValorComDesconto('');
+      setValorComDesconto(0);
+      setValorComDescontoTexto('');
     }
   }, [visivel]);
 
@@ -59,7 +64,7 @@ export default function ModalParcelasAdiantamento({
       ? new Date().toISOString().split('T')[0]
       : `${dataEscolhida.ano}-${String(dataEscolhida.mes).padStart(2, '0')}-01`;
 
-    const valorFinal = usarValorIntegral ? null : parseBRL(valorComDesconto || '0');
+    const valorFinal = usarValorIntegral ? null : valorComDesconto;
 
     await aoConfirmar(selecionadas, dataFinal, valorFinal); // ✅ chama o hook correto
     aoFechar();
@@ -173,8 +178,8 @@ export default function ModalParcelasAdiantamento({
                     placeholder="R$ 0,00"
                     placeholderTextColor={colors.textSecondary}
                     keyboardType="numeric"
-                    value={valorComDesconto}
-                    onChangeText={(t) => setValorComDesconto(formatarBRL(parseBRL(t)))}
+                    value={valorComDescontoTexto}
+                    onChangeText={handleValorComDescontoChange}
                   />
                 </View>
               </View>

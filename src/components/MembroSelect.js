@@ -9,9 +9,7 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import Modal from "react-native-modal";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "../config/firebase";
-import { useAuth } from "../auth/useAuth"; // ✅ importante
+import { useMembros } from "../hooks/useMembros";
 import { GerenciarMembrosModal } from "./GerenciarMembrosModal";
 import { globalStyles } from "../styles/globalStyles";
 import { colors } from "../styles/colors";
@@ -25,8 +23,11 @@ export const MembroSelect = ({
   mostrarLabel = true,
   onBloquearFechamento,
 }) => {
-  const { user } = useAuth(); // ✅ usuário logado
-  const [membros, setMembros] = useState([]);
+  // 🔹 Fonte única de membros (mesma usada pela tela de administração) —
+  // MembroSelect não acessa o Firestore diretamente.
+  const { membros: membrosFirestore } = useMembros();
+  const membros = tipo === "membro" ? membrosFirestore : lista || [];
+
   const [modalVisivel, setModalVisivel] = useState(false);
   const [modalGerenciarVisivel, setModalGerenciarVisivel] = useState(false);
   const [novoNome, setNovoNome] = useState("");
@@ -44,32 +45,10 @@ export const MembroSelect = ({
     onBloquearFechamento?.(false);
   };
 
-  // =========================================================
-  // 🔹 Carregar membros (modo membro ou lista customizada)
-  // =========================================================
-  const carregarMembros = async () => {
-    if (tipo !== "membro" || !user?.uid) {
-      setMembros(lista || []);
-      return;
-    }
-    try {
-      const ref = collection(db, "users", user.uid, "membros");
-      const snapshot = await getDocs(ref);
-      const listaFirestore = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        nome: doc.data().nome || "Sem nome",
-      }));
-      setMembros(listaFirestore);
-    } catch (erro) {
-      console.error("Erro ao carregar membros:", erro);
-    }
-  };
-
   useEffect(() => {
-    carregarMembros();
     if (tipo === "pessoa") carregarRecentes();
-  }, [lista, tipo, user?.uid]);
-  
+  }, [tipo]);
+
   // =========================================================
   // 🔹 Recentes (modo pessoa)
   // =========================================================
@@ -234,7 +213,6 @@ export const MembroSelect = ({
         <GerenciarMembrosModal
           visivel={modalGerenciarVisivel}
           onFechar={fecharGerenciar}
-          onAtualizarLista={carregarMembros}
         />
       )}
     </View>
