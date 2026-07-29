@@ -14,13 +14,17 @@ import MovimentacaoInvestModal from './MovimentacaoInvestModal';
 import AlertaModal from './AlertaModal';
 import { vibrarMedio } from '../utils/haptics';
 import ModalEdicao from './ModalEdicao';
+import { calcularProgressoMeta } from '../utils/metas';
 
+// `progress` aqui já vem em escala 0–100 (calcularProgressoMeta) — antes esta
+// função recebia 0–1 e multiplicava por 100 de novo, um dos 3 cálculos
+// divergentes unificados nesta sprint (ver SPRINT4_DISCOVERY.md, seção 7).
 const ProgressBar = ({ progress, color }) => (
   <View style={globalStyles.progressBarBackground}>
     <View
       style={[
         globalStyles.progressBarFill,
-        { width: `${Math.min(progress * 100, 100)}%`, backgroundColor: color },
+        { width: `${progress}%`, backgroundColor: color },
       ]}
     />
   </View>
@@ -62,8 +66,7 @@ export default function DetalhesInvestimentoModal({
 
   const valorAtualSeguro = Number(valorAtual ?? 0);
   const metaSegura = Number(meta ?? 0);
-  const progresso =
-    metaSegura > 0 ? Math.min(valorAtualSeguro / metaSegura, 1) : 0;
+  const progresso = calcularProgressoMeta(valorAtual, meta);
 
   const mostrarErro = (titulo, err) => {
     setAlerta({
@@ -194,7 +197,7 @@ export default function DetalhesInvestimentoModal({
                       })}
                     </Text>
                     <Text style={globalStyles.modalMetaText}>
-                      {(progresso * 100).toFixed(1)}%
+                      {progresso.toFixed(1)}%
                     </Text>
                   </View>
                 </>

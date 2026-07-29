@@ -2,22 +2,10 @@ import { View, Text } from 'react-native';
 import { colors } from '../styles/colors';
 import { globalStyles } from '../styles/globalStyles';
 import { useVisibility } from '../contexts/VisibilityContext'; // 👈 novo
+import { calcularProgressoMeta, corProgressoMeta } from '../utils/metas';
 
 const SecaoInvestimentos = ({ investimentos = [] }) => {
   const { formatValue } = useVisibility(); // 👈 usar o contexto
-
-  const getProgressPercentage = (invested, target) => {
-    const numInvested = Number(invested) || 0;
-    const numTarget = Number(target) || 0;
-    if (numTarget === 0) return 0;
-    return Math.min((numInvested / numTarget) * 100, 100);
-  };
-
-  const getProgressColor = (percentage) => {
-    if (percentage < 33) return colors.gasto;
-    if (percentage < 66) return colors.pending;
-    return colors.balance;
-  };
 
   if (!investimentos || investimentos.length === 0) {
     return (
@@ -34,8 +22,8 @@ const SecaoInvestimentos = ({ investimentos = [] }) => {
 
       <View style={globalStyles.gap16}>
         {investimentos.map((investment, index) => {
-          const progress = getProgressPercentage(investment.valorAtual, investment.meta);
-          const progressColor = getProgressColor(progress);
+          const progress = calcularProgressoMeta(investment.valorAtual, investment.meta);
+          const progressColor = corProgressoMeta(progress);
 
           return (
             <View key={`${investment.id || 'inv'}-${index}`} style={globalStyles.investmentItem}>

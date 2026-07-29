@@ -126,13 +126,13 @@ useEffect(() => {
 
     switch (tipo) {
       case 'entrada':
-        return { descricao: '', valor: '', data: formatarDataParaExibicao(hojeDDMMYYYY), categoria: '' };
+        return { descricao: '', valor: '', data: formatarDataParaExibicao(hojeDDMMYYYY), categoria: null };
       case 'gasto':
-        return { descricao: '', valor: '', dataVencimento: formatarDataParaExibicao(hojeDDMMYYYY), categoria: '' };
+        return { descricao: '', valor: '', dataVencimento: formatarDataParaExibicao(hojeDDMMYYYY), categoria: null };
       case 'emprestimo':
-        return { descricao: '', valorTotal: '', valorParcela: '',totalParcelas: '', dataInicio: formatarDataParaExibicao(hojeDDMMYYYY), pessoa: '', categoria: '' };
+        return { descricao: '', valorTotal: '', valorParcela: '',totalParcelas: '', dataInicio: formatarDataParaExibicao(hojeDDMMYYYY), pessoa: '', categoria: null };
       case 'cartao':
-        return { descricao: '', valor: '', valorParcela: '', dataCompra: formatarDataParaExibicao(hojeDDMMYYYY), categoria: '', parcelas: 1, pessoa: '', cartao: '' };
+        return { descricao: '', valor: '', valorParcela: '', dataCompra: formatarDataParaExibicao(hojeDDMMYYYY), categoria: null, parcelas: 1, pessoa: '', cartao: '' };
       case 'investimento':
         return { nome: '', valorInicial: '', instituicao: '', meta: '' };
       default:
@@ -218,8 +218,15 @@ useEffect(() => {
     if (valoresProcessados.pessoa && typeof valoresProcessados.pessoa === 'object') {
       valoresProcessados.pessoa = valoresProcessados.pessoa.nome;
     }
+    // 🔹 CategoriaSelect agora seleciona um objeto completo ({id, nome, ...}) —
+    // gravamos categoriaId/categoriaNome (referência estável para Metas/
+    // Relatórios futuros) e mantemos `categoria` como string por
+    // compatibilidade com telas de exibição existentes (decisão registrada em
+    // SPRINT4_DISCOVERY.md: sem migração em massa, convivência dos 2 formatos).
     if (valoresProcessados.categoria && typeof valoresProcessados.categoria === 'object') {
-      valoresProcessados.categoria = valoresProcessados.categoria.nome || valoresProcessados.categoria;
+      valoresProcessados.categoriaId = valoresProcessados.categoria.id;
+      valoresProcessados.categoriaNome = valoresProcessados.categoria.nome;
+      valoresProcessados.categoria = valoresProcessados.categoria.nome;
     }
 
 
@@ -336,10 +343,11 @@ useEffect(() => {
               </View>
             )}
             <View style={globalStyles.inputGroup}>
-              <Text style={globalStyles.label}>Categoria</Text>
               <CategoriaSelect
-                value={valores.categoria || ''}
-                onChange={(cat) => handleChange('categoria', cat)}
+                categoria={valores.categoria}
+                onSelecionar={(cat) => handleChange('categoria', cat)}
+                tipoTransacao="receita"
+                onBloquearFechamento={setBloquearFechamento}
               />
             </View>
           </>
@@ -379,10 +387,11 @@ useEffect(() => {
               </View>
             )}
             <View style={globalStyles.inputGroup}>
-              <Text style={globalStyles.label}>Categoria</Text>
               <CategoriaSelect
-                value={valores.categoria || ''}
-                onChange={(cat) => handleChange('categoria', cat)}
+                categoria={valores.categoria}
+                onSelecionar={(cat) => handleChange('categoria', cat)}
+                tipoTransacao="despesa"
+                onBloquearFechamento={setBloquearFechamento}
               />
             </View>
           </>
@@ -545,10 +554,11 @@ useEffect(() => {
                   </View>
 
                 <View style={globalStyles.inputGroup}>
-                  <Text style={globalStyles.label}>Categoria</Text>
                   <CategoriaSelect
-                    value={valores.categoria || ''}
-                    onChange={(cat) => handleChange('categoria', cat)}
+                    categoria={valores.categoria}
+                    onSelecionar={(cat) => handleChange('categoria', cat)}
+                    tipoTransacao="despesa"
+                    onBloquearFechamento={setBloquearFechamento}
                   />
                 </View>
                 </>
@@ -706,10 +716,11 @@ useEffect(() => {
             )}
 
                 <View style={globalStyles.inputGroup}>
-                  <Text style={globalStyles.label}>Categoria</Text>
                   <CategoriaSelect
-                    value={valores.categoria || ''}
-                    onChange={(cat) => handleChange('categoria', cat)}
+                    categoria={valores.categoria}
+                    onSelecionar={(cat) => handleChange('categoria', cat)}
+                    tipoTransacao="despesa"
+                    onBloquearFechamento={setBloquearFechamento}
                   />
                 </View>
           </>

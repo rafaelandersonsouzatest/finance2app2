@@ -105,6 +105,9 @@ export const useCartoes = (month, year) => {
         dataCompra,
         pessoa,
         cartao: nomeCartao,
+        categoria,
+        categoriaId,
+        categoriaNome,
       } = cartao;
 
       const parcelas = parseInt(totalParcelas || 1, 10);
@@ -139,6 +142,12 @@ export const useCartoes = (month, year) => {
           pessoa,
           cartao: nomeCartao,
           corCartao: corDoCartao,
+          // 🔹 Corrigido nesta sprint: addCartao destructurava só um subconjunto
+          // de campos e descartava a categoria escolhida na criação (achado
+          // durante a auditoria pós-incremento 4, ver SPRINT4_DISCOVERY.md).
+          categoria: categoria || null,
+          categoriaId: categoriaId || null,
+          categoriaNome: categoriaNome || null,
           valor: parseFloat(valorParcelaNum.toFixed(2)),
           valorTotal: parseFloat(valorTotalNum.toFixed(2)),
           dataCompra: dataBaseISO,

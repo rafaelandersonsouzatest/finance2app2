@@ -10,6 +10,8 @@ import AlterarSenhaScreen from '../screens/AlterarSenhaScreen';
 import FinanceiroScreen from '../screens/FinanceiroScreen';
 import MembrosScreen from '../screens/MembrosScreen';
 import GerenciarCartoesScreen from '../screens/GerenciarCartoesScreen';
+import PlanejamentoFinanceiroScreen from '../screens/PlanejamentoFinanceiroScreen';
+import CategoriasScreen from '../screens/CategoriasScreen';
 import AparenciaScreen from '../screens/AparenciaScreen';
 import NotificacoesScreen from '../screens/NotificacoesScreen';
 import SobreScreen from '../screens/SobreScreen';
@@ -52,6 +54,12 @@ export default function MainStack() {
       <Stack.Screen name="Financeiro" component={FinanceiroScreen} options={{ title: 'Financeiro' }} />
       <Stack.Screen name="Membros" component={MembrosScreen} options={{ title: 'Membros' }} />
       <Stack.Screen name="GerenciarCartoes" component={GerenciarCartoesScreen} options={{ title: 'Cartões' }} />
+      <Stack.Screen
+        name="PlanejamentoFinanceiro"
+        component={PlanejamentoFinanceiroScreen}
+        options={{ title: 'Planejamento Financeiro' }}
+      />
+      <Stack.Screen name="Categorias" component={CategoriasScreen} options={{ title: 'Categorias' }} />
       <Stack.Screen name="Aparencia" component={AparenciaScreen} options={{ title: 'Aparência' }} />
       <Stack.Screen name="Notificacoes" component={NotificacoesScreen} options={{ title: 'Notificações' }} />
       <Stack.Screen name="Sobre" component={SobreScreen} options={{ title: 'Sobre' }} />

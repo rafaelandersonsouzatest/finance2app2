@@ -243,6 +243,9 @@ const gerarFixosDoMes = async () => {
       novosDocs.push({
         descricao: modelo.descricao,
         categoria: modelo.categoria,
+        // 🔹 Propaga a referência estável do modelo (ver SPRINT4_DISCOVERY.md)
+        categoriaId: modelo.categoriaId || null,
+        categoriaNome: modelo.categoriaNome || null,
         membro: modelo.membro || null,
         valor: parseFloat(valorFinal.toFixed(2)),
         data: gerarDataComDia(modelo.diaVencimento, mes, ano),

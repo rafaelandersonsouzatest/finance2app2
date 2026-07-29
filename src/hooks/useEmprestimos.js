@@ -70,6 +70,8 @@ export const useEmprestimos = (mes, ano) => {
         dataInicio,
         pessoa,
         categoria,
+        categoriaId,
+        categoriaNome,
       } = emprestimo;
 
       const valorContratado = parseBRL(valorTotal);
@@ -87,6 +89,11 @@ export const useEmprestimos = (mes, ano) => {
           descricao,
           pessoa,
           categoria,
+          // 🔹 Corrigido nesta sprint: addEmprestimo mantinha `categoria`
+          // (string) mas descartava categoriaId/categoriaNome (achado durante
+          // a auditoria pós-incremento 4, ver SPRINT4_DISCOVERY.md).
+          categoriaId: categoriaId || null,
+          categoriaNome: categoriaNome || null,
           valor: parseFloat(valorParcela.toFixed(2)),
           // 🔹 Valor contratado original — nunca é reescrito depois da criação.
           valorContratado,

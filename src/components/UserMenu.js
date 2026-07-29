@@ -25,6 +25,10 @@ const CATEGORIAS = [
   { icon: 'cash-multiple', label: 'Financeiro', route: 'Financeiro' },
   { icon: 'account-group-outline', label: 'Membros', route: 'Membros' },
   { icon: 'credit-card-outline', label: 'Cartões', route: 'GerenciarCartoes' },
+  // 🔹 Hub próprio (não navega direto para uma tela final) — Categorias é a
+  // primeira funcionalidade; Metas/Orçamentos/Relatórios entram depois no
+  // mesmo hub, sem precisar mexer neste menu de novo (ver SPRINT4_DISCOVERY.md).
+  { icon: 'finance', label: 'Planejamento Financeiro', route: 'PlanejamentoFinanceiro' },
   { icon: 'palette-outline', label: 'Aparência', route: 'Aparencia' },
   { icon: 'bell-outline', label: 'Notificações', route: 'Notificacoes' },
   { icon: 'information-outline', label: 'Sobre', route: 'Sobre' },

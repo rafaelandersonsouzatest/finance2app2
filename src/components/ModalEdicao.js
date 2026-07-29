@@ -23,6 +23,7 @@ import SeletorData from './SeletorData';
 import { useCurrencyInput } from '../hooks/useCurrencyInput';
 import CategoriaSelect from './CategoriaSelect';
 import { MembroSelect } from '../components/MembroSelect';
+import { useCategorias } from '../hooks/useCategorias';
 
 
 // ==========================================================
@@ -105,12 +106,12 @@ const CampoStatusPago = memo(({ label, pago, aoAlternar }) => (
     </TouchableOpacity>
   </View>
 ));
-  const CampoCategoria = memo(({ valores, atualizarCampo }) => (
+  const CampoCategoria = memo(({ valores, atualizarCampo, tipoTransacao }) => (
     <View style={globalStyles.inputGroup}>
-      <Text style={globalStyles.label}>Categoria</Text>
       <CategoriaSelect
-        value={valores.categoria || ''}
-        onChange={(cat) => atualizarCampo('categoria', cat)}
+        categoria={valores.categoria}
+        onSelecionar={(cat) => atualizarCampo('categoria', cat)}
+        tipoTransacao={tipoTransacao}
       />
     </View>
   ));
@@ -131,7 +132,7 @@ const CamposModal = memo(({ tipo, valores, atualizarCampo, marcarComoPago }) => 
             <CampoStatusPago label="Recebido?" pago={valores.pago} aoAlternar={marcarComoPago} />
             {!valores.pago && <CampoData label="Data prevista para Recebimento 📅" campo="data" valores={valores} atualizarCampo={atualizarCampo} />}
             {valores.pago && <CampoData label="Data de Recebimento 💰" campo="dataPagamento" valores={valores} atualizarCampo={atualizarCampo} />}
-            <CampoCategoria valores={valores} atualizarCampo={atualizarCampo} />
+            <CampoCategoria valores={valores} atualizarCampo={atualizarCampo} tipoTransacao="receita" />
           </>
         );
 
@@ -143,7 +144,7 @@ const CamposModal = memo(({ tipo, valores, atualizarCampo, marcarComoPago }) => 
             <CampoData label="Data de Vencimento 📅" campo="dataVencimento" valores={valores} atualizarCampo={atualizarCampo} />
             <CampoStatusPago label="Pago?" pago={valores.pago} aoAlternar={marcarComoPago} />
             {valores.pago && <CampoData label="Data de Pagamento 💰" campo="dataPagamento" valores={valores} atualizarCampo={atualizarCampo} />}
-            <CampoCategoria valores={valores} atualizarCampo={atualizarCampo} />
+            <CampoCategoria valores={valores} atualizarCampo={atualizarCampo} tipoTransacao="despesa" />
           </>
         );
 
@@ -156,6 +157,10 @@ const CamposModal = memo(({ tipo, valores, atualizarCampo, marcarComoPago }) => 
             <CampoStatusPago label="Pago?" pago={valores.pago} aoAlternar={marcarComoPago} />
             {valores.pago && <CampoData label="Data de Pagamento 💰" campo="dataPagamento" valores={valores} atualizarCampo={atualizarCampo} />}
             <CampoTexto label="Pessoa/Instituição" campo="pessoa" placeholder="Ex: Banco XYZ" valores={valores} atualizarCampo={atualizarCampo} />
+            {/* 🔹 Corrigido nesta sprint: empréstimo podia receber categoria na
+                criação (ModalCriacao.js), mas não tinha como editar depois —
+                achado registrado em SPRINT4_DISCOVERY.md, seção 1. */}
+            <CampoCategoria valores={valores} atualizarCampo={atualizarCampo} tipoTransacao="despesa" />
           </>
         );
 
@@ -168,7 +173,7 @@ const CamposModal = memo(({ tipo, valores, atualizarCampo, marcarComoPago }) => 
             <CampoData label="Data da Compra *" campo="dataCompra" valores={valores} atualizarCampo={atualizarCampo} />
             <CampoStatusPago label="Pago?" pago={valores.pago} aoAlternar={marcarComoPago} />
             {valores.pago && <CampoData label="Data de Pagamento 💰" campo="dataPagamento" valores={valores} atualizarCampo={atualizarCampo} />}
-            <CampoCategoria valores={valores} atualizarCampo={atualizarCampo} />
+            <CampoCategoria valores={valores} atualizarCampo={atualizarCampo} tipoTransacao="despesa" />
           </>
         );
 
@@ -203,6 +208,7 @@ const CamposModal = memo(({ tipo, valores, atualizarCampo, marcarComoPago }) => 
 // ==========================================================
 export default function ModalEdicao({ visivel, aoFechar, aoSalvar, aoExcluir, item, tipo, titulo }) {
   const [valores, setValores] = useState({});
+  const { categorias } = useCategorias();
 
 useEffect(() => {
   if (!visivel) return; // só roda se o modal estiver aberto
@@ -234,6 +240,17 @@ useEffect(() => {
       }
       // Se já for objeto {id, nome}, deixamos como está
     });
+
+  // 🔹 Categoria: resolve o objeto completo (ícone/cor) a partir de
+  // categoriaId quando existir; lançamentos antigos (só `categoria` string,
+  // sem categoriaId — ver SPRINT4_DISCOVERY.md) ganham um objeto "sintético"
+  // sem `id`, só para exibir o nome — handleSalvar sabe não gravar
+  // categoriaId nesse caso, para não sobrescrever com um valor inválido.
+  if (v.categoriaId) {
+    v.categoria = categorias.find((c) => c.id === v.categoriaId) || { nome: v.categoriaNome || v.categoria };
+  } else if (v.categoria && typeof v.categoria === 'string') {
+    v.categoria = { nome: v.categoria };
+  }
 
   // 🔹 Atualiza SOMENTE ao abrir o modal (não a cada re-render)
   setValores(v);
@@ -278,7 +295,15 @@ const handleSalvar = () => {
       v.pessoa = v.pessoa.nome || v.pessoa.id || '';
     }
     if (v.categoria && typeof v.categoria === 'object') {
-      v.categoria = v.categoria.nome || String(v.categoria);
+      // 🔹 Só grava categoriaId/categoriaNome se o objeto tiver `id` de
+      // verdade (evita gravar `undefined` no Firestore quando o item é
+      // antigo e a categoria nunca foi resolvida a partir de um
+      // categoriaId real — ver useEffect de carregamento acima).
+      if (v.categoria.id) {
+        v.categoriaId = v.categoria.id;
+        v.categoriaNome = v.categoria.nome;
+      }
+      v.categoria = v.categoria.nome || '';
     }
 
 

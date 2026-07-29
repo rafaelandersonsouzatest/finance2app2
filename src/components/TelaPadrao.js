@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { Platform, Dimensions } from 'react-native';
+import { Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { globalStyles } from '../styles/globalStyles';
@@ -20,11 +20,12 @@ import ModalDetalhes from './ModalDetalhes';
 import ToggleVisibilidade from '../components/ToggleVisibilidade';
 import { vibrarLeve, vibrarSucesso, vibrarAlerta, vibrarMedio } from '../utils/haptics';
 import FabMenu from '../components/FabMenu';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../auth/useAuth';
 import { useUserMenu } from '../contexts/UserMenuContext';
 import { getNomeExibicao } from '../utils/perfil';
+import { calcularProgressoMeta } from '../utils/metas';
+import { useFabPosition } from '../hooks/useFabPosition';
 import BotaoStatusPagamento from './BotaoStatusPagamento';
 
 
@@ -76,8 +77,7 @@ export default function TelaPadrao({
   disableDefaultList = false,
   loading = false,
 }) {
-    const insets = useSafeAreaInsets();
-const { height } = Dimensions.get('window');
+    const fabPosition = useFabPosition();
 
   const [modalCriacaoVisivel, setModalCriacaoVisivel] = useState(false);
   const [modalEdicaoVisivel, setModalEdicaoVisivel] = useState(false);
@@ -171,10 +171,9 @@ const { height } = Dimensions.get('window');
           </Text>
         );
       case 'investimento': {
-        const valorAtual = Number(item?.valorAtual) || 0;
         const meta = Number(item?.meta) || 0;
         const temMeta = meta > 0;
-        const percentual = temMeta ? (valorAtual / meta) * 100 : 0;
+        const percentual = calcularProgressoMeta(item?.valorAtual, meta);
 
         return (
           <>
@@ -410,7 +409,7 @@ const renderHeader = () => (
           <FabMenu actions={fabActions} />
         ) : !hideAddButton ? (
           <TouchableOpacity
-            style={globalStyles.fabPrimary}
+            style={[globalStyles.fabPrimary, fabPosition]}
             onPress={() => {
               vibrarMedio();
               setModalCriacaoVisivel(true);
@@ -586,25 +585,7 @@ const renderHeader = () => (
         <FabMenu actions={fabActions} />
       ) : !hideAddButton ? (
 <TouchableOpacity
-  style={[
-    globalStyles.fabPrimary,
-    {
-      // 🔹 fabPrimary não declara position/right/bottom (o FabMenu fornece
-      // isso via seu próprio wrapper) — aqui precisamos declarar explicitamente,
-      // senão o botão fica preso no fluxo normal do layout em vez de flutuar.
-      position: 'absolute',
-      right: 20,
-      // 🔹 Ajuste dinâmico para iPhones e telas menores, sem precisar do expo-device
-      bottom:
-        Platform.OS === 'ios'
-          ? insets.bottom > 0
-            ? insets.bottom + (height < 750 ? 100 : 80) // iPhones menores sobem mais
-            : 100 // iPhones antigos sem notch
-          : height < 750
-          ? 90 // Android pequeno
-          : 70, // Android normal
-    },
-  ]}
+  style={[globalStyles.fabPrimary, fabPosition]}
   onPress={() => {
     vibrarMedio();
     setModalCriacaoVisivel(true);

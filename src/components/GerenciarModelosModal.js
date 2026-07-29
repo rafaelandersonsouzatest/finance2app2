@@ -16,6 +16,7 @@ import { colors } from "../styles/colors";
 import ModernTabs from "./ModernTabs";
 import AlertaModal from "./AlertaModal";
 import CategoriaSelect from "./CategoriaSelect";
+import { useCategorias } from "../hooks/useCategorias";
 import { useModelos } from "../hooks/useModelos";
 import { useEntradas } from "../hooks/useEntradas";
 import { useDateFilter } from "../contexts/DateFilterContext";
@@ -26,10 +27,11 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
     selectedMonth,
     selectedYear
   );
+  const { categorias } = useCategorias();
 
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
-  const [categoria, setCategoria] = useState("");
+  const [categoria, setCategoria] = useState(null);
   const [dia, setDia] = useState("");
   const [membro, setMembro] = useState(null);
   const [modoCalculo, setModoCalculo] = useState("valor");
@@ -66,7 +68,17 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
           ? String(initialData.valor ?? "")
           : formatarMoeda(String(initialData.valor ?? 0))
       );
-      setCategoria(initialData.categoria || "");
+      if (initialData.categoriaId) {
+        setCategoria(
+          categorias.find((c) => c.id === initialData.categoriaId) || {
+            nome: initialData.categoriaNome || initialData.categoria,
+          }
+        );
+      } else if (initialData.categoria) {
+        setCategoria({ nome: initialData.categoria });
+      } else {
+        setCategoria(null);
+      }
       setDia(String(initialData.diaVencimento || initialData.diaDoMes || ""));
       setMembro(
         typeof initialData?.membro === "object"
@@ -87,7 +99,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
     } else {
       setDescricao("");
       setValor("");
-      setCategoria("");
+      setCategoria(null);
       setDia("");
       setMembro(null);
       setModoCalculo("valor");
@@ -140,7 +152,12 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
             ? String(valor).replace(",", ".")
             : desformatarMoeda(valor)
         ) || 0,
-      categoria: categoria.trim() || "Outros",
+      // 🔹 categoria (string) mantida por compatibilidade com exibição
+      // existente; categoriaId/categoriaNome são a referência estável para
+      // Metas/Relatórios futuros (ver SPRINT4_DISCOVERY.md).
+      categoria: categoria?.nome || "Outros",
+      categoriaId: categoria?.id || null,
+      categoriaNome: categoria?.nome || null,
       ativo: true,
       membro: membro?.nome || null,
       modoCalculo,
@@ -516,7 +533,11 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
 
       {/* Categoria */}
       <View style={{ marginTop: 12, marginBottom: 12 }}>
-        <CategoriaSelect value={categoria} onChange={setCategoria} />
+        <CategoriaSelect
+          categoria={categoria}
+          onSelecionar={setCategoria}
+          tipoTransacao={tipo === "gasto" ? "despesa" : "receita"}
+        />
       </View>
 
       {/* Membro (entradas apenas) */}

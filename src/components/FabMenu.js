@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { View, TouchableOpacity, Animated, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { globalStyles } from '../styles/globalStyles';
+import { useFabPosition } from '../hooks/useFabPosition';
 
 // O componente FabMenuItem não precisa de alterações
 const FabMenuItem = ({ icon, label, onPress, style }) => (
@@ -18,6 +19,12 @@ const FabMenuItem = ({ icon, label, onPress, style }) => (
 );
 
 export default function FabMenu({ actions }) {
+  // 🔹 `globalStyles.fabMenuContainer` tem sua própria fórmula de `bottom`,
+  // fixa e sem considerar safe area — uma 3ª implementação independente da
+  // mesma lógica que `TelaPadrao.js`/`CategoriasManager.js` já centralizaram
+  // em `useFabPosition`. Sobrepomos aqui em vez de editar o estilo estático
+  // (globalStyles.js é dependência de 39 arquivos — risco desnecessário).
+  const fabPosition = useFabPosition();
   const [isOpen, setIsOpen] = useState(false);
   const toggleAnimation = useRef(new Animated.Value(0)).current;
   const itemAnimations = useRef(actions.map(() => new Animated.Value(0))).current;
@@ -61,7 +68,7 @@ export default function FabMenu({ actions }) {
   };
 
   return (
-    <View style={globalStyles.fabMenuContainer}>
+    <View style={[globalStyles.fabMenuContainer, fabPosition]}>
       {/* ✨ Container APENAS para os itens do menu */}
       <View style={globalStyles.fabItemsWrapper}>
         {actions.map((action, index) => {

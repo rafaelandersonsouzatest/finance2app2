@@ -124,6 +124,11 @@ export const useGastos = (mes, ano) => {
         novosGastos.push({
           descricao: modelo.descricao,
           categoria: modelo.categoria,
+          // 🔹 Propaga a referência estável do modelo para o lançamento
+          // gerado (ver SPRINT4_DISCOVERY.md) — sem isso, gastos fixos
+          // gerados por modelo nunca teriam categoriaId.
+          categoriaId: modelo.categoriaId || null,
+          categoriaNome: modelo.categoriaNome || null,
           valor: parseFloat(valorFinal.toFixed(2)),
           valorPercentual:
             modelo.modoCalculo === "porcentagem"
