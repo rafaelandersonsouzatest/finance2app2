@@ -1,6 +1,6 @@
 # Arquitetura
 
-> Documentação técnica do estado atual do código (2026-07-23, seção 12 adicionada em 2026-07-28). Este documento descreve **o que existe**, não o que deveria existir — para a visão de evolução, ver `ROADMAP.md`; para pendências e bugs, ver `PROJECT_STATUS.md`.
+> Documentação técnica do estado atual do código (2026-07-23, seções 12 e 13 adicionadas em 2026-07-28). Este documento descreve **o que existe**, não o que deveria existir — para a visão de evolução, ver `ROADMAP.md`; para pendências e bugs, ver `PROJECT_STATUS.md`.
 
 ## 1. Stack tecnológica
 
@@ -100,6 +100,10 @@ Na prática, **`compartilhado` nunca é passado como `true`** em nenhuma chamada
 **Regras de segurança:** não existe `firestore.rules` neste repositório. `firebase.json` só configura `hosting` (deploy web estático). Não há como auditar via código se o acesso ao banco está restrito.
 
 **Múltiplos ambientes:** `app.config.js` seleciona configuração (nome do app, `projectId` do Expo, ícone) por `APP_ENV` (`meu-app` | `rafael` | `marina` | `christian`); `src/config/firebase.js` seleciona a configuração do Firebase (cada ambiente aponta para um **projeto Firebase distinto**, não apenas uma coleção diferente dentro do mesmo projeto). Ou seja, hoje "múltiplos usuários" = "múltiplos apps/builds", não múltiplos usuários dentro do mesmo backend.
+
+**`owner` também varia por `APP_ENV`** (desde 2026-07-28): o projeto `christian` (hoje o ambiente de distribuição para convidados/testadores externos) foi criado sob uma organização Expo separada (`finance-app-christian`), diferente da conta `rafael.anderson.souza` que é dona de `meu-app`/`rafael`/`marina`. O Expo exige que o campo `owner` bata com a conta real dona do `projectId` de cada ambiente — variar `owner` dinamicamente em `app.config.js` (mesmo padrão já usado para `name`/`slug`/`projectId`) é a forma documentada pelo próprio Expo para repositórios que publicam para contas diferentes ([expo/fyi/eas-config-mismatch.md](https://github.com/expo/fyi/blob/main/eas-config-mismatch.md)). Vale lembrar: essa correção cobre `eas update` (roda local, lê `APP_ENV` do terminal); se um dia `christian` também precisar de `eas build` na nuvem, vai precisar de um perfil próprio em `eas.json` com `"env": {"APP_ENV": "christian"}` (os workers do EAS Build não enxergam variáveis de ambiente locais) — `eas.json` hoje só tem perfis para `meuapp`/`rafael`/`marina`.
+
+**Publicação de atualizações OTA:** `publish-all.ps1` (raiz do projeto) é o script padrão para publicar uma release nos 3 apps de uma vez (`meu-app`, `rafael`, `christian`), sempre na branch `main` — ver `PROJECT_STATUS.md` para como usá-lo e o histórico de releases.
 
 ## 8. Principais regras de negócio implementadas
 
@@ -242,3 +246,141 @@ O botão de status (usado nas listas de Entradas/Saídas/Cartões/Empréstimos) 
 - "Vencidos" só enxerga meses atual + seguinte (janela de dados que `useProximosEventos` sempre busca) — não alcança atrasos de meses mais antigos.
 - `useProximosEventos` mantém 8 listeners `onSnapshot` simultâneos (2 meses × 4 hooks) — mesma observação da seção 10 (múltiplos listeners por tela, sem cache central), não uma regressão nova.
 - Ação de "antecipar parcelas" não está disponível a partir do card da Agenda (só nas telas de origem) — fora do escopo desta sprint por decisão do usuário.
+
+## 13. Categorias e Subcategorias / módulo Planejamento Financeiro (✅ implementado em 2026-07-28, Sprint 4)
+
+> Discovery completo (pesquisa no código, alternativas de modelo de dados, decisões
+> negociadas incrementalmente) em `SPRINT4_DISCOVERY.md`. Esta seção descreve o estado
+> técnico resultante — o enquadramento de produto (por que isso é uma mudança estrutural,
+> não só uma tela nova) está em `PROJECT_STATUS.md` seção 11.
+
+### 13.1 Modelo de dados: `users/{uid}/categorias/{id}`
+
+Coleção plana com referência ao pai (`parentId`), não um array embutido — decisão
+deliberada para não repetir o padrão de risco já conhecido em `useInvestimentos.js`
+(`movimentacoes` reescrito por inteiro a cada edição, sem transação atômica — ver seção 8).
+Cada documento:
+
+```js
+{
+  nome: string,
+  parentId: string | null,        // null = categoria de topo; preenchido = subcategoria
+  tipoOrigem: "padrao" | "personalizada",
+  tipoTransacao: "despesa" | "receita" | "ambos",
+  icone: string,                   // nome de ícone (MaterialCommunityIcons) ou emoji
+  cor: string,                     // hex
+  ordem: number,
+  ativa: boolean,                  // false = arquivada (nunca excluída de verdade)
+  criadoEm: timestamp,
+  atualizadoEm: timestamp | null,
+}
+```
+
+**Profundidade da hierarquia**: `parentId` é uma referência genérica — nada no modelo de
+dados nem em `useCategorias.js` impede mais de 2 níveis (categoria → subcategoria →
+sub-subcategoria). A limitação de "só 2 níveis" existe unicamente na UI
+(`CategoriaSelect.js`/`CategoriasManager.js` renderizam um único nível de filhos, via
+`.map()` não recursivo). Se um dia mais níveis forem necessários, é trabalho de UI
+(renderização recursiva), não de dado — verificado explicitamente a pedido do usuário
+antes do incremento 4, sem alterar nada (ver `SPRINT4_DISCOVERY.md` seção 14).
+
+### 13.2 `useCategorias.js` — fonte única, mesmo padrão de `useMembros.js`
+
+`src/hooks/useCategorias.js` segue o mesmo modelo já validado por `useMembros.js` na
+Sprint 2: listener `onSnapshot` via `getBasePath(user)`, CRUD (`adicionarCategoria`,
+`atualizarCategoria`, `arquivarCategoria`, `reativarCategoria`, `excluirCategoria`),
+validação de nome duplicado (case-insensitive, escopada por `parentId` — duas
+subcategorias podem ter o mesmo nome se estiverem sob categorias-pai diferentes).
+
+**Seed automático de categorias padrão** (`src/utils/categoriasPadrao.js`): na primeira
+vez que o listener retorna a coleção vazia, `useCategorias` grava o catálogo padrão com
+**IDs determinísticos** (`padrao-alimentacao`, `padrao-transporte-uber`, etc., não gerados
+por `addDoc`) — um `batch.set` repetido com o mesmo ID apenas sobrescreve, nunca duplica,
+o que torna o seed seguro mesmo se dois aparelhos abrirem o app quase ao mesmo tempo logo
+após o cadastro. Cada usuário recebe sua própria cópia editável/arquivável/excluível das
+categorias padrão — não é um catálogo somente-leitura compartilhado.
+
+**Exclusão definitiva tem duas guardas** (`excluirCategoria`): bloqueia se a categoria tiver
+subcategorias, e bloqueia se qualquer transação em `gastos`/`entradas`/`cartoes`/
+`emprestimos` referenciar seu `id` via `categoriaId` (4 consultas `where('categoriaId','==',id)`
+antes de permitir excluir). "Arquivar" (`ativa: false`) é sempre permitido e reversível.
+
+### 13.3 `CategoriaSelect.js` — componente genérico, não acoplado a formulário
+
+Reescrito para consumir `useCategorias()` diretamente (nenhum acesso a Firestore por quem
+usa o componente) e selecionar **objetos completos** (`{id, nome, icone, cor, ...}`), não
+strings — mesmo padrão que `MembroSelect.js` já usa com `useMembros`. Pensado desde o
+início para ser reaproveitado fora dos formulários de lançamento (Metas, Orçamentos,
+Relatórios, Dashboard, filtros futuros) — por isso não assume nada sobre "estar dentro de
+um formulário", só devolve a seleção via `onSelecionar`.
+
+Preparado (documentado, não implementado) para um futuro modo de seleção múltipla: a
+árvore de dados (`categoriasTopo`, `subcategoriasDe`, `resultadoBusca`) já é independente
+de como a seleção é confirmada — adicionar `multiplo`/`categoriasSelecionadas` no futuro só
+exigiria trocar a função que hoje sempre fecha o modal na primeira escolha.
+
+O atalho "Gerenciar categorias" abre `GerenciarCategoriasModal.js` (bottom sheet) em vez de
+navegar para fora do formulário que o usuário estava preenchendo — mesmo padrão do
+"Gerenciar membros" a partir de `MembroSelect.js`.
+
+### 13.4 `src/components/planejamento/` — CRUD sem duplicação entre tela e atalho
+
+- **`FormularioCategoriaModal.js`**: criar/editar (nome, tipo de transação, ícone, cor).
+- **`CategoriasManager.js`**: lista com árvore expansível (editar/arquivar/reativar/excluir)
+  — miolo compartilhado.
+- **`GerenciarCategoriasModal.js`** (bottom sheet, a partir de `CategoriaSelect`) e
+  **`src/screens/CategoriasScreen.js`** (tela cheia, a partir do menu) são embrulhos finos
+  em volta do mesmo `CategoriasManager` — o CRUD não existe em duplicata.
+
+### 13.5 Navegação: hub "Planejamento Financeiro"
+
+`src/screens/PlanejamentoFinanceiroScreen.js` é um hub (não navega direto para uma tela
+final) — hoje só lista "Categorias" como item real, com "Metas Financeiras"/"Orçamentos e
+Limites"/"Relatórios" como "Em breve" (mesmo padrão visual de `PlaceholderMenuScreen.js`,
+Sprint 2). `UserMenu.js` ganhou a entrada "Planejamento Financeiro"; `MainStack.js` ganhou
+as rotas `PlanejamentoFinanceiro` e `Categorias`. Pensado para as próximas funcionalidades
+do módulo entrarem no mesmo hub sem reorganizar o menu principal de novo.
+
+### 13.6 Referência nas transações: convivência de `categoria` + `categoriaId` + `categoriaNome`
+
+Decisão explícita do usuário: **sem migração em massa**. Lançamentos novos (via
+`ModalCriacao.js`, `ModalEdicao.js`, `GerenciarModelosModal.js`) gravam os 3 campos:
+`categoria` (string, legado — mantém toda a exibição existente funcionando sem tocar em
+`ListItemGasto.js`/`ModalDetalhes.js`/ícones por categoria), `categoriaId` e
+`categoriaNome` (referência estável para Metas/Relatórios futuros). Lançamentos antigos
+continuam só com `categoria` — a mesma UI resolve o objeto completo via `categoriaId`
+quando existe, e cai para um objeto sintético (só nome, sem `id`) quando não existe, sem
+quebrar a edição desses registros antigos.
+
+`ModalEdicao.js` ganhou o campo de categoria também para **empréstimos** nesta sprint —
+antes só existia na criação (`ModalCriacao.js`), não na edição.
+
+**Auditoria pós-implementação** (pedida pelo usuário antes de avançar) encontrou 2 gaps
+reais na propagação, ambos corrigidos: `useCartoes.js` (`addCartao`) descartava a
+categoria inteira ao criar uma compra nova (bug pré-existente, não introduzido nesta
+sprint — só a criação, `updateCartao` sempre funcionou); `useEmprestimos.js`
+(`addEmprestimo`) mantinha `categoria` mas descartava `categoriaId`/`categoriaNome`. Depois
+da correção, os 5 tipos de lançamento e a geração de recorrentes (`gerarFixosDoMes`, que
+também passou a propagar `categoriaId`/`categoriaNome` do modelo) gravam os 3 campos de
+forma consistente, na criação e na edição.
+
+### 13.7 `src/utils/metas.js` — unificação do cálculo de progresso de meta
+
+`calcularProgressoMeta(valorAtual, valorMeta)` (sempre 0–100, sempre travado em 100) e
+`corProgressoMeta(percentual)` substituem 3 implementações divergentes que existiam em
+`SecaoInvestimentos.js`, `TelaPadrao.js` (não travava em 100 — bug real, corrigido) e
+`DetalhesInvestimentoModal.js` (escala 0–1, multiplicava por 100 de novo na exibição). Só
+consolidação — nenhuma funcionalidade nova de meta foi adicionada, por decisão do usuário
+(a evolução de Meta de Investimento propriamente dita fica para quando Metas Financeiras,
+Sprint 5, chegar).
+
+### 13.8 Compatibilidade com Modo Família
+
+Categorias vivem em `getBasePath(user)` sem `compartilhado=true` — mesma posição que
+`useMembros.js` já ocupa. Quando o Modo Família for implementado de verdade, compartilhar
+categorias entre membros da família é trocar essa chamada para
+`getBasePath(user, true)`, **desde que** o gap já registrado na seção 3 deste documento
+(`user.tenantId` não existe no objeto do Firebase Auth, só no `profile` do Firestore) seja
+resolvido nessa hora — não é um bloqueio desta sprint, só um lembrete de que "pronto para
+Modo Família" aqui significa "não vai exigir redesenho", não "já funciona compartilhado
+hoje".

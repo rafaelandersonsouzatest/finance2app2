@@ -3,6 +3,24 @@
 > Última atualização: 2026-07-28
 > Este documento reflete o estado real do código no momento da análise, não intenções ou memória de conversas anteriores. Atualize-o sempre que o estado mudar de forma relevante.
 
+## 0. Releases publicadas (EAS Update / OTA)
+
+| Release | Data | Commit | Apps | Branch |
+|---|---|---|---|---|
+| **0.2.0** — Hub do Usuário, Agenda Financeira e Perfil | 2026-07-28 | `63b5375` | `meu-app`, `rafael`, `christian` | `main` |
+
+Publicada com o script `publish-all.ps1` (novo, raiz do projeto — ver seção 11). Antes desta release, corrigido um bug de configuração que impedia publicar para `christian`: `app.config.js` tinha um `owner` fixo (`rafael.anderson.souza`) para todos os ambientes, mas o projeto `christian` (hoje o ambiente de distribuição para convidados/testadores externos) pertence a uma organização Expo diferente (`finance-app-christian`) — `owner` agora varia por `APP_ENV`, mesmo padrão já usado para `name`/`slug`/`projectId` (ver `ARQUITETURA.md` seção 7).
+
+### Como usar `publish-all.ps1` nas próximas releases
+
+1. Garanta que o repositório está limpo e que o commit que você quer publicar já foi commitado (`git status`, `git rev-parse --short HEAD`).
+2. Rode `.\publish-all.ps1` na raiz do projeto (PowerShell).
+3. Quando pedir, digite a mensagem da release (ex.: `Release 0.2.1 - ...`).
+4. O script publica automaticamente para `meu-app`, `rafael` e `christian`, sempre na branch `main`, definindo e depois limpando `APP_ENV`.
+5. Ao final, ele mostra um relatório com o resultado (OK/ERRO) de cada app — se algum falhar, revise a mensagem de erro antes de tentar de novo (os demais já publicados não precisam ser repetidos).
+
+O script **não** publica para `marina` — se um dia isso for necessário, é só adicionar `"marina"` à lista `$apps` no início do arquivo.
+
 ## 1. Funcionalidades prontas (em uso, acessíveis pela navegação)
 
 - **Autenticação por e-mail/senha**: login, registro (com validação de CPF/CNPJ e verificação de duplicidade), recuperação de senha (`ForgotPasswordScreen`) e redefinição (`ResetPasswordScreen`).
@@ -16,10 +34,11 @@
 - **Modelos recorrentes** (`GerenciarModelosModal.js` + `useModelos`): cadastro de gastos/entradas fixos mensais, com modo de cálculo por valor fixo ou percentual.
 - **Filtro de período persistente** (`DateFilterContext`): mês/ano selecionado salvo em `AsyncStorage`, com lógica de cálculo de parcela atual por data.
 - **Modo privacidade** (`VisibilityContext` + `ToggleVisibilidade`): oculta/exibe valores monetários na UI, persistido localmente.
-- **Multi-ambiente de build**: 4 variantes do mesmo app (dev, rafael, marina, christian), cada uma com projeto Firebase e Expo próprios, selecionadas via `APP_ENV`.
+- **Multi-ambiente de build**: 4 variantes do mesmo app (dev, rafael, marina, christian), cada uma com projeto Firebase e Expo próprios, selecionadas via `APP_ENV`. A variante `christian` deixou de representar uma pessoa específica e passou a ser usada como ambiente de distribuição para convidados/testadores externos (nome exibido no app: "Financeiro - Convidado"); a infraestrutura técnica (Firebase, Expo, EAS, `APP_ENV`, `owner`, `slug`) foi mantida por compatibilidade.
 - **Menu do Usuário / Hub de Configurações** (Sprint 2, ver seção 8): acessível pelo cabeçalho (`👤 Nome ▼`), com Conta, Membros (unificado via `useMembros`), e placeholders para Financeiro/Cartões/Aparência/Notificações/Sobre.
 - **Agenda Financeira e Central de Avisos** (Sprint 3, ✅ implementada e testada em 2026-07-28, ver seção 9): cabeçalho evoluiu para `👤 Nome ▼  🔔  📅` — o sino abre a Central de Avisos (Vencidos/Vencem hoje/Próximos 7 dias), o calendário abre a Agenda Financeira (Calendário mensal + Linha do Tempo). Cards de evento são totalmente interativos: reaproveitam `ModalDetalhes`/`ModalEdicao`/`ModalHistoricoParcelas` e o botão de status já existentes no resto do app.
 - **Perfil do Usuário** (mini sprint, ✅ implementada em 2026-07-28, ver seção 10): `ContaScreen.js` permite editar o nome de exibição (`apelido`) diretamente; "Alterar senha" (`AlterarSenhaScreen.js`, já existia mas estava fora de navegação) agora está acessível por ali; fallback de nome melhorado (usa a parte antes do `@` do e-mail antes de cair em "Usuário" genérico); e `avatarUrl: null` já reservado no perfil para uma futura foto de usuário.
+- **Categorias e Subcategorias / módulo Planejamento Financeiro** (Sprint 4, ✅ implementada em 2026-07-28, ver seção 11): categorias deixaram de ser texto solto no aparelho e viraram entidade sincronizada do Firestore, com hierarquia (categoria → subcategoria), gerenciável em Menu do Usuário → Planejamento Financeiro → Categorias. Primeira funcionalidade do novo módulo Planejamento Financeiro, que vai abrigar Metas Financeiras (Sprint 5), Orçamentos, Limites e Relatórios.
 
 ## 2. Em desenvolvimento (mudanças presentes no working tree, ainda não commitadas)
 
@@ -189,3 +208,58 @@ Confirmado via histórico do git, não é uma inconsistência de dado a corrigir
 
 - Alterar e-mail, vincular Google, excluir conta, gerenciamento de plano — candidatos a sprints futuras de Conta.
 - Upload/edição de foto de verdade — só o campo de dado (`avatarUrl`) e o indicativo visual foram preparados.
+
+## 11. Sprint 4 (✅ implementada em 2026-07-28) — Categorias e Subcategorias: a fundação do Planejamento Financeiro
+
+Discovery completo em `SPRINT4_DISCOVERY.md` (arquitetura, alternativas avaliadas, decisões
+de escopo negociadas incrementalmente com o usuário). Arquitetura técnica detalhada em
+`ARQUITETURA.md` seção 13.
+
+**Por que esta seção existe e não é só "adicionamos uma tela de Categorias":** o que essa
+sprint entregou é uma mudança estrutural na base de dados do app, não uma alteração de
+interface. Vale registrar com clareza, para não subestimar o alcance disso ao revisitar
+este documento no futuro:
+
+- **Categorias deixaram de ser um dado local** (`AsyncStorage`, por aparelho, sem
+  sincronia) **e passaram a ser uma entidade real do Firestore**, sincronizada entre
+  dispositivos, com hierarquia (categoria → subcategoria) e CRUD completo
+  (criar/editar/arquivar/excluir — inclusive as categorias padrão do app, não só as
+  personalizadas pelo usuário).
+- **`categoriaId` passou a ser a referência estável** usada por gastos, entradas, cartões,
+  empréstimos e modelos recorrentes — em vez de comparar por texto (frágil a renomeações e
+  a diferenças de digitação), o app agora tem uma chave confiável para agregar dados por
+  categoria. A migração foi feita **sem perda de dados e sem migração em massa**:
+  lançamentos novos gravam `categoria` (string, legado) + `categoriaId` + `categoriaNome`
+  juntos; lançamentos antigos continuam funcionando exatamente como antes.
+- **Esta é a fundação de que várias funcionalidades futuras vão depender diretamente**:
+  Metas Financeiras (Sprint 5, a próxima), Orçamentos e Limites, Relatórios, Dashboard, a
+  Agenda Financeira (Sprint 3, já pode mostrar cor/ícone de categoria no card de evento sem
+  mudança de arquitetura, só um ajuste visual futuro), recomendações de IA/Coruja (uma
+  chave estável é o que esse tipo de funcionalidade precisa para reconhecer padrão ao longo
+  do tempo) e, mais adiante, o Modo Família (categorias já nascem em cima de
+  `getBasePath(user)`, mesmo padrão de `useMembros.js` — prontas para virarem compartilhadas
+  quando o gap de `tenantId` documentado em `ARQUITETURA.md` seção 3 for resolvido).
+- **De brinde, eliminamos mais uma duplicação de lógica já conhecida**: os 3 cálculos de
+  progresso de meta de investimento (`SecaoInvestimentos.js`, `TelaPadrao.js`,
+  `DetalhesInvestimentoModal.js`) viraram um só (`src/utils/metas.js`), corrigindo de
+  passagem um bug real (a barra de progresso podia passar de 100%).
+
+| Categoria | Agora (Sprint 4) | Futuro (backlog, não fazer agora) |
+|---|---|---|
+| 🗂️ Categorias | CRUD completo (criar/editar/arquivar/excluir), hierarquia de 2 níveis, ícone/cor/tipo de transação, sincronizadas via Firestore | Hierarquia com mais de 2 níveis (modelo de dados já suporta, falta só UI recursiva — ver seção 14 do discovery) |
+| 🧭 Navegação | Novo hub "Planejamento Financeiro" no Menu do Usuário, com Categorias como primeira funcionalidade | Metas Financeiras, Orçamentos e Limites, Relatórios entram no mesmo hub depois |
+| 🧩 `CategoriaSelect` | Componente genérico, desacoplado de formulário — já usado por Entradas/Gastos/Cartões/Empréstimos/Modelos | Modo de seleção múltipla (filtros de Relatórios/Dashboard/Agenda) — arquitetura já preparada, não implementada |
+| 🔗 Referência nas transações | `categoriaId` + `categoriaNome` gravados desde a criação, convivendo com a string `categoria` legada | Nenhuma migração em massa dos dados antigos — decisão consciente |
+| 📈 Meta de Investimento | Cálculo de progresso unificado (`src/utils/metas.js`) | Nenhuma funcionalidade nova de meta — só consolidação, por pedido do usuário |
+
+**Bugs encontrados e corrigidos durante a sprint** (auditoria pedida pelo usuário antes do
+incremento 5, ver `SPRINT4_DISCOVERY.md` seção 15):
+- `useCartoes.js` (`addCartao`) descartava a categoria inteira ao criar uma compra nova
+  (bug pré-existente, não introduzido nesta sprint).
+- `useEmprestimos.js` (`addEmprestimo`) descartava `categoriaId`/`categoriaNome` na criação.
+- `ModalEdicao.js` não expunha o campo categoria para empréstimos (só existia na criação).
+- `TelaPadrao.js`: barra de progresso de meta de investimento podia ultrapassar 100%.
+
+**O que fica para a Sprint 5**: "Metas Financeiras" é a próxima funcionalidade do módulo
+Planejamento Financeiro — já pode ser construída em cima de `categoriaId` sem precisar de
+nenhum trabalho de fundação adicional.

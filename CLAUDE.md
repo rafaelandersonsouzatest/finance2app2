@@ -114,6 +114,11 @@ Antes de implementar qualquer alteração, avaliar se ela deve ser acompanhada p
 - 4 variantes de build a partir do mesmo código
   (`APP_ENV=meu-app|rafael|marina|christian`), cada uma com projeto Firebase e Expo
   próprios — ver `app.config.js` e `src/config/firebase.js`.
+- A variante `christian` não representa mais um usuário específico. Ela é utilizada
+  como ambiente de distribuição para convidados e testadores externos (nome exibido
+  no app: "Financeiro - Convidado"). Os identificadores técnicos (`APP_ENV`,
+  `projectId`, `owner`, branch EAS, Firebase etc.) foram mantidos para evitar impacto
+  na infraestrutura existente.
 
 ## Comandos úteis
 

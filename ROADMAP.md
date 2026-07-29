@@ -32,7 +32,7 @@
 **Depende de:** Fase 0 concluída, principalmente as regras de segurança do Firestore (não publicar com banco sem regra auditável).
 
 **Considerações:**
-- Cada variante (`meu-app`/dev, `rafael`, `marina`, `christian`) usa projeto Firebase e Expo próprios — antes de publicar de verdade, definir se esse modelo de "um Firebase por pessoa" é o modelo final ou um artefato de fase de testes. Isso afeta diretamente como o Modo Família (Fase 2) vai unir esses usuários.
+- Cada variante (`meu-app`/dev, `rafael`, `marina`) usa projeto Firebase e Expo próprios por pessoa da família; `christian` hoje é o ambiente de distribuição para convidados/testadores externos (identificadores técnicos — `APP_ENV`, `projectId`, `owner`, branch EAS — mantidos por compatibilidade) — antes de publicar de verdade, definir se esse modelo de "um Firebase por ambiente" é o modelo final ou um artefato de fase de testes. Isso afeta diretamente como o Modo Família (Fase 2) vai unir esses usuários.
 - Processo de build (`eas.json`) e assinatura Android (`android/app/debug.keystore`, `proguard-rules.pro`) precisam de revisão de produção (keystore de debug não deve ir para produção).
 
 ---
@@ -144,7 +144,7 @@ Nova diretriz de arquitetura e UX: criar um hub central de conta/configurações
 Nova diretriz de produto, registrada no discovery da Sprint 3 (`SPRINT3_DISCOVERY.md`) e confirmada pelo usuário: o app deve evoluir de "controle" (o que já aconteceu) para "planejamento" (o que vai acontecer, o que isso significa, o que fazer a respeito). Três camadas, entregues em sprints separadas — ver `ARQUITETURA.md` seção 12 para o desenho técnico da primeira:
 
 1. **"O que vai acontecer?"** — Agenda Financeira (calendário + linha do tempo) e Central de Avisos. ✅ Sprint 3 (2026-07-28).
-2. **"O que isso significa?"** — saldo projetado, "vou fechar o mês no positivo?", "posso antecipar essa parcela?". Candidata a Sprint 4, ainda não iniciada.
+2. **"O que isso significa?"** — saldo projetado, "vou fechar o mês no positivo?", "posso antecipar essa parcela?". Ainda não iniciada — a Sprint 4 acabou sendo redirecionada para a fundação de Categorias/Planejamento Financeiro (ver atualização abaixo), que essa camada também vai poder aproveitar (saldo projetado por categoria, por exemplo).
 3. **"O que eu deveria fazer?"** — recomendações comparativas (investir vs. quitar dívida), alertas de padrão de gasto. Fase futura, alinhada à Fase 6 (IA) abaixo.
 
 O hook `useEventosFinanceiros` (fonte única dos 4 domínios financeiros normalizados) é a peça que essa evolução toda usa como base — pensado desde a Sprint 3 para não precisar ser redesenhado quando as camadas 2 e 3 chegarem.
@@ -156,3 +156,28 @@ O hook `useEventosFinanceiros` (fonte única dos 4 domínios financeiros normali
 | Fase 5 — Premium | Histórico estendido/relatórios (tiers já cogitados no Product Discovery) poderiam usar a mesma Linha do Tempo como base visual, olhando para trás em vez de para frente. |
 | Fase 6 — IA | `useEventosFinanceiros` já separa "o que gera um evento" de "como ele é exibido/notificado" — regras de geração mais inteligentes (ex.: "gasto acima do padrão") entram nesse mesmo hook, sem mudar a camada de exibição. |
 | Nova fase a considerar (Widgets) | Estudo de viabilidade feito (`SPRINT3_DISCOVERY.md` seção 8) — exige build nativo por plataforma e Swift no iOS; permanece só documentado, sem sprint definida. |
+
+---
+
+## Atualização — Categorias e Subcategorias / módulo Planejamento Financeiro (2026-07-28)
+
+Mudança estrutural, não só uma tela nova: **Categoria deixou de ser um dado local
+(`AsyncStorage`, por aparelho) e passou a ser uma entidade real do Firestore**, sincronizada
+entre dispositivos, hierárquica (categoria → subcategoria) e referenciável por
+`categoriaId` estável — em vez de comparação por texto. Ver `PROJECT_STATUS.md` seção 11
+para o resumo completo e `ARQUITETURA.md` seção 13 para o desenho técnico; `SPRINT4_DISCOVERY.md`
+para o raciocínio de arquitetura completo.
+
+Isso também reorganiza como o roadmap enxerga a próxima leva de funcionalidades: em vez de
+"Metas Financeiras" isolada, o produto ganha um módulo **Planejamento Financeiro**
+(hub próprio no Menu do Usuário, já implementado), do qual Categorias é a primeira peça e
+Metas Financeiras (Sprint 5) é a próxima — seguidas, mais adiante, de Orçamentos, Limites
+por categoria e Relatórios, todas sob o mesmo hub, sem reorganizar a navegação de novo.
+
+| Fase | Como Categorias/Planejamento Financeiro se conecta a ela |
+|---|---|
+| Fase 0 — MVP Mobile | Nenhum bloqueador novo — funcionalidade aditiva, sem migração forçada dos dados existentes. |
+| Fase 2 — Modo Família | Categorias já vivem em `getBasePath(user)`, mesmo padrão de `useMembros.js` — viram compartilháveis entre membros só trocando para `getBasePath(user, true)` quando essa fase resolver o gap de `tenantId` já documentado (`ARQUITETURA.md` seção 3). |
+| Fase 6 — IA | `categoriaId` estável é exatamente a chave que reconhecimento de padrão (“esse usuário sempre estoura em Lazer”) precisa — sem ela, esse tipo de recurso ficaria refém de comparação de texto frágil. |
+| Camada 2 do roadmap da Agenda Financeira ("o que isso significa?", acima) | Saldo/gasto projetado por categoria passa a ser possível assim que essa camada for construída — Categorias entrega a chave estável que faltava. |
+| Novo módulo: Planejamento Financeiro | Categorias (✅ Sprint 4) → Metas Financeiras (Sprint 5, próxima) → Orçamentos/Limites por categoria → Relatórios — todas no mesmo hub, todas em cima da mesma base de dados. |
