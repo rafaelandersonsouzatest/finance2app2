@@ -5,7 +5,7 @@ export default ({ config }) => {
   // 🔹 Configurações específicas de cada app
   // 🔹 `owner` varia por ambiente porque o projeto "christian" é o ambiente
   // de Convidados/testadores externos, utilizado sob uma organização Expo
-  // separada (finance-app-christian). A infraestrutura técnica permanece a
+  // separada (finance-app-convidado). A infraestrutura técnica permanece a
   // mesma por questões de compatibilidade — os demais ambientes pertencem à
   // conta rafael.anderson.souza. O Expo exige que `owner` bata com a conta
   // dona do `projectId` de cada ambiente (ver
@@ -42,7 +42,7 @@ export default ({ config }) => {
       projectId: "8887c54c-8cde-4f30-9a5a-ccd977b9795e", // ID do projeto do ambiente de Convidados no Expo
       updatesUrl: "https://u.expo.dev/8887c54c-8cde-4f30-9a5a-ccd977b9795e",
       icon: "./assets/icon.png",
-      owner: "finance-app-christian",
+      owner: "finance-app-convidado",
     },
 
   };

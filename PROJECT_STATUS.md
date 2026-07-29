@@ -8,8 +8,9 @@
 | Release | Data | Commit | Apps | Branch |
 |---|---|---|---|---|
 | **0.2.0** — Hub do Usuário, Agenda Financeira e Perfil | 2026-07-28 | `63b5375` | `meu-app`, `rafael`, `christian` | `main` |
+| **0.3.0** — Sprint 4: Categorias e Subcategorias (base do Planejamento Financeiro) | 2026-07-29 | `b6c1715` | `meu-app`, `rafael`, `christian` | `main` |
 
-Publicada com o script `publish-all.ps1` (novo, raiz do projeto — ver seção 11). Antes desta release, corrigido um bug de configuração que impedia publicar para `christian`: `app.config.js` tinha um `owner` fixo (`rafael.anderson.souza`) para todos os ambientes, mas o projeto `christian` (hoje o ambiente de distribuição para convidados/testadores externos) pertence a uma organização Expo diferente (`finance-app-christian`) — `owner` agora varia por `APP_ENV`, mesmo padrão já usado para `name`/`slug`/`projectId` (ver `ARQUITETURA.md` seção 7).
+Publicada com o script `publish-all.ps1` (novo, raiz do projeto — ver seção 11). Antes desta release, corrigido um bug de configuração que impedia publicar para `christian`: `app.config.js` tinha um `owner` fixo (`rafael.anderson.souza`) para todos os ambientes, mas o projeto `christian` (hoje o ambiente de distribuição para convidados/testadores externos) pertence a uma organização Expo diferente (`finance-app-convidado`) — `owner` agora varia por `APP_ENV`, mesmo padrão já usado para `name`/`slug`/`projectId` (ver `ARQUITETURA.md` seção 7).
 
 ### Como usar `publish-all.ps1` nas próximas releases
 
