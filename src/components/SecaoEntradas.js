@@ -1,23 +1,14 @@
 import React, { useMemo } from 'react';
-import { View, Text, Image } from 'react-native';
-import Svg, { Path, Defs, Pattern, Circle, Image as SvgImage, Text as SvgText } from 'react-native-svg';
+import { View, Text } from 'react-native';
+import Svg, { Path, Defs, Pattern, Circle, Text as SvgText } from 'react-native-svg';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
-import { useVisibility } from '../contexts/VisibilityContext'; // 👈 novo
+import { useVisibility } from '../contexts/VisibilityContext';
+import { useMembros } from '../hooks/useMembros';
+import AvatarRenderer from './AvatarRenderer';
 
-// --- Funções Auxiliares ---
-const memberImages = {
-  rafael: require('../../assets/Rafael.png'),
-  kezzia: require('../../assets/Kézzia.png'),
-  default: require('../../assets/default.png'),
-  marina: require('../../assets/Marina.png'),
-  leo: require('../../assets/Léo.png'),
-};
-
-const normalize = (str = '') =>
-  str.toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
-
+// --- Funções Auxiliares (geometria do donut) ---
 const polarToCartesian = (cx, cy, r, angleDeg) => {
   const angleInRadians = ((angleDeg - 90) * Math.PI) / 180.0;
   return {
@@ -63,26 +54,41 @@ const createDonutSegmentPath = (cx, cy, outerR, innerR, startAngle, endAngle) =>
 // --- Fim das Funções Auxiliares ---
 
 export default function SecaoEntradas({ entradas = [] }) {
-  const { formatValue } = useVisibility(); // 👈 usar contexto
+  const { formatValue } = useVisibility();
+  // 🔹 Fonte única de Membros (mesma usada pelo resto do app) — necessária
+  // para resolver o avatar de cada grupo a partir do membroId.
+  const { membros } = useMembros();
 
-    const normalizedEntradas = useMemo(() => {
-      return entradas.map((i) => {
-        const memberName = i.member?.nome || i.membro?.nome || i.fonte?.nome || i.source?.nome || i.member || i.membro || i.fonte || i.source || 'Desconhecido';
-        return {
-          member: String(memberName),
-          amount: Number(i.amount ?? i.valor ?? 0),
-          paid: i.pago === true,
-        };
-      });
-    }, [entradas]);
+  // 🔹 Agrupamento por `membroId` quando disponível — referência estável
+  // (Sprint 5, ver SPRINT5_DISCOVERY.md seção 4.3.3). `membroNome`/`membro`
+  // (nome) só entram como fallback para lançamentos antigos, criados antes
+  // do incremento 3, que ainda não têm `membroId`. Antes deste refactor, o
+  // agrupamento usava só o nome em texto — se um Membro fosse renomeado, as
+  // entradas antigas e novas apareciam como duas pessoas diferentes aqui.
+  const normalizedEntradas = useMemo(() => {
+    return entradas.map((i) => {
+      const membroReal = i.membroId ? membros.find((m) => m.id === i.membroId) : null;
+      const chave = i.membroId || i.membroNome || i.membro || 'Desconhecido';
+      const nome = membroReal?.nome || i.membroNome || i.membro || 'Desconhecido';
+
+      return {
+        chave: String(chave),
+        nome,
+        avatar: membroReal?.avatar || null,
+        amount: Number(i.valor ?? 0),
+        paid: i.pago === true,
+      };
+    });
+  }, [entradas, membros]);
 
   const groupedByMember = useMemo(() => {
     return normalizedEntradas.reduce((acc, it) => {
-      const key = it.member;
-      if (!acc[key]) acc[key] = { total: 0, paid: 0, awaiting: 0 };
-      acc[key].total += it.amount;
-      if (it.paid) acc[key].paid += it.amount;
-      else acc[key].awaiting += it.amount;
+      if (!acc[it.chave]) {
+        acc[it.chave] = { nome: it.nome, avatar: it.avatar, total: 0, paid: 0, awaiting: 0 };
+      }
+      acc[it.chave].total += it.amount;
+      if (it.paid) acc[it.chave].paid += it.amount;
+      else acc[it.chave].awaiting += it.amount;
       return acc;
     }, {});
   }, [normalizedEntradas]);
@@ -115,20 +121,22 @@ export default function SecaoEntradas({ entradas = [] }) {
 
     Object.entries(groupedByMember)
       .filter(([_, v]) => v.paid > 0)
-      .forEach(([name, vals], idx) => {
+      .forEach(([chave, vals], idx) => {
         const ratio = vals.paid / totalPrevisto;
         const sweep = ratio * 360;
         const endAngle = angleStart + sweep;
 
-segs.push({
-  key: `seg-${name}`,
-  path: createDonutSegmentPath(CX, CY, OUTER_R, INNER_R, angleStart, endAngle),
-  fill: PALETTE[idx % PALETTE.length],
-  opacity: 1,
-});
+        segs.push({
+          key: `seg-${chave}`,
+          path: createDonutSegmentPath(CX, CY, OUTER_R, INNER_R, angleStart, endAngle),
+          fill: PALETTE[idx % PALETTE.length],
+          opacity: 1,
+        });
 
         avatars.push({
-          name: name,
+          chave,
+          nome: vals.nome,
+          avatar: vals.avatar,
           position: polarToCartesian(CX, CY, AVATAR_RADIUS, angleStart + sweep / 2),
           percentage: (vals.paid / totalPrevisto) * 100,
         });
@@ -149,7 +157,12 @@ segs.push({
     <View style={[globalStyles.card, globalStyles.mb4]}>
       <Text style={globalStyles.subtitle}>Entradas</Text>
 
-      <View style={globalStyles.donutWrapper}>
+      <View
+        style={[
+          globalStyles.donutWrapper,
+          { width: SIZE, height: SIZE, position: 'relative', alignSelf: 'center' },
+        ]}
+      >
         <Svg width={SIZE} height={SIZE}>
           <Defs>
             <Pattern id="dotted" patternUnits="userSpaceOnUse" width="10" height="10">
@@ -167,20 +180,10 @@ segs.push({
             segments.map((s) => <Path key={s.key} d={s.path} fill={s.fill} opacity={s.opacity} />)
           )}
 
-          {avatarData.map((avatar, i) => {
-            const norm = normalize(avatar.name);
-            const img = memberImages[norm] || memberImages.default;
+          {avatarData.map((avatar) => {
             const textYPosition = avatar.position.y + AVATAR_SIZE / 2 + 10;
-
             return (
-              <React.Fragment key={`avatar-group-${i}`}>
-                <SvgImage
-                  href={img}
-                  x={avatar.position.x - AVATAR_SIZE / 2}
-                  y={avatar.position.y - AVATAR_SIZE / 2}
-                  width={AVATAR_SIZE}
-                  height={AVATAR_SIZE}
-                />
+              <React.Fragment key={`pct-${avatar.chave}`}>
                 <SvgText
                   x={avatar.position.x}
                   y={textYPosition}
@@ -208,13 +211,47 @@ segs.push({
           })}
         </Svg>
 
+        {/* 🔹 Avatares sobrepostos ao donut via View absoluta, na mesma
+            posição polar calculada acima — o avatar vetorial (AvatarRenderer.js)
+            não pode ser embutido como filho direto de <Svg> (é composto por
+            View/SvgXml, não só primitivas SVG), diferente da imagem estática
+            fixa que existia antes aqui.
+
+            Importante: este overlay precisa ter o MESMO tamanho/origem do
+            <Svg> (top:0, left:0, width/height = SIZE) — sem isso, o
+            posicionamento fica sujeito ao alignItems/justifyContent do
+            wrapper (que centraliza filhos "de fluxo", não filhos
+            absolutos), e a posição calculada em coordenadas do Svg deixa de
+            corresponder à posição real na tela — foi essa a causa do
+            desalinhamento reportado após a troca de <Image> para
+            <AvatarRenderer>. Center do avatar (não canto superior esquerdo)
+            é sempre `position.{x,y}` menos a metade do tamanho usado — já
+            generaliza para qualquer AVATAR_SIZE (mini/circle/futuros). */}
+        <View
+          pointerEvents="none"
+          style={{ position: 'absolute', top: 0, left: 0, width: SIZE, height: SIZE }}
+        >
+          {avatarData.map((avatar) => (
+            <View
+              key={`avatar-${avatar.chave}`}
+              style={{
+                position: 'absolute',
+                left: avatar.position.x - AVATAR_SIZE / 2,
+                top: avatar.position.y - AVATAR_SIZE / 2,
+              }}
+            >
+              <AvatarRenderer avatar={avatar.avatar} nome={avatar.nome} tamanho={AVATAR_SIZE} />
+            </View>
+          ))}
+        </View>
+
         <View style={[globalStyles.centerContent, { position: 'absolute' }]}>
           <Text style={globalStyles.textSecondary}>Recebido</Text>
           <Text style={[globalStyles.value, globalStyles.valorEentrada, { fontSize: 22 }]}>
-            {formatValue(totalRealizado)} {/* 👈 antes usava toLocaleString */}
+            {formatValue(totalRealizado)}
           </Text>
           <Text style={globalStyles.miniCardNote}>
-            de {formatValue(totalPrevisto)} {/* 👈 idem */}
+            de {formatValue(totalPrevisto)}
           </Text>
         </View>
       </View>
@@ -223,14 +260,12 @@ segs.push({
         {Object.keys(groupedByMember).length === 0 ? (
           <Text style={globalStyles.noDataText}>Nenhuma entrada registrada.</Text>
         ) : (
-          Object.entries(groupedByMember).map(([name, vals], idx) => {
-            const norm = normalize(name);
-            const img = memberImages[norm] || memberImages.default;
+          Object.entries(groupedByMember).map(([chave, vals]) => {
             const isFullyPaid = vals.awaiting === 0 && vals.total > 0;
 
             return (
               <View
-                key={`row-${idx}`}
+                key={`row-${chave}`}
                 style={[
                   globalStyles.investmentItem,
                   globalStyles.rowBetween,
@@ -240,8 +275,8 @@ segs.push({
                 ]}
               >
                 <View style={[globalStyles.row, globalStyles.alignCenter]}>
-                  <Image source={img} style={globalStyles.listAvatar} />
-                  <Text style={globalStyles.text}>{name}</Text>
+                  <AvatarRenderer avatar={vals.avatar} nome={vals.nome} variante="mini" />
+                  <Text style={[globalStyles.text, { marginLeft: 8 }]}>{vals.nome}</Text>
                   {vals.total > 0 && (
                     <MaterialCommunityIcons
                       name={isFullyPaid ? 'check-circle' : 'clock-outline'}
@@ -257,7 +292,7 @@ segs.push({
                     { color: isFullyPaid ? colors.balance : colors.textPrimary },
                   ]}
                 >
-                  {formatValue(vals.total)} {/* 👈 antes usava toLocaleString */}
+                  {formatValue(vals.total)}
                 </Text>
               </View>
             );

@@ -68,7 +68,12 @@ export const useEmprestimos = (mes, ano) => {
         valorTotal,
         totalParcelas,
         dataInicio,
-        pessoa,
+        // 🔹 Renomeado de `pessoa` para `credor` (Sprint 5): esse campo
+        // sempre representou "de quem/onde veio o empréstimo" (banco,
+        // loja, pessoa física), um conceito diferente do "Comprador"
+        // (Membro da família) do cartão, que também se chamava `pessoa`
+        // por coincidência — ver SPRINT5_DISCOVERY.md seção 4.3.1.
+        credor,
         categoria,
         categoriaId,
         categoriaNome,
@@ -80,14 +85,14 @@ export const useEmprestimos = (mes, ano) => {
       if (!dataBaseISO) throw new Error("Data de início inválida.");
 
       const dataBase = new Date(dataBaseISO + "T00:00:00");
-      const idCompra = `${pessoa}-${descricao.replace(/\s+/g, "-")}-${Date.now()}`;
+      const idCompra = `${credor}-${descricao.replace(/\s+/g, "-")}-${Date.now()}`;
 
       const parcelas = Array.from({ length: totalParcelas }, (_, i) => {
         const dataParcela = new Date(dataBase);
         dataParcela.setMonth(dataBase.getMonth() + i);
         return {
           descricao,
-          pessoa,
+          credor,
           categoria,
           // 🔹 Corrigido nesta sprint: addEmprestimo mantinha `categoria`
           // (string) mas descartava categoriaId/categoriaNome (achado durante

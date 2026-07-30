@@ -247,6 +247,10 @@ const gerarFixosDoMes = async () => {
         categoriaId: modelo.categoriaId || null,
         categoriaNome: modelo.categoriaNome || null,
         membro: modelo.membro || null,
+        // 🔹 Propaga a referência estável de Membro do modelo (Sprint 5,
+        // mesmo padrão de categoriaId acima — ver SPRINT5_DISCOVERY.md 4.3.3)
+        membroId: modelo.membroId || null,
+        membroNome: modelo.membroNome || null,
         valor: parseFloat(valorFinal.toFixed(2)),
         data: gerarDataComDia(modelo.diaVencimento, mes, ano),
         mes,

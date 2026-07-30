@@ -457,7 +457,7 @@ export default function ModalDetalhes({
             <InfoRow
               icon="account-group-outline"
               label="Pessoa/Instituição"
-              value={item.pessoa || 'Não informada'}
+              value={item.credor || 'Não informada'}
             />
             <InfoRow
               icon="chart-donut"

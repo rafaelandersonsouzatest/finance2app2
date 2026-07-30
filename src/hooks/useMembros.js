@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   collection,
   doc,
-  addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   onSnapshot,
@@ -13,6 +13,8 @@ import {
 import { db } from '../config/firebase';
 import { useAuth } from '../auth/useAuth';
 import { getBasePath } from '../utils/firestorePaths';
+import { isMembroProprietario } from '../utils/membros';
+import { gerarAvatarPadrao } from '../utils/avatar';
 
 // =========================================================
 // 🔹 HOOK: MEMBROS — fonte única (MembroSelect.js e a tela de
@@ -42,10 +44,16 @@ export const useMembros = () => {
           id: d.id,
           nome: d.data().nome || 'Sem nome',
           ativo: d.data().ativo !== false,
-          // 🔹 Reservado para seleção/geração de avatar por membro — recurso
-          // futuro (ver PROJECT_STATUS.md), campo já existe para não exigir
-          // migração de dados quando for implementado.
+          // 🔹 Avatar vetorial (DiceBear) — ver SPRINT5_DISCOVERY.md e
+          // utils/avatar.js. Gerado automaticamente na criação do membro.
           avatar: d.data().avatar || null,
+          // 🔹 Identidade (Sprint 5, ver SPRINT5_DISCOVERY.md seção 12):
+          // `ehProprietario` marca o membro-espelho do dono da conta (não
+          // pode ser excluído); `uid`, quando preenchido, vincula este
+          // membro a uma conta real (o próprio dono, ou futuramente outro
+          // usuário no Modo Família).
+          ehProprietario: d.data().ehProprietario || false,
+          uid: d.data().uid || null,
         }));
         setMembros(lista);
         setLoading(false);
@@ -72,10 +80,11 @@ export const useMembros = () => {
 
     try {
       const basePath = getBasePath(user);
-      await addDoc(collection(db, `${basePath}/membros`), {
+      const ref = doc(collection(db, `${basePath}/membros`));
+      await setDoc(ref, {
         nome: nomeTrim,
         ativo: true,
-        avatar: null,
+        avatar: gerarAvatarPadrao(ref.id),
         criadoEm: serverTimestamp(),
       });
     } catch (err) {
@@ -102,6 +111,14 @@ export const useMembros = () => {
 
   const excluirMembro = async (id) => {
     if (!user?.uid) throw new Error('Usuário não autenticado.');
+
+    // 🔹 O membro-espelho do dono da conta não pode ser excluído aqui —
+    // excluir a conta em si é um fluxo diferente (ver ContaScreen.js).
+    const membro = membros.find((m) => m.id === id);
+    if (isMembroProprietario(membro)) {
+      throw new Error('Não é possível excluir o proprietário da conta.');
+    }
+
     try {
       const basePath = getBasePath(user);
       await deleteDoc(doc(db, `${basePath}/membros`, id));

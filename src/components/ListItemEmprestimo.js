@@ -46,7 +46,7 @@ export default function ListItemEmprestimo({ item, onPressItem, onToggleStatus, 
             {item.descricao || 'Sem título'}
           </Text>
           <Text style={globalStyles.listItemSubtitle}>
-            {item.pessoa} • {item.parcelaAtual}/{item.totalParcelas} • Venc: {formatarDataSegura(item.dataVencimento)}
+            {item.credor} • {item.parcelaAtual}/{item.totalParcelas} • Venc: {formatarDataSegura(item.dataVencimento)}
           </Text>
           <Text
             style={[

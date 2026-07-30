@@ -24,6 +24,7 @@ import { useCurrencyInput } from '../hooks/useCurrencyInput';
 import CategoriaSelect from './CategoriaSelect';
 import { MembroSelect } from '../components/MembroSelect';
 import { useCategorias } from '../hooks/useCategorias';
+import { useMembros } from '../hooks/useMembros';
 
 
 // ==========================================================
@@ -156,7 +157,7 @@ const CamposModal = memo(({ tipo, valores, atualizarCampo, marcarComoPago }) => 
             <CampoData label="Data de Vencimento 📅" campo="dataVencimento" valores={valores} atualizarCampo={atualizarCampo} />
             <CampoStatusPago label="Pago?" pago={valores.pago} aoAlternar={marcarComoPago} />
             {valores.pago && <CampoData label="Data de Pagamento 💰" campo="dataPagamento" valores={valores} atualizarCampo={atualizarCampo} />}
-            <CampoTexto label="Pessoa/Instituição" campo="pessoa" placeholder="Ex: Banco XYZ" valores={valores} atualizarCampo={atualizarCampo} />
+            <CampoTexto label="Pessoa/Instituição" campo="credor" placeholder="Ex: Banco XYZ" valores={valores} atualizarCampo={atualizarCampo} />
             {/* 🔹 Corrigido nesta sprint: empréstimo podia receber categoria na
                 criação (ModalCriacao.js), mas não tinha como editar depois —
                 achado registrado em SPRINT4_DISCOVERY.md, seção 1. */}
@@ -168,7 +169,12 @@ const CamposModal = memo(({ tipo, valores, atualizarCampo, marcarComoPago }) => 
         return (
           <>
             <CampoTexto label="Descrição *" campo="descricao" placeholder="Ex: Compra supermercado" valores={valores} atualizarCampo={atualizarCampo} />
-            <MembroSelect label="Comprador" tipo="pessoa" membroSelecionado={valores.comprador} onSelecionar={(membro) => atualizarCampo('comprador', membro)} />
+            {/* 🔹 Corrigido nesta sprint: usava um campo `comprador` que
+                nunca era lido em nenhuma outra tela (useCartoes.js sempre
+                usou `pessoa`) — editar o Comprador aqui não persistia de
+                verdade. Achado durante a unificação Comprador/Membro, ver
+                SPRINT5_DISCOVERY.md seção 4.3.2. */}
+            <MembroSelect label="Comprador" membroSelecionado={valores.pessoa} onSelecionar={(membro) => atualizarCampo('pessoa', membro)} />
             <CampoMonetario label="Valor *" campo="valor" valores={valores} atualizarCampo={atualizarCampo} />
             <CampoData label="Data da Compra *" campo="dataCompra" valores={valores} atualizarCampo={atualizarCampo} />
             <CampoStatusPago label="Pago?" pago={valores.pago} aoAlternar={marcarComoPago} />
@@ -209,6 +215,7 @@ const CamposModal = memo(({ tipo, valores, atualizarCampo, marcarComoPago }) => 
 export default function ModalEdicao({ visivel, aoFechar, aoSalvar, aoExcluir, item, tipo, titulo }) {
   const [valores, setValores] = useState({});
   const { categorias } = useCategorias();
+  const { membros } = useMembros();
 
 useEffect(() => {
   if (!visivel) return; // só roda se o modal estiver aberto
@@ -233,13 +240,17 @@ useEffect(() => {
     }
   }
 
-  // --- Normalizar campos de pessoa para o formato { id, nome } se vierem como string
-    ['membro', 'pessoa', 'comprador'].forEach((f) => {
-      if (v[f] && typeof v[f] === 'string') {
-        v[f] = { id: v[f], nome: v[f] };
-      }
-      // Se já for objeto {id, nome}, deixamos como está
-    });
+  // 🔹 Resolve o Membro completo (com avatar) a partir de membroId quando
+  // existir — mesmo padrão de categoriaId abaixo. Lançamentos antigos (só
+  // `membro`/`pessoa` string, sem membroId) ganham um objeto sintético sem
+  // `id`, só para exibir o nome (ver SPRINT5_DISCOVERY.md seção 4.3.3).
+  ['membro', 'pessoa'].forEach((f) => {
+    if (v[f] && typeof v[f] === 'string') {
+      v[f] = v.membroId
+        ? membros.find((m) => m.id === v.membroId) || { id: null, nome: v.membroNome || v[f] }
+        : { id: null, nome: v[f] };
+    }
+  });
 
   // 🔹 Categoria: resolve o objeto completo (ícone/cor) a partir de
   // categoriaId quando existir; lançamentos antigos (só `categoria` string,
@@ -284,15 +295,18 @@ const handleSalvar = () => {
     if (v[c]) v[c] = normalizarParaISO(v[c]);
   });
 
-  // 🔹 Garantir que campos com objetos sejam convertidos em texto
+  // 🔹 Garantir que campos com objetos sejam convertidos em texto, e gravar
+  // membroId/membroNome (referência estável, mesmo padrão de categoriaId
+  // abaixo) — ver SPRINT5_DISCOVERY.md seção 4.3.3.
     if (v.membro && typeof v.membro === 'object') {
-      v.membro = v.membro.nome || v.membro.id || '';
-    }
-    if (v.comprador && typeof v.comprador === 'object') {
-      v.comprador = v.comprador.nome || v.comprador.id || '';
+      v.membroId = v.membro.id || null;
+      v.membroNome = v.membro.nome;
+      v.membro = v.membro.nome || '';
     }
     if (v.pessoa && typeof v.pessoa === 'object') {
-      v.pessoa = v.pessoa.nome || v.pessoa.id || '';
+      v.membroId = v.pessoa.id || null;
+      v.membroNome = v.pessoa.nome;
+      v.pessoa = v.pessoa.nome || '';
     }
     if (v.categoria && typeof v.categoria === 'object') {
       // 🔹 Só grava categoriaId/categoriaNome se o objeto tiver `id` de

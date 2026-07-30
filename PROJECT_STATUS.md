@@ -1,6 +1,6 @@
 # Status do Projeto
 
-> Última atualização: 2026-07-28
+> Última atualização: 2026-07-30
 > Este documento reflete o estado real do código no momento da análise, não intenções ou memória de conversas anteriores. Atualize-o sempre que o estado mudar de forma relevante.
 
 ## 0. Releases publicadas (EAS Update / OTA)
@@ -9,6 +9,7 @@
 |---|---|---|---|---|
 | **0.2.0** — Hub do Usuário, Agenda Financeira e Perfil | 2026-07-28 | `63b5375` | `meu-app`, `rafael`, `christian` | `main` |
 | **0.3.0** — Sprint 4: Categorias e Subcategorias (base do Planejamento Financeiro) | 2026-07-29 | `b6c1715` | `meu-app`, `rafael`, `christian` | `main` |
+| **0.3.1** — chore: owner do Expo do ambiente Convidado renomeado para `finance-app-convidado` | 2026-07-29 | `e48014e` | `meu-app`, `rafael`, `christian` | `main` |
 
 Publicada com o script `publish-all.ps1` (novo, raiz do projeto — ver seção 11). Antes desta release, corrigido um bug de configuração que impedia publicar para `christian`: `app.config.js` tinha um `owner` fixo (`rafael.anderson.souza`) para todos os ambientes, mas o projeto `christian` (hoje o ambiente de distribuição para convidados/testadores externos) pertence a uma organização Expo diferente (`finance-app-convidado`) — `owner` agora varia por `APP_ENV`, mesmo padrão já usado para `name`/`slug`/`projectId` (ver `ARQUITETURA.md` seção 7).
 
@@ -39,7 +40,8 @@ O script **não** publica para `marina` — se um dia isso for necessário, é s
 - **Menu do Usuário / Hub de Configurações** (Sprint 2, ver seção 8): acessível pelo cabeçalho (`👤 Nome ▼`), com Conta, Membros (unificado via `useMembros`), e placeholders para Financeiro/Cartões/Aparência/Notificações/Sobre.
 - **Agenda Financeira e Central de Avisos** (Sprint 3, ✅ implementada e testada em 2026-07-28, ver seção 9): cabeçalho evoluiu para `👤 Nome ▼  🔔  📅` — o sino abre a Central de Avisos (Vencidos/Vencem hoje/Próximos 7 dias), o calendário abre a Agenda Financeira (Calendário mensal + Linha do Tempo). Cards de evento são totalmente interativos: reaproveitam `ModalDetalhes`/`ModalEdicao`/`ModalHistoricoParcelas` e o botão de status já existentes no resto do app.
 - **Perfil do Usuário** (mini sprint, ✅ implementada em 2026-07-28, ver seção 10): `ContaScreen.js` permite editar o nome de exibição (`apelido`) diretamente; "Alterar senha" (`AlterarSenhaScreen.js`, já existia mas estava fora de navegação) agora está acessível por ali; fallback de nome melhorado (usa a parte antes do `@` do e-mail antes de cair em "Usuário" genérico); e `avatarUrl: null` já reservado no perfil para uma futura foto de usuário.
-- **Categorias e Subcategorias / módulo Planejamento Financeiro** (Sprint 4, ✅ implementada em 2026-07-28, ver seção 11): categorias deixaram de ser texto solto no aparelho e viraram entidade sincronizada do Firestore, com hierarquia (categoria → subcategoria), gerenciável em Menu do Usuário → Planejamento Financeiro → Categorias. Primeira funcionalidade do novo módulo Planejamento Financeiro, que vai abrigar Metas Financeiras (Sprint 5), Orçamentos, Limites e Relatórios.
+- **Categorias e Subcategorias / módulo Planejamento Financeiro** (Sprint 4, ✅ implementada em 2026-07-28, ver seção 11): categorias deixaram de ser texto solto no aparelho e viraram entidade sincronizada do Firestore, com hierarquia (categoria → subcategoria), gerenciável em Menu do Usuário → Planejamento Financeiro → Categorias. Primeira funcionalidade do novo módulo Planejamento Financeiro, que vai abrigar Metas Financeiras (Sprint 6), Orçamentos, Limites e Relatórios.
+- **Identidade e Avatares** (Sprint 5, ✅ implementada em 2026-07-30, ver seção 12): "usuário autenticado" e "Membro" deixaram de ser dois conceitos paralelos — todo usuário ganha um membro-espelho automaticamente (`ehProprietario: true`), e "Comprador" (cartão) e "Membro" (entrada) foram unificados num único seletor (`membroId`/`membroNome`). Todo Membro (cadastrado ou "Outra pessoa..." informal) tem um avatar vetorial gerado automaticamente (DiceBear/`avataaars`), com editor completo por seções (rosto, cabelo, barba, roupa, expressão, acessórios, fundo).
 
 ## 2. Em desenvolvimento (mudanças presentes no working tree, ainda não commitadas)
 
@@ -52,7 +54,7 @@ Conforme `git status` no momento desta análise:
 
 - **Modo Família**: as telas e componentes existem (`MembrosScreen.js`, `GerenciarMembrosModal.js`, `MembroSelect.js`), mas:
   - `MembrosScreen` está **fora da navegação ativa** (`Tab.Screen` comentado em `BottomTabs.js`).
-  - `useModelos.js` e `ModalHistoricoParcelas.js` leem `membroSelecionado` de `useAuth()`, mas o `AuthProvider` **nunca expõe esse campo** — o branch de "modo família" nesses hooks é código morto hoje.
+  - **Arquitetura oficial decidida na Sprint 5** (ver `SPRINT5_DISCOVERY.md`): quando o Modo Família for implementado de verdade, o dado compartilhado vive em `tenants/{tenantId}` (via `getBasePath(user, compartilhado)`), não em `users/{outroUid}`. A arquitetura concorrente que existia antes — `useModelos.js` e `ModalHistoricoParcelas.js` lendo `membroSelecionado` de `useAuth()` (campo nunca exposto pelo `AuthProvider`, logo sempre código morto) e o campo `compartilhadoCom` (nunca gravado em lugar nenhum) — foi **removida** nesta sprint, para não deixar duas arquiteturas concorrentes no código.
   - `getBasePath(user, compartilhado)` nunca é chamado com `compartilhado=true` em nenhum lugar do app.
   - **Achado novo (2026-07-27, investigando o Menu do Usuário):** `MembrosScreen.js` usa uma coleção **global** `membros` (sem escopo de usuário!), diferente de `MembroSelect.js`/`GerenciarMembrosModal.js`, que usam corretamente `users/{uid}/membros`. Ou seja, existem **três** implementações de membros, não duas, e uma delas tem um bug de dados real (vazaria membros entre contas diferentes se fosse reativada como está). Não reaproveitar `MembrosScreen.js` sem reescrever — ver plano da Sprint 2 (seção 8) e `ARQUITETURA.md` seção 11.6.
   - **Conclusão**: o Modo Família tem UI parcial, mas nenhuma trilha de dados funcional até hoje.
@@ -146,14 +148,14 @@ Arquitetura completa em `ARQUITETURA.md` seção 11. Todos os 7 passos da propos
 |---|---|---|
 | 👤 Conta | Ver nome, ver e-mail, logout (com confirmação) | Alterar nome/e-mail/senha (`AlterarSenhaScreen.js` já pronta para reaproveitar), vincular Google, excluir conta, gerenciamento de plano |
 | 💰 Financeiro | Só estrutura (tela placeholder) | Moeda, backup/importação/exportação |
-| 👥 Membros | Tela oficial de administração, consumindo o novo `useMembros.js` (mesma lógica do seletor rápido — elimina a triplicação, ver seção 3) | Convite por link, permissões (Modo Família), **avatares por membro** (ver nota abaixo) |
+| 👥 Membros | Tela oficial de administração, consumindo o novo `useMembros.js` (mesma lógica do seletor rápido — elimina a triplicação, ver seção 3); **avatares por membro** implementados na Sprint 5 (ver seção 12) | Convite por link, permissões (Modo Família) |
 | 💳 Cartões | Só estrutura (tela placeholder — hoje não existe nem o conceito de "cartão cadastrado" separado de lançamento) | Cartão padrão, ordenar, arquivar, configurações específicas |
 | 🎨 Aparência | Só estrutura (tela placeholder) | Tema claro/escuro/automático, personalizações |
 | 🔔 Notificações | Só estrutura (tela placeholder) | Contas vencendo, parcelas, investimentos, metas, lembretes |
 | ℹ️ Sobre | Versão do app, nome do app | Changelog, política de privacidade, termos, contato |
 | 🚪 Sair | Logout com confirmação | — |
 
-**Ideia registrada para o futuro (não implementar agora): avatares por membro.** O usuário quer que cada membro cadastrado possa ter um avatar — três formas cogitadas: (1) upload de foto com geração automática de um avatar parecido, (2) montagem por seleção de base + características, (3) avatares prontos (hoje existem 4 imagens de teste hardcoded: `assets/Rafael.png`, `Kézzia.png`, `Marina.png`, `Léo.png`, usadas só em `SecaoEntradas.js` via um mapa fixo nome→imagem, não conectadas a nenhum campo do Firestore). Cogitado também "importar" avatar de outro membro quando o Modo Família existir. Preparação já feita nesta sprint: `useMembros.js` já grava um campo `avatar: null` em cada membro, para que a funcionalidade futura não exija migração de dados — nenhuma UI de avatar foi construída agora.
+**Avatares por membro — implementado na Sprint 5** (ver seção 12 para o detalhamento completo). Cada Membro (incluindo o dono da conta, via membro-espelho) ganha um avatar vetorial gerado automaticamente por seed (`membroId`/`uid`), renderizado pelo componente `AvatarRenderer.js` (motor DiceBear/`avataaars`, ver `SPRINT5_DISCOVERY.md` seção 5), com editor completo (`AvatarEditor.js`). Isso substituiu o mapa hardcoded de 4 imagens de teste (`assets/Rafael.png`, `Kézzia.png`, `Marina.png`, `Léo.png`) que existia só em `SecaoEntradas.js`, sem nenhuma conexão com o Firestore — removido junto com os arquivos de imagem, agora órfãos.
 
 **Fora do escopo desta sprint** (mencionados pelo usuário como visão de longo prazo, não implementar): busca global, filtros avançados, dashboard financeiro mais completo, metas financeiras, categorias inteligentes, planejamento financeiro, IA, relatórios, backup/sincronização, preferências gerais, recursos Premium. A arquitetura da Sprint 2 (Stack de categorias + padrão de tela-placeholder) é o que permite que cada um desses itens "encaixe" numa categoria existente depois, sem reorganizar o menu.
 
@@ -197,7 +199,7 @@ Confirmado via histórico do git, não é uma inconsistência de dado a corrigir
 ### O que foi implementado
 
 - **`src/utils/perfil.js`** (novo): `getNomeExibicao(profile)` — única fonte da regra de fallback (`apelido` → `nome` → parte antes do `@` do e-mail → `"Usuário"`), usada em `TelaPadrao.js`, `UserMenu.js` e `ContaScreen.js` (antes, os 3 repetiam a mesma cadeia `apelido || nome || 'Usuário'` — agora há um só lugar).
-- **`useAuth.js`**: nova função `atualizarPerfil(dados)` (grava via `updateDoc` em `users/{uid}` e atualiza o estado local); `avatarUrl: null` passou a ser gravado desde a criação do perfil (`register()` e `criarUserProfileSeNaoExistir()`), mesmo padrão do `avatar: null` já usado em `useMembros.js` — só para não exigir migração quando a foto de usuário for implementada de verdade. Nenhuma UI de avatar funcional foi construída.
+- **`useAuth.js`**: nova função `atualizarPerfil(dados)` (grava via `updateDoc` em `users/{uid}` e atualiza o estado local); `avatarUrl: null` passou a ser gravado desde a criação do perfil (`register()` e `criarUserProfileSeNaoExistir()`), mesmo padrão do `avatar: null` já usado em `useMembros.js` na época — ambos os campos ganharam avatar vetorial funcional na Sprint 5 (ver seção 12).
 - **`ContaScreen.js`**: nome de exibição agora é editável (toca no nome → campo de texto + Salvar/Cancelar → grava em `apelido` via `atualizarPerfil`); ícone de avatar ganhou um badge de câmera só decorativo (indica o espaço reservado, sem nenhuma ação); novo item "Alterar senha", linkando para `AlterarSenhaScreen.js` (já existia e já funcionava — só estava fora de navegação).
 - **`MainStack.js`**: nova rota `AlterarSenha`.
 
@@ -208,7 +210,7 @@ Confirmado via histórico do git, não é uma inconsistência de dado a corrigir
 ### O que ficou de fora desta mini sprint (por decisão do usuário/escopo)
 
 - Alterar e-mail, vincular Google, excluir conta, gerenciamento de plano — candidatos a sprints futuras de Conta.
-- Upload/edição de foto de verdade — só o campo de dado (`avatarUrl`) e o indicativo visual foram preparados.
+- Upload de foto real (câmera/galeria) — a Sprint 5 implementou o avatar vetorial (DiceBear) com editor completo, mas não upload de imagem própria; o badge de câmera em `ContaScreen.js` hoje abre o editor de avatar vetorial, não a câmera do aparelho.
 
 ## 11. Sprint 4 (✅ implementada em 2026-07-28) — Categorias e Subcategorias: a fundação do Planejamento Financeiro
 
@@ -233,7 +235,7 @@ este documento no futuro:
   lançamentos novos gravam `categoria` (string, legado) + `categoriaId` + `categoriaNome`
   juntos; lançamentos antigos continuam funcionando exatamente como antes.
 - **Esta é a fundação de que várias funcionalidades futuras vão depender diretamente**:
-  Metas Financeiras (Sprint 5, a próxima), Orçamentos e Limites, Relatórios, Dashboard, a
+  Metas Financeiras (Sprint 6, a próxima), Orçamentos e Limites, Relatórios, Dashboard, a
   Agenda Financeira (Sprint 3, já pode mostrar cor/ícone de categoria no card de evento sem
   mudança de arquitetura, só um ajuste visual futuro), recomendações de IA/Coruja (uma
   chave estável é o que esse tipo de funcionalidade precisa para reconhecer padrão ao longo
@@ -248,7 +250,7 @@ este documento no futuro:
 | Categoria | Agora (Sprint 4) | Futuro (backlog, não fazer agora) |
 |---|---|---|
 | 🗂️ Categorias | CRUD completo (criar/editar/arquivar/excluir), hierarquia de 2 níveis, ícone/cor/tipo de transação, sincronizadas via Firestore | Hierarquia com mais de 2 níveis (modelo de dados já suporta, falta só UI recursiva — ver seção 14 do discovery) |
-| 🧭 Navegação | Novo hub "Planejamento Financeiro" no Menu do Usuário, com Categorias como primeira funcionalidade | Metas Financeiras, Orçamentos e Limites, Relatórios entram no mesmo hub depois |
+| 🧭 Navegação | Novo hub "Planejamento Financeiro" no Menu do Usuário, com Categorias como primeira funcionalidade | Metas Financeiras (Sprint 6), Orçamentos e Limites, Relatórios entram no mesmo hub depois |
 | 🧩 `CategoriaSelect` | Componente genérico, desacoplado de formulário — já usado por Entradas/Gastos/Cartões/Empréstimos/Modelos | Modo de seleção múltipla (filtros de Relatórios/Dashboard/Agenda) — arquitetura já preparada, não implementada |
 | 🔗 Referência nas transações | `categoriaId` + `categoriaNome` gravados desde a criação, convivendo com a string `categoria` legada | Nenhuma migração em massa dos dados antigos — decisão consciente |
 | 📈 Meta de Investimento | Cálculo de progresso unificado (`src/utils/metas.js`) | Nenhuma funcionalidade nova de meta — só consolidação, por pedido do usuário |
@@ -261,6 +263,89 @@ incremento 5, ver `SPRINT4_DISCOVERY.md` seção 15):
 - `ModalEdicao.js` não expunha o campo categoria para empréstimos (só existia na criação).
 - `TelaPadrao.js`: barra de progresso de meta de investimento podia ultrapassar 100%.
 
-**O que fica para a Sprint 5**: "Metas Financeiras" é a próxima funcionalidade do módulo
-Planejamento Financeiro — já pode ser construída em cima de `categoriaId` sem precisar de
-nenhum trabalho de fundação adicional.
+**O que ficou para depois**: "Metas Financeiras" deixou de ser a Sprint 5 — o usuário
+decidiu priorizar identidade/avatares primeiro (ver seção 12) — e passou a ser a Sprint 6.
+Continua podendo ser construída em cima de `categoriaId` sem precisar de nenhum trabalho de
+fundação adicional.
+
+## 12. Sprint 5 (✅ implementada em 2026-07-30) — Identidade e Avatares
+
+Discovery completo em `SPRINT5_DISCOVERY.md` (arquitetura, alternativas avaliadas — inclusive
+pesquisa técnica comparativa de estilos DiceBear — e decisões negociadas incrementalmente
+com o usuário, em vários incrementos). Auditoria final de fechamento classificou os achados
+em bloqueante/importante/melhoria futura; todos os itens bloqueantes e importantes foram
+corrigidos antes do fechamento (ver lista abaixo).
+
+**Por que esta sprint existe**: antes dela, "usuário autenticado" (`users/{uid}`) e "Membro"
+(`users/{uid}/membros/{id}`) eram dois conceitos paralelos sem ligação — e "Comprador"
+(campo `pessoa` em compras de cartão) e "Membro" (campo `membro` em entradas) eram também
+dois conceitos textuais paralelos entre si, sem `id` estável. Isso bloqueava tanto o Modo
+Família (não há como vincular um Membro a uma conta real sem essa unificação) quanto a ideia
+futura de lançamento vinculado a outro usuário (reembolso/despesa compartilhada).
+
+- **Membro-espelho**: todo usuário ganha automaticamente um documento em
+  `users/{uid}/membros/{uid}` representando a si mesmo (`ehProprietario: true`), criado no
+  registro e por autocura (`criarMembroProprietarioSeNaoExistir`, em `useAuth.js`) para
+  contas já existentes. Não pode ser excluído — `isMembroProprietario(membro)` (em
+  `src/utils/membros.js`) é a única checagem de "é o dono da conta" usada no código; nenhum
+  outro lugar compara `ehProprietario` diretamente.
+- **Unificação Comprador/Membro**: cartões e entradas usam o mesmo componente
+  (`MembroSelect.js`) e o mesmo par de campos, `membroId` (referência estável, quando a
+  pessoa é um Membro cadastrado) e `membroNome` (sempre preenchido, inclusive para "Outra
+  pessoa..." informal, caso em que `membroId` fica `null`) — mesmo padrão de convivência já
+  usado por `categoriaId`/`categoriaNome` na Sprint 4, sem migração em massa dos dados
+  antigos. "Credor/Instituição" do empréstimo (campo renomeado `pessoa` → `credor`) foi
+  mantido como conceito separado — não é uma pessoa da família.
+- **Modo Família — arquitetura oficial decidida**: `tenants/{tenantId}` (via
+  `getBasePath(user, compartilhado)`) é a arquitetura escolhida para quando o dado
+  compartilhado for implementado. A arquitetura concorrente que existia como scaffolding
+  morto (`membroSelecionado`/`modoFamiliaAtivo` em `useModelos.js`, `compartilhadoCom` em
+  `ModalHistoricoParcelas.js` — nenhum dos dois nunca era de fato acionado) foi removida
+  nesta sprint, para não deixar duas arquiteturas concorrentes documentadas ao mesmo tempo
+  (ver seção 3).
+- **Avatares vetoriais**: todo Membro (cadastrado ou "Outra pessoa...") e o perfil do usuário
+  (`avatarUrl`) têm um avatar gerado automaticamente por seed, formato persistido
+  `{ tipo, motor, versao, dados: { estilo, opcoes } }` — o campo `motor` existe para permitir
+  trocar o motor de geração no futuro sem migração; hoje só `dicebear` é suportado. Avaliação
+  técnica comparativa concluiu manter o estilo `avataaars` (estilos alternativos do DiceBear
+  sacrificam a categoria de roupa inteira). `src/utils/avatar.js` concentra toda a lógica
+  específica do motor/estilo (catálogo de categorias editáveis, geração, sanitização de
+  opções); `AvatarRenderer.js` e `AvatarEditor.js` nunca importam `@dicebear/*` diretamente,
+  para não espalhar condicionais específicas de Avataaars pelo projeto.
+- **Editor de avatar** (`AvatarEditor.js`): editor completo, seccionado por categoria — pele,
+  cabelo (com cor), barba (com cor), roupa (com cor), expressão (olhos/sobrancelha/boca),
+  acessórios (óculos/chapéus), fundo. Acessível tocando no avatar em `ContaScreen.js` (perfil
+  do próprio usuário) e em `EditarMembroModal.js` (demais Membros).
+- **`EditarMembroModal.js`**: novo componente que unifica nome, avatar e exclusão de um
+  Membro num único fluxo, acionado tocando em qualquer parte da linha do Membro (não só no
+  avatar) em `GerenciarMembrosModal.js` e `MembrosScreen.js`.
+- **`MembroSelect.js` simplificado**: lista de Membros + uma única opção "Outra pessoa..."
+  ao final (modal pequeno, só pede o nome) — antes havia uma seção "Ou digite um nome"
+  sempre visível, redundante com a lista. Atalho discreto para "Gerenciar membros" mantido
+  como link de texto pequeno (não uma ação em destaque — essa responsabilidade continua
+  sendo do hub de Membros).
+
+**Bugs encontrados e corrigidos durante a auditoria final da sprint** (itens bloqueante/
+importante da auditoria de fechamento):
+- Esta seção da documentação (`PROJECT_STATUS.md`/`ROADMAP.md`/`ARQUITETURA.md`) não tinha
+  sido atualizada com o estado real do avatar/identidade — bloqueante, corrigido agora.
+- `useMembros.js` (`adicionarMembro`): criava o Membro sempre com `avatar: null`, nunca
+  chamava `gerarAvatarPadrao` — só ganhava avatar de fato na próxima renderização por
+  coincidência de nenhum outro mecanismo cobrir esse caminho. Corrigido gerando o `id` do
+  documento antes de gravar (`doc()` + `setDoc()`, em vez de `addDoc()`) e usando-o como seed.
+- `GerenciarMembrosModal.js`/`MembrosScreen.js`: guardavam o Membro sendo editado como um
+  objeto (snapshot) em vez do `id` — uma alteração salva no `EditarMembroModal.js` não
+  aparecia imediatamente, pois o modal continuava exibindo o snapshot antigo até fechar e
+  reabrir. Corrigido para guardar só o `id` e derivar o Membro atual de `membros.find(...)`
+  a cada render.
+- `EditarMembroModal.js`: a exclusão (`aoExcluir()`) não tinha tratamento de erro — uma
+  falha (ex.: rede) fechava o modal silenciosamente sem avisar o usuário. Corrigido com
+  `try/catch` e um alerta de erro dedicado.
+- Código morto da arquitetura concorrente do Modo Família (ver acima) removido de
+  `useModelos.js` e `ModalHistoricoParcelas.js`.
+- Comentário desatualizado em `useMembros.js` ("reservado para... recurso futuro") no campo
+  `avatar`, que já é funcional desde esta sprint — atualizado.
+
+**Itens registrados como melhoria futura (não bloqueiam o fechamento da sprint)**: ver
+`SPRINT5_DISCOVERY.md` para a lista completa, incluindo a ideia de detectar nomes repetidos
+de "Outra pessoa..." entre lançamentos e oferecer a conversão retroativa para um Membro real.

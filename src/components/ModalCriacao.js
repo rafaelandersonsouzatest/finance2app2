@@ -130,7 +130,7 @@ useEffect(() => {
       case 'gasto':
         return { descricao: '', valor: '', dataVencimento: formatarDataParaExibicao(hojeDDMMYYYY), categoria: null };
       case 'emprestimo':
-        return { descricao: '', valorTotal: '', valorParcela: '',totalParcelas: '', dataInicio: formatarDataParaExibicao(hojeDDMMYYYY), pessoa: '', categoria: null };
+        return { descricao: '', valorTotal: '', valorParcela: '',totalParcelas: '', dataInicio: formatarDataParaExibicao(hojeDDMMYYYY), credor: '', categoria: null };
       case 'cartao':
         return { descricao: '', valor: '', valorParcela: '', dataCompra: formatarDataParaExibicao(hojeDDMMYYYY), categoria: null, parcelas: 1, pessoa: '', cartao: '' };
       case 'investimento':
@@ -211,11 +211,20 @@ useEffect(() => {
     else if (tipo === 'gasto') aplicarDataPadraoSeNecessario('dataVencimento');
     else if (tipo === 'emprestimo') aplicarDataPadraoSeNecessario('dataInicio');
     else if (tipo === 'cartao') aplicarDataPadraoSeNecessario('dataCompra');
-    // 🔹 Garante que membro/pessoa e categoria sejam salvos como string
+    // 🔹 MembroSelect agora sempre seleciona um objeto {id, nome} (id pode
+    // ser null para nome digitado livremente, sem cadastro prévio como
+    // Membro) — gravamos membroId/membroNome (referência estável, mesmo
+    // padrão de categoriaId abaixo) e mantemos `membro`/`pessoa` como
+    // string por compatibilidade com telas de exibição existentes (ver
+    // SPRINT5_DISCOVERY.md seção 4.3.3).
     if (valoresProcessados.membro && typeof valoresProcessados.membro === 'object') {
+      valoresProcessados.membroId = valoresProcessados.membro.id || null;
+      valoresProcessados.membroNome = valoresProcessados.membro.nome;
       valoresProcessados.membro = valoresProcessados.membro.nome;
     }
     if (valoresProcessados.pessoa && typeof valoresProcessados.pessoa === 'object') {
+      valoresProcessados.membroId = valoresProcessados.pessoa.id || null;
+      valoresProcessados.membroNome = valoresProcessados.pessoa.nome;
       valoresProcessados.pessoa = valoresProcessados.pessoa.nome;
     }
     // 🔹 CategoriaSelect agora seleciona um objeto completo ({id, nome, ...}) —
@@ -316,7 +325,6 @@ useEffect(() => {
               <MembroSelect
                 membroSelecionado={valores.membro}
                 onSelecionar={(m) => handleChange('membro', m)}
-                tipo="membro"
                 label="Membro"
                 onBloquearFechamento={setBloquearFechamento}
               />
@@ -546,8 +554,8 @@ useEffect(() => {
                     <Text style={globalStyles.label}>Pessoa/Instituição</Text>
                     <TextInput
                       style={globalStyles.input}
-                      value={valores.pessoa || ''}
-                      onChangeText={(texto) => handleChange('pessoa', texto)}
+                      value={valores.credor || ''}
+                      onChangeText={(texto) => handleChange('credor', texto)}
                       placeholder="Ex: Banco XYZ"
                       placeholderTextColor={colors.textSecondary}
                     />
@@ -582,8 +590,7 @@ useEffect(() => {
             <MembroSelect
               membroSelecionado={valores.pessoa}
               onSelecionar={(p) => handleChange('pessoa', p)}
-              tipo="pessoa"
-              label="Comprador" // ✅ label correto para cartão
+              label="Comprador"
               onBloquearFechamento={setBloquearFechamento}
             />
           </View>

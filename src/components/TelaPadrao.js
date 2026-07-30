@@ -167,7 +167,7 @@ export default function TelaPadrao({
       case 'emprestimo':
         return (
           <Text style={globalStyles.listItemSubtitle}>
-            {item.pessoa} • {item.parcelaAtual}/{item.totalParcelas}
+            {item.credor} • {item.parcelaAtual}/{item.totalParcelas}
           </Text>
         );
       case 'investimento': {
@@ -242,7 +242,7 @@ export default function TelaPadrao({
       return (
         <>
           <InfoRow icon="cash" label="Valor da Parcela" value={item.valor} color={colors.gasto} isMonetary={true} />
-          <InfoRow icon="account-group-outline" label="Pessoa/Instituição" value={item.pessoa || 'Não informada'} />
+          <InfoRow icon="account-group-outline" label="Pessoa/Instituição" value={item.credor || 'Não informada'} />
           <InfoRow icon="calendar-arrow-right" label="Vencimento da Parcela" value={dataExibicao} />
           <InfoRow
             icon="chart-donut"

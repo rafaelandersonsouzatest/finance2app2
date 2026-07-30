@@ -216,7 +216,7 @@ const ResumoFinanceiro = ({
 // 📦 MODAL PRINCIPAL COM RESUMO E HISTÓRICO
 // ==========================================================
 export default function ModalHistoricoParcelas({ visible, onClose, item }) {
-  const { user, membroSelecionado } = useAuth();
+  const { user } = useAuth();
   const [parcelas, setParcelas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -238,9 +238,7 @@ export default function ModalHistoricoParcelas({ visible, onClose, item }) {
       setParcelas([]);
 
       try {
-        const usuarioDestino =
-          item?.compartilhadoCom || membroSelecionado?.uid || user.uid;
-        const path = `users/${usuarioDestino}/${item.collectionName}`;
+        const path = `users/${user.uid}/${item.collectionName}`;
         const ref = collection(db, path);
         const q = query(
           ref,
@@ -310,7 +308,7 @@ export default function ModalHistoricoParcelas({ visible, onClose, item }) {
     };
 
     fetchParcelas();
-  }, [visible, item, user, membroSelecionado]);
+  }, [visible, item, user]);
 
   const renderContent = () => {
     if (loading)

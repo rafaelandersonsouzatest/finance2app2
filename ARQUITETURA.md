@@ -67,7 +67,7 @@ Padrão comum a `useGastos`, `useEntradas`, `useCartoes`, `useEmprestimos`, `use
 4. Expõem funções de CRUD (`add*`, `update*`, `delete*`) que escrevem diretamente no Firestore via `getBasePath(user)` + subcoleção.
 5. Mantêm `loading`/`error` próprios — não há camada de cache ou de invalidação compartilhada entre hooks (cada tela que usa dois hooks tem dois listeners independentes).
 
-**`useModelos.js`** é o hook de "lançamentos recorrentes" (gastos e entradas fixas), parametrizado por `tipo` (`'gasto' | 'entrada'`) e usado por `GerenciarModelosModal.js`. Contém a única tentativa (hoje quebrada) de suportar "modo família" via `membroSelecionado` — ver seção 6.
+**`useModelos.js`** é o hook de "lançamentos recorrentes" (gastos e entradas fixas), parametrizado por `tipo` (`'gasto' | 'entrada'`) e usado por `GerenciarModelosModal.js`. Chegou a ter uma tentativa de suportar "modo família" via `membroSelecionado`/`modoFamiliaAtivo`, mas era código morto (`useAuth()` nunca expunha esse campo, e nenhuma chamada passava `modoFamiliaAtivo=true`) — removido na Sprint 5, ver seção 14.
 
 **`useAdiantamento.js`** não tem listener próprio: instancia `useCartoes`/`useEmprestimos` internamente para reaproveitar uma função de antecipação de parcela — isso duplica os listeners `onSnapshot` desses hooks quando a tela que usa `useAdiantamento` também já usa `useCartoes`/`useEmprestimos` diretamente.
 
@@ -79,7 +79,7 @@ Padrão comum a `useGastos`, `useEntradas`, `useCartoes`, `useEmprestimos`, `use
 
 - **`DateFilterContext`**: mês/ano selecionado globalmente, persistido em `AsyncStorage` (`@dateFilter`). Também concentra a lógica de **cálculo de parcelamento** (`calculateCurrentInstallment`, `shouldShowTransaction`) — ou seja, regra de negócio de parcelas mora num contexto de UI, não num hook de domínio.
 - **`VisibilityContext`**: booleano de "mostrar/ocultar valores", persistido em `AsyncStorage` (`@app_visibility_state`).
-- **Modo Família não tem contexto próprio.** Há uma referência em comentário (`useModelos.js`) a um `ModoFamiliaContext` que nunca foi criado. O único lugar que tenta ler um "membro selecionado" é via `useAuth()`, que não expõe esse campo — logo, toda lógica condicional a `membroSelecionado` (em `useModelos.js` e `ModalHistoricoParcelas.js`) está inativa.
+- **Modo Família não tem contexto próprio.** Nunca chegou a existir um `ModoFamiliaContext`. A Sprint 5 (ver seção 14) decidiu a arquitetura oficial para quando essa fase for implementada (`tenants/{tenantId}`, via `getBasePath(user, compartilhado)`) e removeu a tentativa concorrente que dependia de `membroSelecionado` (nunca exposto por `useAuth()`).
 
 ## 7. Firestore — modelo de dados e ambientes
 
@@ -179,7 +179,7 @@ Havia três implementações Firestore para "membros", incompatíveis entre si:
 - `MembroSelect.js` e `GerenciarMembrosModal.js` usavam `users/{uid}/membros` (caminho correto), cada um com sua própria cópia de `getDocs`/`addDoc`/`deleteDoc`.
 - `MembrosScreen.js` (órfã, fora de qualquer navegação) usava uma coleção **global** `membros`, sem escopo de usuário — bug de dados real (misturaria membros de contas diferentes se fosse reativada como estava), não só duplicação de código.
 
-Criado `src/hooks/useMembros.js`, no mesmo padrão dos demais hooks de domínio (`useGastos`, `useEntradas` etc.): listener em tempo real de `${getBasePath(user)}/membros` (usa `getBasePath`, não `users/{uid}` hardcoded — já pronto para o Modo Família quando `compartilhado=true` for ligado) + `adicionarMembro`/`atualizarMembro`/`excluirMembro`, com a validação de nome duplicado centralizada no hook (antes replicada em cada componente). `MembroSelect.js`, `GerenciarMembrosModal.js` e `MembrosScreen.js` (reescrita do zero — a versão antiga com a coleção global foi descartada, não migrada) consomem esse único hook. Cada documento de membro já grava um campo `avatar: null`, reservado para a funcionalidade de avatares por membro que o usuário quer construir futuramente (upload de foto com geração automática, montagem por seleção de características, ou "importar" avatar de outro membro no Modo Família — nenhuma dessas UIs existe ainda; ver `PROJECT_STATUS.md`) — o campo já existe para essa evolução não exigir migração de dados depois.
+Criado `src/hooks/useMembros.js`, no mesmo padrão dos demais hooks de domínio (`useGastos`, `useEntradas` etc.): listener em tempo real de `${getBasePath(user)}/membros` (usa `getBasePath`, não `users/{uid}` hardcoded — já pronto para o Modo Família quando `compartilhado=true` for ligado) + `adicionarMembro`/`atualizarMembro`/`excluirMembro`, com a validação de nome duplicado centralizada no hook (antes replicada em cada componente). `MembroSelect.js`, `GerenciarMembrosModal.js` e `MembrosScreen.js` (reescrita do zero — a versão antiga com a coleção global foi descartada, não migrada) consomem esse único hook. Cada documento de membro grava um campo `avatar` — na época desta consolidação (2026-07-27) ainda reservado (`null`); ganhou geração e edição funcionais na Sprint 5 (ver seção 14).
 
 ### 11.7 Telas novas vs. reaproveitadas
 
@@ -372,7 +372,7 @@ forma consistente, na criação e na edição.
 `DetalhesInvestimentoModal.js` (escala 0–1, multiplicava por 100 de novo na exibição). Só
 consolidação — nenhuma funcionalidade nova de meta foi adicionada, por decisão do usuário
 (a evolução de Meta de Investimento propriamente dita fica para quando Metas Financeiras,
-Sprint 5, chegar).
+Sprint 6, chegar).
 
 ### 13.8 Compatibilidade com Modo Família
 
@@ -384,3 +384,100 @@ categorias entre membros da família é trocar essa chamada para
 resolvido nessa hora — não é um bloqueio desta sprint, só um lembrete de que "pronto para
 Modo Família" aqui significa "não vai exigir redesenho", não "já funciona compartilhado
 hoje".
+
+## 14. Identidade e Avatares (✅ implementado em 2026-07-30, Sprint 5)
+
+Discovery completo em `SPRINT5_DISCOVERY.md`. Resumo de produto em `PROJECT_STATUS.md`
+seção 12. Esta seção documenta só o desenho técnico.
+
+### 14.1 Membro-espelho
+
+Todo usuário passa a ter um documento em `users/{uid}/membros/{uid}` (mesmo `id` do `uid`,
+não um id gerado) representando a si mesmo, com `ehProprietario: true`. Criado em dois
+pontos de `useAuth.js`:
+- `register()`: gravado no mesmo `writeBatch` do restante do cadastro (atômico com a
+  criação do perfil), reaproveitando `userData.avatarUrl` recém-gerado.
+- `criarMembroProprietarioSeNaoExistir(uid, nome)`: autocura para contas que já existiam
+  antes desta sprint, chamada no fluxo de login. Checa a **existência do campo `avatar`**,
+  não a existência do documento — importante porque o documento pode já existir (criado
+  antes desta sprint, sem avatar) e o autocura não deve sobrescrever uma customização já
+  salva, só preencher o que está faltando.
+
+`isMembroProprietario(membro)` (`src/utils/membros.js`) é a única função que checa
+`ehProprietario` no código — nenhum outro arquivo compara esse campo diretamente. Centraliza
+a regra de "não pode excluir o dono da conta" e "edições vão para `atualizarPerfil`, não
+para `atualizarMembro`", usada em `useMembros.js`, `EditarMembroModal.js`,
+`GerenciarMembrosModal.js` e `MembrosScreen.js`.
+
+`atualizarPerfil()` (`useAuth.js`) sincroniza `apelido` → `membro.nome` e `avatarUrl` →
+`membro.avatar` no mesmo documento de membro-espelho sempre que o proprietário edita o
+próprio perfil — um único lugar de edição (`ContaScreen.js`) para dois documentos.
+
+### 14.2 Unificação `membroId`/`membroNome`
+
+Mesmo padrão de convivência que `categoriaId`/`categoriaNome` (Sprint 4, seção 13.6): sem
+migração em massa. Entradas e compras de cartão gravam `membroId` (referência estável,
+`null` quando a pessoa não é um Membro cadastrado) + `membroNome` (sempre preenchido).
+`MembroSelect.js` é o único componente que resolve essa escolha — nem `ModalCriacao.js` nem
+`ModalEdicao.js` acessam `useMembros` diretamente.
+
+O campo `pessoa` do empréstimo (credor/instituição) foi renomeado para `credor` — é um
+conceito não relacionado a "pessoa da família" e não participa dessa unificação.
+
+### 14.3 Modo Família — arquitetura oficial e remoção da concorrente
+
+`tenants/{tenantId}` (via `getBasePath(user, compartilhado)`, já existente desde antes desta
+sprint — ver seção 7) é a arquitetura escolhida para dado compartilhado. A arquitetura
+concorrente — `membroSelecionado`/`modoFamiliaAtivo` (parâmetro de `useModelos.js`,
+nunca chamado com `true`) e `compartilhadoCom` (campo lido em `ModalHistoricoParcelas.js`,
+nunca gravado em lugar nenhum) — foi removida por decisão do usuário, para não manter duas
+abordagens documentadas ao mesmo tempo quando só uma seria de fato usada.
+
+### 14.4 Avatar vetorial — formato e motor
+
+Formato persistido (em `users/{uid}.avatarUrl` e `users/{uid}/membros/{id}.avatar`):
+```js
+{ tipo: "vetorial", motor: "dicebear", versao: 1, dados: { estilo: "avataaars", opcoes: {...} } }
+```
+`motor` existe para permitir trocar o motor de geração no futuro (ex.: outro pacote, ou uma
+IA) sem quebrar avatares já persistidos — hoje só `"dicebear"` é implementado. `opcoes` é a
+configuração **já resolvida** (não uma seed crua): `@dicebear/core` permite gerar por seed e
+depois ler as opções resolvidas via `.toJSON().options`, reaproveitáveis para sempre sem
+guardar a seed — validado empiricamente antes de adotar essa abordagem. A seed só é usada no
+momento da criação (ou ao pedir "aleatório" no editor); nunca no render.
+
+`src/utils/avatar.js` concentra toda a lógica específica de motor/estilo:
+- `gerarAvatarPadrao(seed)` / `gerarAvatarAleatorio()`: geram o objeto acima.
+- `sanitizarOpcoes()`: remove `seed`, campos de transform (`*Rotate`/`*TranslateX/Y`/`*Scale`)
+  e `undefined`/`null` (Firestore rejeita `undefined`) — reaplicada depois de toda edição.
+- Catálogo `CATEGORIAS_AVATAAARS`: cada categoria editável é `{chave, label, secao, tipo:
+  'cor'|'variante', opcoes, ler(avatar), aplicar(avatar, valor)}` — a única parte do arquivo
+  que sabe o nome dos campos do DiceBear/avataaars. `listarCategoriasEditaveis`/
+  `listarSecoesEditaveis`/`aplicarEdicaoAvatar`/`renderizarPreviaCategoria` são a API pública
+  usada pelo editor — motor-agnóstica.
+- `renderizarAvatarSvg(avatar)`: converte o objeto persistido em SVG.
+
+`AvatarRenderer.js` (exibição) e `AvatarEditor.js` (edição, seccionado por categoria: pele,
+cabelo, barba, roupa, expressão, acessórios, fundo) **nunca importam `@dicebear/*`
+diretamente** — só chamam as funções de `utils/avatar.js`. Decisão explícita do usuário para
+não espalhar condicionais específicas de Avataaars pelo projeto, mesmo mantendo só um estilo
+implementado hoje.
+
+**Escolha do estilo `avataaars`**: avaliação técnica comparativa (contagem de componentes/
+variantes/cores, licença) de mais de uma dezena de estilos do DiceBear concluiu que os
+estilos alternativos mais ricos em variedade sacrificam a categoria de roupa inteiramente —
+`avataaars` continua sendo o melhor equilíbrio para o caso de uso (avatar de pessoa,
+editável, com roupa). Documentado com o raciocínio completo em `SPRINT5_DISCOVERY.md`.
+
+### 14.5 UX de administração de Membros
+
+`EditarMembroModal.js` unifica nome, avatar e exclusão de um Membro num único fluxo. É
+acionado tocando em qualquer parte da linha do Membro (não só no avatar) em
+`GerenciarMembrosModal.js` e `MembrosScreen.js` — ambos derivam o Membro em edição via
+`membros.find(m => m.id === membroEditandoId)` a cada render (guardando só o `id` no
+estado), não um snapshot do objeto, para refletir imediatamente qualquer alteração salva.
+
+`MembroSelect.js`: lista de Membros + uma única opção final "Outra pessoa..." (modal
+pequeno, só pede o nome — usado no caso raro de alguém fora da família registrada). Atalho
+para "Gerenciar membros" mantido como link de texto discreto no rodapé da lista, não como
+ação em destaque.

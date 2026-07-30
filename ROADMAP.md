@@ -43,8 +43,8 @@
 
 **O que já existe (parcial, hoje não funcional):**
 - Conceito de `tenantId` já gravado no perfil do usuário (`useAuth.js`), embora hoje sempre igual ao próprio `uid`.
-- `getBasePath(user, compartilhado)` já sabe alternar entre `users/{uid}` e `tenants/{tenantId}` — mas nunca é chamado com `compartilhado=true`.
-- Telas de UI (`MembrosScreen`, `GerenciarMembrosModal`, `MembroSelect`) já existem, mas desconectadas da navegação e com referência quebrada a `membroSelecionado` (campo que `useAuth()` não expõe).
+- `getBasePath(user, compartilhado)` já sabe alternar entre `users/{uid}` e `tenants/{tenantId}` — mas nunca é chamado com `compartilhado=true`. A Sprint 5 (Identidade e Avatares, ver `PROJECT_STATUS.md` seção 12) confirmou `tenants/{tenantId}` como a arquitetura oficial para esta fase, e removeu a arquitetura concorrente que existia como scaffolding morto (`membroSelecionado`/`modoFamiliaAtivo`, `compartilhadoCom`) — não há mais duas abordagens documentadas ao mesmo tempo.
+- Telas de UI (`MembrosScreen`, `GerenciarMembrosModal`, `MembroSelect`) já existem e, desde a Sprint 5, todo Membro tem `membroId` estável e avatar — falta só ligá-las a um tenant real e à navegação ativa.
 
 **O que falta:**
 - Um contexto real de "família/tenant ativo" (mencionado em comentário no código como `ModoFamiliaContext`, nunca criado).
@@ -52,7 +52,7 @@
 - Regras de Firestore que garantam que membros de um tenant só acessem dados do próprio tenant.
 - Modelo de permissões dentro da família (todo mundo edita tudo? existe um "admin"?) — decisão de produto, não só técnica.
 
-**Risco de arquitetura a evitar:** implementar Modo Família como "mais um `if` espalhado pelos hooks atuais" (como já começou a acontecer em `useModelos.js`) em vez de um hook genérico de acesso a dados que abstraia o caminho `users/` vs `tenants/`. Resolver a duplicação de hooks (ver `ARQUITETURA.md`, seção de dívida técnica) **antes** desta fase reduz muito o retrabalho aqui.
+**Risco de arquitetura a evitar:** implementar Modo Família como "mais um `if` espalhado pelos hooks atuais" em vez de um hook genérico de acesso a dados que abstraia o caminho `users/` vs `tenants/` — o `if` que já tinha começado a aparecer em `useModelos.js` foi removido na Sprint 5 justamente por não ser essa abordagem. Resolver a duplicação de hooks (ver `ARQUITETURA.md`, seção de dívida técnica) **antes** desta fase reduz muito o retrabalho aqui.
 
 ---
 
@@ -171,8 +171,9 @@ para o raciocínio de arquitetura completo.
 Isso também reorganiza como o roadmap enxerga a próxima leva de funcionalidades: em vez de
 "Metas Financeiras" isolada, o produto ganha um módulo **Planejamento Financeiro**
 (hub próprio no Menu do Usuário, já implementado), do qual Categorias é a primeira peça e
-Metas Financeiras (Sprint 5) é a próxima — seguidas, mais adiante, de Orçamentos, Limites
+Metas Financeiras (Sprint 6) é a próxima — seguidas, mais adiante, de Orçamentos, Limites
 por categoria e Relatórios, todas sob o mesmo hub, sem reorganizar a navegação de novo.
+(A Sprint 5, entre as duas, priorizou Identidade e Avatares — ver atualização abaixo.)
 
 | Fase | Como Categorias/Planejamento Financeiro se conecta a ela |
 |---|---|
@@ -180,4 +181,25 @@ por categoria e Relatórios, todas sob o mesmo hub, sem reorganizar a navegaçã
 | Fase 2 — Modo Família | Categorias já vivem em `getBasePath(user)`, mesmo padrão de `useMembros.js` — viram compartilháveis entre membros só trocando para `getBasePath(user, true)` quando essa fase resolver o gap de `tenantId` já documentado (`ARQUITETURA.md` seção 3). |
 | Fase 6 — IA | `categoriaId` estável é exatamente a chave que reconhecimento de padrão (“esse usuário sempre estoura em Lazer”) precisa — sem ela, esse tipo de recurso ficaria refém de comparação de texto frágil. |
 | Camada 2 do roadmap da Agenda Financeira ("o que isso significa?", acima) | Saldo/gasto projetado por categoria passa a ser possível assim que essa camada for construída — Categorias entrega a chave estável que faltava. |
-| Novo módulo: Planejamento Financeiro | Categorias (✅ Sprint 4) → Metas Financeiras (Sprint 5, próxima) → Orçamentos/Limites por categoria → Relatórios — todas no mesmo hub, todas em cima da mesma base de dados. |
+| Novo módulo: Planejamento Financeiro | Categorias (✅ Sprint 4) → Metas Financeiras (Sprint 6, próxima) → Orçamentos/Limites por categoria → Relatórios — todas no mesmo hub, todas em cima da mesma base de dados. |
+
+---
+
+## Atualização — Identidade e Avatares (2026-07-30)
+
+A Sprint 5 unificou "usuário autenticado" e "Membro" (todo usuário ganha um membro-espelho,
+`ehProprietario: true`) e unificou "Comprador" (cartão) com "Membro" (entrada) num único
+conceito (`membroId`/`membroNome`), além de dar a cada Membro um avatar vetorial gerado
+automaticamente (DiceBear/`avataaars`) com editor completo. Ver `PROJECT_STATUS.md` seção 12
+para o resumo completo e `SPRINT5_DISCOVERY.md` para o raciocínio de arquitetura.
+
+Duas decisões desta sprint afetam diretamente fases futuras deste roadmap:
+- **Fase 2 — Modo Família**: `tenants/{tenantId}` confirmado como a arquitetura oficial
+  (ver acima); a arquitetura concorrente que existia como scaffolding morto foi removida.
+  `membroId` estável em todos os lançamentos de entrada/cartão é a base sobre a qual o
+  vínculo "Membro → conta real" (Fase 2) e "lançamento vinculado a outro usuário"
+  (reembolso/despesa compartilhada, ideia registrada no discovery) podem ser construídos sem
+  migração de dados.
+- **Fase 6 — IA**: o campo `motor` no formato do avatar (`{ tipo, motor, versao, dados }`)
+  permite trocar ou complementar o motor de geração (ex.: um avatar gerado por IA) sem
+  quebrar avatares já existentes.

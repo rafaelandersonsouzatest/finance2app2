@@ -15,10 +15,12 @@ import {
   setDoc,
   updateDoc,
   writeBatch,
+  serverTimestamp,
 } from "firebase/firestore";
 
 import * as WebBrowser from "expo-web-browser";
 import * as AuthSession from "expo-auth-session";
+import { gerarAvatarPadrao } from "../utils/avatar";
 WebBrowser.maybeCompleteAuthSession();
 
 const AuthContext = createContext();
@@ -55,6 +57,40 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ===================================================
+  // 🔥 Criar o membro-espelho do dono da conta, caso não exista
+  // (autocura para contas criadas antes desta sprint — ver
+  // SPRINT5_DISCOVERY.md seção 2.3. Usa `id` = uid do dono, então repetir a
+  // chamada nunca duplica.)
+  // ===================================================
+  const criarMembroProprietarioSeNaoExistir = async (uid, nome) => {
+    if (!uid) return;
+    try {
+      const ref = doc(db, "users", uid, "membros", uid);
+      const snap = await getDoc(ref);
+
+      if (!snap.exists()) {
+        await setDoc(ref, {
+          nome: nome || "",
+          ativo: true,
+          avatar: gerarAvatarPadrao(uid),
+          ehProprietario: true,
+          uid,
+          criadoEm: serverTimestamp(),
+        });
+      } else if (!snap.data().avatar) {
+        // 🔹 Autocura específica do avatar: cobre membros criados entre o
+        // incremento 1 (sem avatar) e este incremento. Checagem é sempre
+        // pelo campo `avatar` em si, nunca pela existência do documento —
+        // um avatar já presente (gerado ou, no futuro, personalizado pelo
+        // usuário) nunca é sobrescrito.
+        await updateDoc(ref, { avatar: gerarAvatarPadrao(uid) });
+      }
+    } catch (err) {
+      console.error("❌ Erro ao criar/atualizar avatar do membro-proprietário:", err);
+    }
+  };
+
+  // ===================================================
   // 🔥 Criar perfil caso não exista
   // ===================================================
   const criarUserProfileSeNaoExistir = async (firebaseUser, extraData = {}) => {
@@ -63,6 +99,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const ref = doc(db, "users", firebaseUser.uid);
       const snap = await getDoc(ref);
+      let nomeParaMembro;
 
       if (!snap.exists()) {
         const userData = {
@@ -81,16 +118,26 @@ export const AuthProvider = ({ children }) => {
           primeiroAcesso: true,
           jaViuOnboarding: false,
 
-          // 🔥 Reservado para avatar de usuário (não implementado ainda —
-          // mesmo padrão do campo `avatar: null` já usado em useMembros.js,
-          // para essa funcionalidade futura não exigir migração de dados).
-          avatarUrl: null,
+          // 🔥 Avatar vetorial gerado por seed (Sprint 5 — mesmo avatar do
+          // membro-espelho, seed = uid, ver SPRINT5_DISCOVERY.md seção 5).
+          avatarUrl: gerarAvatarPadrao(firebaseUser.uid),
         };
 
         await setDoc(ref, userData);
         console.log("✅ Perfil criado:", userData.email);
+        nomeParaMembro = userData.apelido || userData.nome;
+      } else {
+        const dadosPerfil = snap.data();
+        nomeParaMembro = dadosPerfil.apelido || dadosPerfil.nome;
+
+        // 🔹 Mesma autocura do membro-proprietário: só gera se o campo
+        // ainda não existir — nunca sobrescreve um avatar já presente.
+        if (!dadosPerfil.avatarUrl) {
+          await updateDoc(ref, { avatarUrl: gerarAvatarPadrao(firebaseUser.uid) });
+        }
       }
 
+      await criarMembroProprietarioSeNaoExistir(firebaseUser.uid, nomeParaMembro);
     } catch (err) {
       console.error("❌ Erro ao criar/atualizar perfil:", err);
     }
@@ -200,14 +247,25 @@ export const AuthProvider = ({ children }) => {
         criadoEm: new Date().toISOString(),
         primeiroAcesso: true,
         jaViuOnboarding: false,
-        avatarUrl: null,
+        // 🔥 Avatar vetorial gerado por seed (Sprint 5) — mesmo avatar do
+        // membro-espelho, seed = uid, ver SPRINT5_DISCOVERY.md seção 5.
+        avatarUrl: gerarAvatarPadrao(cred.user.uid),
       };
 
-      // 🔹 Grava o perfil e a reserva do documento juntos, em lote — os dois
-      // nascem atomicamente (ou nenhum dos dois, se algo falhar no meio).
+      // 🔹 Grava o perfil, a reserva do documento e o membro-espelho do
+      // dono da conta juntos, em lote — nascem atomicamente (ou nenhum dos
+      // três, se algo falhar no meio). Ver SPRINT5_DISCOVERY.md seção 2.3.
       const batch = writeBatch(db);
       batch.set(doc(db, "users", cred.user.uid), userData);
       batch.set(reservaRef, { reservado: true });
+      batch.set(doc(db, "users", cred.user.uid, "membros", cred.user.uid), {
+        nome: userData.apelido || userData.nome,
+        ativo: true,
+        avatar: userData.avatarUrl,
+        ehProprietario: true,
+        uid: cred.user.uid,
+        criadoEm: serverTimestamp(),
+      });
       await batch.commit();
 
       await carregarPerfil(cred.user.uid);
@@ -238,6 +296,28 @@ export const AuthProvider = ({ children }) => {
     if (!user?.uid) throw new Error("Usuário não autenticado.");
     await updateDoc(doc(db, "users", user.uid), dados);
     setProfile((prev) => (prev ? { ...prev, ...dados } : prev));
+
+    // 🔹 Mantém o nome e o avatar do membro-espelho sincronizados com o
+    // perfil (decisão registrada em SPRINT5_DISCOVERY.md seção 2.4, agora
+    // estendida ao avatar no editor) — um único lugar para editar o
+    // próprio nome/avatar, para as duas superfícies (Conta e Membros)
+    // nunca ficarem dessincronizadas.
+    const sincronizacaoMembro = {};
+    if (dados.apelido !== undefined) sincronizacaoMembro.nome = dados.apelido;
+    if (dados.avatarUrl !== undefined) sincronizacaoMembro.avatar = dados.avatarUrl;
+
+    if (Object.keys(sincronizacaoMembro).length > 0) {
+      try {
+        await updateDoc(doc(db, "users", user.uid, "membros", user.uid), {
+          ...sincronizacaoMembro,
+          atualizadoEm: serverTimestamp(),
+        });
+      } catch (err) {
+        // Autocura (criarUserProfileSeNaoExistir) garante esse documento no
+        // próximo login — não deve bloquear a edição do perfil.
+        console.error("❌ Erro ao sincronizar membro-proprietário:", err);
+      }
+    }
   };
 
   // ===================================================

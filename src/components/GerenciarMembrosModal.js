@@ -14,17 +14,24 @@ import {
 import Modal from "react-native-modal";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { useMembros } from "../hooks/useMembros";
+import { useAuth } from "../auth/useAuth";
 import { colors } from "../styles/colors";
 import { globalStyles } from "../styles/globalStyles";
 import { vibrarLeve, vibrarSucesso } from "../utils/haptics";
+import { isMembroProprietario } from "../utils/membros";
 import AlertaModal from "./AlertaModal";
+import AvatarRenderer from "./AvatarRenderer";
+import EditarMembroModal from "./EditarMembroModal";
 
 export const GerenciarMembrosModal = ({ visivel, onFechar }) => {
   // 🔹 Fonte única de membros (mesma usada pelo MembroSelect e pela tela de
   // administração) — este modal não acessa o Firestore diretamente.
-  const { membros, adicionarMembro, excluirMembro } = useMembros();
+  const { membros, adicionarMembro, atualizarMembro, excluirMembro } = useMembros();
+  const { atualizarPerfil } = useAuth();
   const [novoNome, setNovoNome] = useState("");
   const [carregando, setCarregando] = useState(false);
+  const [membroEditandoId, setMembroEditandoId] = useState(null);
+  const membroEditando = membros.find((m) => m.id === membroEditandoId) || null;
   const [alerta, setAlerta] = useState({
     visivel: false,
     titulo: "",
@@ -58,48 +65,13 @@ export const GerenciarMembrosModal = ({ visivel, onFechar }) => {
   };
 
   // ======================================================
-  // 🔹 Excluir membro
-  // ======================================================
-  const handleExcluir = (id, nome) => {
-    setAlerta({
-      visivel: true,
-      titulo: "Excluir membro",
-      mensagem: `Deseja realmente excluir "${nome}"?`,
-      icone: "trash-can-outline",
-      corIcone: colors.error,
-      botoes: [
-        {
-          texto: "Cancelar",
-          onPress: () => setAlerta((a) => ({ ...a, visivel: false })),
-        },
-        {
-          texto: "Excluir",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await excluirMembro(id);
-              vibrarLeve();
-              setAlerta((a) => ({ ...a, visivel: false }));
-            } catch (e) {
-              setAlerta({
-                visivel: true,
-                titulo: "Erro",
-                mensagem: e?.message || "Não foi possível excluir o membro.",
-                icone: "alert-circle-outline",
-                corIcone: colors.gasto,
-              });
-            }
-          },
-        },
-      ],
-    });
-  };
-
-  // ======================================================
-  // 🔹 Render item da lista
+  // 🔹 Render item da lista — tocar em qualquer parte da linha abre a
+  // edição (nome + avatar + exclusão); o avatar deixou de ser o único
+  // ponto clicável.
   // ======================================================
   const renderItem = ({ item }) => (
-    <View
+    <TouchableOpacity
+      onPress={() => setMembroEditandoId(item.id)}
       style={[
         globalStyles.listItem,
         {
@@ -112,26 +84,13 @@ export const GerenciarMembrosModal = ({ visivel, onFechar }) => {
       ]}
     >
       <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <MaterialCommunityIcons
-          name="account-circle-outline"
-          size={22}
-          color={colors.textPrimary}
-          style={{ marginRight: 8 }}
-        />
-        <Text style={globalStyles.listItemTitle}>{item.nome}</Text>
+        <AvatarRenderer avatar={item.avatar} nome={item.nome} variante="mini" />
+        <Text style={[globalStyles.listItemTitle, { marginLeft: 8 }]}>
+          {item.nome}{isMembroProprietario(item) ? " (você)" : ""}
+        </Text>
       </View>
-
-      <TouchableOpacity
-        onPress={() => handleExcluir(item.id, item.nome)}
-        style={[globalStyles.iconButton, { backgroundColor: "#ff444420" }]}
-      >
-        <MaterialCommunityIcons
-          name="trash-can-outline"
-          size={18}
-          color={colors.error}
-        />
-      </TouchableOpacity>
-    </View>
+      <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textSecondary} />
+    </TouchableOpacity>
   );
 
   // ======================================================
@@ -208,6 +167,28 @@ export const GerenciarMembrosModal = ({ visivel, onFechar }) => {
           contentContainerStyle={{ paddingTop: 10 }}
         />
       </KeyboardAvoidingView>
+
+      {/* 🔹 O proprietário edita nome/avatar via atualizarPerfil (sincroniza
+          automaticamente para este mesmo documento de membro — ver
+          useAuth.js) — mantém "um único lugar" para editar a própria
+          identidade. Os demais membros gravam direto via useMembros. */}
+      <EditarMembroModal
+        visivel={!!membroEditando}
+        onFechar={() => setMembroEditandoId(null)}
+        membro={membroEditando}
+        seedPadraoAvatar={membroEditando?.id}
+        aoRenomear={(novoNome) =>
+          isMembroProprietario(membroEditando)
+            ? atualizarPerfil({ apelido: novoNome })
+            : atualizarMembro(membroEditando.id, { nome: novoNome })
+        }
+        aoSalvarAvatar={(novoAvatar) =>
+          isMembroProprietario(membroEditando)
+            ? atualizarPerfil({ avatarUrl: novoAvatar })
+            : atualizarMembro(membroEditando.id, { avatar: novoAvatar })
+        }
+        aoExcluir={() => excluirMembro(membroEditando.id)}
+      />
     </Modal>
   );
 };

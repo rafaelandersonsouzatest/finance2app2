@@ -19,6 +19,7 @@ import CategoriaSelect from "./CategoriaSelect";
 import { useCategorias } from "../hooks/useCategorias";
 import { useModelos } from "../hooks/useModelos";
 import { useEntradas } from "../hooks/useEntradas";
+import { useMembros } from "../hooks/useMembros";
 import { useDateFilter } from "../contexts/DateFilterContext";
 
 const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
@@ -28,6 +29,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
     selectedYear
   );
   const { categorias } = useCategorias();
+  const { membros } = useMembros();
 
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
@@ -80,13 +82,22 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
         setCategoria(null);
       }
       setDia(String(initialData.diaVencimento || initialData.diaDoMes || ""));
-      setMembro(
-        typeof initialData?.membro === "object"
-          ? initialData.membro
-          : initialData?.membro
-          ? { id: initialData.membro, nome: initialData.membro }
-          : null
-      );
+      // 🔹 Resolve o Membro completo (com avatar) a partir de membroId
+      // quando existir — mesmo padrão de categoriaId acima. Lançamentos
+      // antigos (só `membro` string, sem membroId) caem para um objeto
+      // sintético só com o nome, sem `id` (ver SPRINT5_DISCOVERY.md 4.3.3).
+      if (initialData?.membroId) {
+        setMembro(
+          membros.find((m) => m.id === initialData.membroId) || {
+            id: null,
+            nome: initialData.membroNome || initialData.membro,
+          }
+        );
+      } else if (initialData?.membro) {
+        setMembro({ id: null, nome: initialData.membro });
+      } else {
+        setMembro(null);
+      }
       setModoCalculo(initialData.modoCalculo || "valor");
       setFixacao(initialData.fixacao || "dinamico");
 
@@ -159,7 +170,13 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
       categoriaId: categoria?.id || null,
       categoriaNome: categoria?.nome || null,
       ativo: true,
+      // 🔹 membro (string) mantido por compatibilidade; membroId/membroNome
+      // são a referência estável (mesmo padrão de categoriaId, ver
+      // SPRINT5_DISCOVERY.md seção 4.3.3) — membroId fica null quando o
+      // nome foi digitado livremente, sem cadastro prévio.
       membro: membro?.nome || null,
+      membroId: membro?.id || null,
+      membroNome: membro?.nome || null,
       modoCalculo,
       diaVencimento: Number(dia),
       fixacao,
@@ -545,7 +562,6 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
         <MembroSelect
           membroSelecionado={membro}
           onSelecionar={(m) => setMembro(m)}
-          tipo="membro"
           mostrarLabel={false}
         />
       )}

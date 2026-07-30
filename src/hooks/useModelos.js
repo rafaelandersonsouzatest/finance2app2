@@ -15,23 +15,17 @@ import { useAuth } from '../auth/useAuth';
 import { getBasePath } from '../utils/firestorePaths';
 
 // 🔹 HOOK: MODELOS (Entradas e Gastos) — versão robusta (não requer ModoFamiliaContext)
-export const useModelos = (tipo = 'gasto', modoFamiliaAtivo = false) => {
+export const useModelos = (tipo = 'gasto') => {
   const [modelos, setModelos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // mantém o mesmo destructuring que você já usa
-  const { user, membroSelecionado } = useAuth();
+  const { user } = useAuth();
 
   // Função que resolve o caminho base de forma segura
   const getCaminhoBase = () => {
     // se user não existir ou não tiver uid, retorna null (efeito vai esperar)
     if (!user || !user.uid) return null;
-
-    // se modo família estiver ativo e houver um membro selecionado com uid, usa ele
-    if (modoFamiliaAtivo && membroSelecionado && membroSelecionado.uid) {
-      return `users/${membroSelecionado.uid}`;
-    }
 
     // caso padrão: usuários individuais (getBasePath espera um objeto user válido)
     try {
@@ -81,7 +75,7 @@ export const useModelos = (tipo = 'gasto', modoFamiliaAtivo = false) => {
     );
 
     return () => unsubscribe();
-  }, [tipo, user?.uid, membroSelecionado?.uid, modoFamiliaAtivo]);
+  }, [tipo, user?.uid]);
 
   // ➕ Adicionar modelo
   const addModelo = async (modelo) => {

@@ -428,12 +428,6 @@ donutWrapper: {
   alignItems: 'center',
   justifyContent: 'center',
 },
-listAvatar: {
-  width: 24,
-  height: 24,
-  borderRadius: 12,
-  marginRight: 8,
-},
 
 
 

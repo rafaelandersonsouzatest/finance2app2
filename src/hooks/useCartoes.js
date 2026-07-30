@@ -104,6 +104,8 @@ export const useCartoes = (month, year) => {
         totalParcelas,
         dataCompra,
         pessoa,
+        membroId,
+        membroNome,
         cartao: nomeCartao,
         categoria,
         categoriaId,
@@ -140,6 +142,11 @@ export const useCartoes = (month, year) => {
         return {
           descricao,
           pessoa,
+          // 🔹 Referência estável de Membro (Sprint 5, mesmo padrão de
+          // categoriaId abaixo — ver SPRINT5_DISCOVERY.md 4.3.3). `pessoa`
+          // (string) é mantida por compatibilidade com exibição existente.
+          membroId: membroId || null,
+          membroNome: membroNome || null,
           cartao: nomeCartao,
           corCartao: corDoCartao,
           // 🔹 Corrigido nesta sprint: addCartao destructurava só um subconjunto

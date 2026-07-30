@@ -24,10 +24,17 @@ import { globalStyles } from "../styles/globalStyles";
 import AlertaModal from "../components/AlertaModal";
 import { vibrarLeve, vibrarSucesso } from "../utils/haptics";
 import { useMembros } from "../hooks/useMembros";
+import { useAuth } from "../auth/useAuth";
+import { isMembroProprietario } from "../utils/membros";
+import AvatarRenderer from "../components/AvatarRenderer";
+import EditarMembroModal from "../components/EditarMembroModal";
 
 export default function MembrosScreen() {
-  const { membros, loading, adicionarMembro, excluirMembro } = useMembros();
+  const { membros, loading, adicionarMembro, atualizarMembro, excluirMembro } = useMembros();
+  const { atualizarPerfil } = useAuth();
   const [novoNome, setNovoNome] = useState("");
+  const [membroEditandoId, setMembroEditandoId] = useState(null);
+  const membroEditando = membros.find((m) => m.id === membroEditandoId) || null;
   const [alerta, setAlerta] = useState({
     visivel: false,
     titulo: "",
@@ -54,43 +61,13 @@ export default function MembrosScreen() {
     }
   };
 
-  const handleExcluir = (id, nome) => {
-    setAlerta({
-      visivel: true,
-      titulo: "Excluir membro",
-      mensagem: `Deseja realmente excluir "${nome}"?`,
-      icone: "trash-can-outline",
-      corIcone: colors.error,
-      botoes: [
-        {
-          texto: "Cancelar",
-          onPress: () => setAlerta((a) => ({ ...a, visivel: false })),
-        },
-        {
-          texto: "Excluir",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await excluirMembro(id);
-              vibrarLeve();
-              setAlerta((a) => ({ ...a, visivel: false }));
-            } catch (e) {
-              setAlerta({
-                visivel: true,
-                titulo: "Erro",
-                mensagem: e?.message || "Não foi possível excluir o membro.",
-                icone: "alert-circle-outline",
-                corIcone: colors.gasto,
-              });
-            }
-          },
-        },
-      ],
-    });
-  };
-
+  // 🔹 Tocar em qualquer parte da linha abre a edição (nome + avatar +
+  // exclusão) — o avatar deixou de ser o único ponto clicável, mesmo
+  // tratamento de GerenciarMembrosModal.js para a experiência ficar
+  // consistente entre as duas telas de administração de Membros.
   const renderItem = ({ item }) => (
-    <View
+    <TouchableOpacity
+      onPress={() => setMembroEditandoId(item.id)}
       style={[
         globalStyles.listItem,
         {
@@ -103,28 +80,13 @@ export default function MembrosScreen() {
       ]}
     >
       <View style={{ flexDirection: "row", alignItems: "center" }}>
-        {/* 🔹 Avatar por membro é recurso futuro (ver PROJECT_STATUS.md) —
-            por enquanto, ícone genérico para todos. */}
-        <MaterialCommunityIcons
-          name="account-circle-outline"
-          size={22}
-          color={colors.textPrimary}
-          style={{ marginRight: 8 }}
-        />
-        <Text style={globalStyles.listItemTitle}>{item.nome}</Text>
+        <AvatarRenderer avatar={item.avatar} nome={item.nome} variante="mini" />
+        <Text style={[globalStyles.listItemTitle, { marginLeft: 8 }]}>
+          {item.nome}{isMembroProprietario(item) ? " (você)" : ""}
+        </Text>
       </View>
-
-      <TouchableOpacity
-        onPress={() => handleExcluir(item.id, item.nome)}
-        style={[globalStyles.iconButton, { backgroundColor: "#ff444420" }]}
-      >
-        <MaterialCommunityIcons
-          name="trash-can-outline"
-          size={18}
-          color={colors.error}
-        />
-      </TouchableOpacity>
-    </View>
+      <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textSecondary} />
+    </TouchableOpacity>
   );
 
   return (
@@ -181,6 +143,27 @@ export default function MembrosScreen() {
           )
         }
         contentContainerStyle={{ paddingTop: 10 }}
+      />
+
+      {/* 🔹 O proprietário edita nome/avatar via atualizarPerfil (sincroniza
+          automaticamente para este mesmo documento de membro — ver
+          useAuth.js). Os demais membros gravam direto via useMembros. */}
+      <EditarMembroModal
+        visivel={!!membroEditando}
+        onFechar={() => setMembroEditandoId(null)}
+        membro={membroEditando}
+        seedPadraoAvatar={membroEditando?.id}
+        aoRenomear={(novoNome) =>
+          isMembroProprietario(membroEditando)
+            ? atualizarPerfil({ apelido: novoNome })
+            : atualizarMembro(membroEditando.id, { nome: novoNome })
+        }
+        aoSalvarAvatar={(novoAvatar) =>
+          isMembroProprietario(membroEditando)
+            ? atualizarPerfil({ avatarUrl: novoAvatar })
+            : atualizarMembro(membroEditando.id, { avatar: novoAvatar })
+        }
+        aoExcluir={() => excluirMembro(membroEditando.id)}
       />
     </KeyboardAvoidingView>
   );

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { globalStyles } from '../styles/globalStyles';
@@ -7,15 +7,18 @@ import { colors } from '../styles/colors';
 import { useAuth } from '../auth/useAuth';
 import { getNomeExibicao } from '../utils/perfil';
 import AlertaModal from '../components/AlertaModal';
+import AvatarRenderer from '../components/AvatarRenderer';
+import AvatarEditor from '../components/AvatarEditor';
 
 export default function ContaScreen() {
-  const { profile, logout, atualizarPerfil } = useAuth();
+  const { user, profile, logout, atualizarPerfil } = useAuth();
   const navigation = useNavigation();
   const [confirmarSaida, setConfirmarSaida] = useState(false);
   const [editandoNome, setEditandoNome] = useState(false);
   const [novoNome, setNovoNome] = useState(profile?.apelido || '');
   const [erroNome, setErroNome] = useState(null);
   const [salvandoNome, setSalvandoNome] = useState(false);
+  const [editorAvatarVisivel, setEditorAvatarVisivel] = useState(false);
 
   const confirmarESair = async () => {
     setConfirmarSaida(false);
@@ -53,22 +56,13 @@ export default function ContaScreen() {
           { alignItems: 'center', paddingVertical: 24, marginBottom: 20 },
         ]}
       >
-        {/* 🔹 Reservado para avatar de usuário (futuro, não implementado
-            ainda — só o indicativo visual do espaço; ver PROJECT_STATUS.md).
-            `profile.avatarUrl` já é gravado como `null` desde o cadastro
-            para essa funcionalidade não exigir migração de dados depois.
-            O carimbo "EM BREVE" deixa claro que não é clicável ainda —
-            sem ele, o círculo sozinho parecia um botão quebrado. */}
-        <View style={{ width: 72, height: 72 }}>
-          <MaterialCommunityIcons
-            name="account-circle"
-            size={72}
-            color={colors.primary}
+        <TouchableOpacity onPress={() => setEditorAvatarVisivel(true)}>
+          <AvatarRenderer
+            avatar={profile?.avatarUrl}
+            nome={getNomeExibicao(profile)}
+            variante="profile"
           />
-          <View style={styles.carimboFaixa} pointerEvents="none">
-            <Text style={styles.carimboTexto}>EM BREVE</Text>
-          </View>
-        </View>
+        </TouchableOpacity>
 
         {editandoNome ? (
           <View style={{ width: '100%', marginTop: 12 }}>
@@ -174,28 +168,15 @@ export default function ContaScreen() {
           { texto: 'Sair', style: 'destructive', onPress: confirmarESair },
         ]}
       />
+
+      <AvatarEditor
+        visivel={editorAvatarVisivel}
+        onFechar={() => setEditorAvatarVisivel(false)}
+        avatarAtual={profile?.avatarUrl}
+        seedPadrao={user?.uid}
+        nome={getNomeExibicao(profile)}
+        aoSalvar={(novoAvatar) => atualizarPerfil({ avatarUrl: novoAvatar })}
+      />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  carimboFaixa: {
-    position: 'absolute',
-    top: 30,
-    left: -14,
-    right: -14,
-    paddingVertical: 2,
-    alignItems: 'center',
-    backgroundColor: colors.background + 'e6',
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: colors.textSecondary,
-    transform: [{ rotate: '-12deg' }],
-  },
-  carimboTexto: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: colors.textSecondary,
-    letterSpacing: 1,
-  },
-});
