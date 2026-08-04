@@ -9,6 +9,7 @@ import { useEntradas } from './useEntradas';
 import { useCartoes } from './useCartoes';
 import { useEmprestimos } from './useEmprestimos';
 import { useModelos } from './useModelos';
+import { useExclusaoParcelada } from './useExclusaoParcelada';
 import { normalizarEventos } from '../utils/eventosFinanceiros';
 import { normalizarParaISO } from '../utils/formatarData';
 
@@ -28,6 +29,14 @@ export const useEventosFinanceiros = (mes, ano) => {
   const entradasHook = useEntradas(mes, ano);
   const cartoesHook = useCartoes(mes, ano);
   const emprestimosHook = useEmprestimos(mes, ano);
+  const {
+    confirmarExclusao,
+    alertaExclusao,
+    fecharAlertaExclusao,
+    editorExclusao,
+    fecharEditorExclusao,
+    confirmarEditorExclusao,
+  } = useExclusaoParcelada();
   const { modelos: modelosGasto, loading: loadingModelosGasto } = useModelos('gasto');
   const { modelos: modelosEntrada, loading: loadingModelosEntrada } = useModelos('entrada');
 
@@ -99,23 +108,63 @@ export const useEventosFinanceiros = (mes, ano) => {
     }
   };
 
-  const excluir = (evento) => {
-    if (!evento.itemOriginal) return undefined;
+  // 🔹 Abre o mesmo mecanismo único de confirmação de exclusão usado pelas
+  // telas de Gastos/Empréstimos/Cartões (ver useExclusaoParcelada.js,
+  // ARQUITETURA.md seção 17) — antes, a exclusão a partir do
+  // Calendário/Linha do Tempo/Central de Avisos não pedia nenhuma
+  // confirmação, para nenhum tipo de lançamento.
+  const confirmarExcluir = (evento) => {
+    if (!evento.itemOriginal) return;
+    const item = evento.itemOriginal;
+
     switch (evento.tipo) {
       case 'gasto':
-        return gastosHook.deleteGasto(evento.itemOriginal.id);
+        confirmarExclusao({ item, tipoLabel: 'Gasto', excluirParcela: gastosHook.deleteGasto });
+        break;
       case 'entrada':
-        return entradasHook.excluirEntrada(evento.itemOriginal.id);
+        confirmarExclusao({ item, tipoLabel: 'Entrada', excluirParcela: entradasHook.excluirEntrada });
+        break;
       case 'cartao':
-        return cartoesHook.deleteCartao(evento.itemOriginal.id);
+        confirmarExclusao({
+          item,
+          tipoLabel: 'Compra',
+          suportaGrupo: true,
+          buscarParcelasDoGrupo: cartoesHook.buscarParcelasDaCompra,
+          excluirParcela: cartoesHook.excluirParcela,
+          excluirGrupoInteiro: cartoesHook.excluirGrupoInteiro,
+          excluirComValoresPersonalizados: cartoesHook.excluirParcelaComValoresPersonalizados,
+        });
+        break;
       case 'emprestimo':
-        return emprestimosHook.deleteEmprestimo(evento.itemOriginal.id);
+        confirmarExclusao({
+          item,
+          tipoLabel: 'Empréstimo',
+          suportaGrupo: true,
+          buscarParcelasDoGrupo: emprestimosHook.buscarParcelasDaCompra,
+          excluirParcela: emprestimosHook.excluirParcela,
+          excluirGrupoInteiro: emprestimosHook.excluirGrupoInteiro,
+          excluirComValoresPersonalizados: emprestimosHook.excluirParcelaComValoresPersonalizados,
+        });
+        break;
       default:
-        return undefined;
+        break;
     }
   };
 
-  return { eventos, eventosPorDia, loading, error, toggleStatus, editar, excluir };
+  return {
+    eventos,
+    eventosPorDia,
+    loading,
+    error,
+    toggleStatus,
+    editar,
+    confirmarExcluir,
+    alertaExclusao,
+    fecharAlertaExclusao,
+    editorExclusao,
+    fecharEditorExclusao,
+    confirmarEditorExclusao,
+  };
 };
 
 // Eventos "a partir de hoje", cruzando a virada de mês quando necessário —
@@ -163,6 +212,11 @@ export const useProximosEventos = (dias = 7) => {
     // mes/ano com que o hook foi instanciado. Tanto faz usar as de `atual`.
     toggleStatus: atual.toggleStatus,
     editar: atual.editar,
-    excluir: atual.excluir,
+    confirmarExcluir: atual.confirmarExcluir,
+    alertaExclusao: atual.alertaExclusao,
+    fecharAlertaExclusao: atual.fecharAlertaExclusao,
+    editorExclusao: atual.editorExclusao,
+    fecharEditorExclusao: atual.fecharEditorExclusao,
+    confirmarEditorExclusao: atual.confirmarEditorExclusao,
   };
 };

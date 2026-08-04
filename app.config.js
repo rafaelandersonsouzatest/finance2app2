@@ -38,7 +38,7 @@ export default ({ config }) => {
     },
     christian: {
       name: "Financeiro - Convidado",
-      slug: "christian",
+      slug: "convidado",
       projectId: "8887c54c-8cde-4f30-9a5a-ccd977b9795e", // ID do projeto do ambiente de Convidados no Expo
       updatesUrl: "https://u.expo.dev/8887c54c-8cde-4f30-9a5a-ccd977b9795e",
       icon: "./assets/icon.png",

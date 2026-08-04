@@ -16,16 +16,6 @@ const GastoCartaoCard = ({
   const parcelas = transacao.totalParcelas || 1;
   const progressoParcelas = parcelas ? ((transacao.parcelaAtual || 0) / parcelas) * 100 : 0;
 
-  // 🔹 Função segura para pegar o ícone
-  const getCartaoIcon = (cartao) => {
-    const nome = (typeof cartao === 'string' ? cartao : cartao?.nome) || '';
-    const n = nome.toLowerCase();
-    if (n.includes('nubank')) return 'credit-card-wireless-outline';
-    if (n.includes('c6')) return 'credit-card-multiple-outline';
-    if (n.includes('inter')) return 'credit-card-chip-outline';
-    return 'credit-card-outline';
-  };
-
   const valorParcela = Number(transacao.valor || 0);
   const valorTotalCompra = Number(transacao.valorTotal || valorParcela * parcelas);
 
@@ -47,7 +37,7 @@ const GastoCartaoCard = ({
       <View style={[styles.card, { borderLeftColor: corCartao }]}>
         <View style={styles.cardHeader}>
           <View style={styles.cartaoInfo}>
-            <MaterialCommunityIcons name={getCartaoIcon(transacao.cartao)} size={16} color={corCartao} />
+            <MaterialCommunityIcons name="credit-card-outline" size={16} color={corCartao} />
             <Text style={[styles.cartaoNome, { color: corCartao }]}>{nomeCartao}</Text>
           </View>
         </View>
@@ -58,7 +48,9 @@ const GastoCartaoCard = ({
           <View style={styles.pessoaContainer}>
             <MaterialCommunityIcons name="face-man" size={16} color="#BBBBBB" />
               <Text style={styles.pessoaNome}>
-                {typeof transacao.pessoa === 'object' ? transacao.pessoa?.nome : transacao.pessoa}
+                {transacao.pessoa && typeof transacao.pessoa === 'object'
+                  ? transacao.pessoa?.nome
+                  : transacao.pessoa}
               </Text>
           </View>
 

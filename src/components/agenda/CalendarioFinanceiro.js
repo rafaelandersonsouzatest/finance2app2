@@ -16,6 +16,8 @@ import { useEventosFinanceiros } from '../../hooks/useEventosFinanceiros';
 import { normalizarParaISO } from '../../utils/formatarData';
 import ItemEventoFinanceiro from './ItemEventoFinanceiro';
 import LegendaCalendario from './LegendaCalendario';
+import AlertaModal from '../AlertaModal';
+import ModalEditorParcelas from '../ModalEditorParcelas';
 
 const hojeISO = normalizarParaISO(new Date());
 
@@ -25,7 +27,18 @@ export default function CalendarioFinanceiro() {
   const [ano, setAno] = useState(hoje.getFullYear());
   const [diaSelecionado, setDiaSelecionado] = useState(hojeISO);
 
-  const { eventosPorDia, loading, toggleStatus, editar, excluir } = useEventosFinanceiros(mes, ano);
+  const {
+    eventosPorDia,
+    loading,
+    toggleStatus,
+    editar,
+    confirmarExcluir,
+    alertaExclusao,
+    fecharAlertaExclusao,
+    editorExclusao,
+    fecharEditorExclusao,
+    confirmarEditorExclusao,
+  } = useEventosFinanceiros(mes, ano);
 
   // Mesma cor/opacidade para qualquer dia com movimentação — sem gradiente de
   // intensidade (removido a pedido do usuário: a variação de tons não ficava
@@ -119,12 +132,23 @@ export default function CalendarioFinanceiro() {
                 evento={evento}
                 onToggleStatus={toggleStatus}
                 onEditar={editar}
-                onExcluir={excluir}
+                onExcluir={confirmarExcluir}
               />
             ))
           )}
         </>
       )}
+
+      <AlertaModal visible={alertaExclusao.visivel} onClose={fecharAlertaExclusao} {...alertaExclusao} />
+      <ModalEditorParcelas
+        visivel={editorExclusao.visivel}
+        aoFechar={fecharEditorExclusao}
+        aoConfirmar={confirmarEditorExclusao}
+        descricao={editorExclusao.descricao}
+        totalParcelas={editorExclusao.valoresIniciais.length}
+        valoresIniciais={editorExclusao.valoresIniciais}
+        bloqueadas={editorExclusao.bloqueadas}
+      />
     </View>
   );
 }

@@ -5,6 +5,7 @@ import {
   Text,
   TouchableOpacity,
   FlatList,
+  ScrollView,
   ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -13,6 +14,10 @@ import { db } from '../config/firebase';
 import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import { useAuth } from '../auth/useAuth';
+import { dividirValorIgualmente } from '../utils/parcelamento';
+import { useLinhaDoTempo } from '../hooks/useLinhaDoTempo';
+import LinhaDoTempoEventos from './LinhaDoTempoEventos';
+import ModernTabs from './ModernTabs';
 
 // ==========================================================
 // 🧩 COMPONENTE: LINHA DE PARCELA INDIVIDUAL
@@ -77,7 +82,8 @@ const ParcelaItem = ({ item }) => {
                 { color: colors.textPrimary, marginTop: 2 },
               ]}
             >
-              Valor Original: R$ {valorOriginal.toFixed(2)}
+              Valor Original: R${' '}
+              {valorOriginal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </Text>
             <Text
               style={[
@@ -85,7 +91,13 @@ const ParcelaItem = ({ item }) => {
                 { color: colors.balance, marginTop: 1 },
               ]}
             >
-              Pago com Desconto: R$ {valorPago.toFixed(2)} (-{descontoPercentual.toFixed(1)}%)
+              Pago com Desconto: R${' '}
+              {valorPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (-
+              {descontoPercentual.toLocaleString('pt-BR', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}
+              %)
             </Text>
           </>
         ) : (
@@ -95,7 +107,18 @@ const ParcelaItem = ({ item }) => {
               { color: colors.textPrimary, marginTop: 2 },
             ]}
           >
-            Valor: R$ {valorPago.toFixed(2)}
+            Valor: R$ {valorPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </Text>
+        )}
+
+        {item.alterada && (
+          <Text
+            style={[
+              globalStyles.text,
+              { color: colors.pending, marginTop: 2, fontSize: 12, fontWeight: '600' },
+            ]}
+          >
+            ✏️ Valor personalizado
           </Text>
         )}
       </View>
@@ -217,9 +240,13 @@ const ResumoFinanceiro = ({
 // ==========================================================
 export default function ModalHistoricoParcelas({ visible, onClose, item }) {
   const { user } = useAuth();
+  const { buscarEventosDaCompra } = useLinhaDoTempo();
   const [parcelas, setParcelas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [abaAtiva, setAbaAtiva] = useState('parcelas');
+  const [eventos, setEventos] = useState([]);
+  const [carregandoEventos, setCarregandoEventos] = useState(false);
   const [resumo, setResumo] = useState({
     totalPago: 0,
     totalReal: 0,
@@ -290,6 +317,19 @@ export default function ModalHistoricoParcelas({ visible, onClose, item }) {
 
         const parcelasPagas = dados.filter((p) => p.pago || p.adiantada).length;
 
+        // 🔹 Destaca parcelas com valor personalizado: compara o valor
+        // original de cada parcela (antes de qualquer desconto de
+        // antecipação) contra uma divisão igual do total — só faz sentido
+        // para cartão, empréstimo não suporta personalização (ver
+        // ARQUITETURA.md seção 15.8).
+        if (!ehEmprestimo) {
+          const valorEsperadoIgual = dividirValorIgualmente(totalReal, dados.length);
+          dados.forEach((p, indice) => {
+            const valorOriginalDaParcela = Number(p.valorOriginal ?? p.valor ?? 0);
+            p.alterada = Math.abs(valorOriginalDaParcela - valorEsperadoIgual[indice]) > 0.01;
+          });
+        }
+
         setResumo({
           totalPago,
           totalReal,
@@ -309,6 +349,28 @@ export default function ModalHistoricoParcelas({ visible, onClose, item }) {
 
     fetchParcelas();
   }, [visible, item, user]);
+
+  // 🔹 Aba "Linha do Tempo" (ver ARQUITETURA.md seção 18) — busca sob
+  // demanda, sem listener (histórico é append-only, não precisa de tempo
+  // real). Independente da aba ativa, para não recarregar ao alternar.
+  useEffect(() => {
+    const fetchEventos = async () => {
+      if (!visible || !item?.idCompra) return;
+      setCarregandoEventos(true);
+      try {
+        const dados = await buscarEventosDaCompra(item.idCompra);
+        setEventos(dados);
+      } catch (err) {
+        console.error('❌ Erro ao carregar linha do tempo:', err);
+        setEventos([]);
+      } finally {
+        setCarregandoEventos(false);
+      }
+    };
+
+    fetchEventos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, item]);
 
   const renderContent = () => {
     if (loading)
@@ -341,7 +403,7 @@ export default function ModalHistoricoParcelas({ visible, onClose, item }) {
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={globalStyles.modalOverlay}>
-        <View style={[globalStyles.modalContainer, { maxHeight: '85%' }]}>
+        <View style={[globalStyles.modalContainer, { height: '85%' }]}>
           <View style={globalStyles.modalHeader}>
             <Text style={globalStyles.modalTitle}>
               {item?.collectionName === 'emprestimos'
@@ -366,7 +428,21 @@ export default function ModalHistoricoParcelas({ visible, onClose, item }) {
             {item?.descricao || ''}
           </Text>
 
-          {renderContent()}
+          <ModernTabs
+            tabs={[
+              { key: 'parcelas', label: 'Parcelas', icon: 'format-list-bulleted' },
+              { key: 'linhaDoTempo', label: 'Linha do Tempo', icon: 'timeline-clock-outline' },
+            ]}
+            activeTab={abaAtiva}
+            setActiveTab={setAbaAtiva}
+          >
+            <View tabKey="parcelas" style={{ flex: 1 }}>
+              {renderContent()}
+            </View>
+            <ScrollView tabKey="linhaDoTempo" showsVerticalScrollIndicator={false}>
+              <LinhaDoTempoEventos eventos={eventos} carregando={carregandoEventos} />
+            </ScrollView>
+          </ModernTabs>
         </View>
       </View>
     </Modal>

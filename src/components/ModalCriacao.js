@@ -20,6 +20,10 @@ import SeletorData from './SeletorData';
 import { useCurrencyInput } from '../hooks/useCurrencyInput';
 import CategoriaSelect from './CategoriaSelect';
 import { MembroSelect } from '../components/MembroSelect';
+import { CartaoSelect } from '../components/CartaoSelect';
+import OpcaoPersonalizarParcelas from './OpcaoPersonalizarParcelas';
+import { parseBRL } from '../utils/formatarValor';
+import { somarParcelas } from '../utils/parcelamento';
 
 
 const ModalCriacao = ({
@@ -164,6 +168,17 @@ useEffect(() => {
           });
           return;
         }
+
+        // 🔹 Cartão com parcelas personalizadas: o total gravado é sempre a
+        // soma das parcelas definidas no editor, nunca o valor calculado
+        // automaticamente acima (ver PARCELAMENTO_DISCOVERY.md).
+        if (
+          tipo === 'cartao' &&
+          Array.isArray(valores.parcelasPersonalizadas) &&
+          valores.parcelasPersonalizadas.length === totalParcelas
+        ) {
+          valores.valorTotal = somarParcelas(valores.parcelasPersonalizadas);
+        }
       }
 
     vibrarSucesso();
@@ -237,6 +252,16 @@ useEffect(() => {
       valoresProcessados.categoriaNome = valoresProcessados.categoria.nome;
       valoresProcessados.categoria = valoresProcessados.categoria.nome;
     }
+    // 🔹 CartaoSelect seleciona um objeto completo ({id, nome, cor, banco})
+    // — id fica null para "Outro cartão..." (informal, sem cadastro prévio).
+    // Gravamos cartaoId (referência estável) e mantemos `cartao` como string
+    // por compatibilidade com telas de exibição existentes — mesmo padrão de
+    // convivência já usado para categoriaId/membroId, sem migração em massa
+    // (ver ARQUITETURA.md, Sprint 6 — Entidade Cartões).
+    if (valoresProcessados.cartao && typeof valoresProcessados.cartao === 'object') {
+      valoresProcessados.cartaoId = valoresProcessados.cartao.id || null;
+      valoresProcessados.cartao = valoresProcessados.cartao.nome;
+    }
 
 
 
@@ -252,12 +277,19 @@ useEffect(() => {
         case 'emprestimo':
           mensagem = `Empréstimo registrado!\n${valores.descricao} - ${valores.totalParcelas}x de R$ ${Number(valores.valorParcela || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\nTotal: R$ ${Number(valores.valorTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
           break;
-        case 'cartao':
+        case 'cartao': {
           const qtdParcelas = parseInt(valores.totalParcelas || valores.parcelas || 1, 10);
-          const valorParcelaNum = parseFloat(valores.valorParcela || 0);
           const valorTotalNum = parseFloat(valores.valorTotal || 0);
-          mensagem = `Compra registrada!\n${valores.descricao} - ${qtdParcelas}x de R$ ${valorParcelaNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\nTotal: R$ ${valorTotalNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\nCartão: ${valores.cartao}`;
+          const temParcelasPersonalizadasNaMensagem =
+            Array.isArray(valores.parcelasPersonalizadas) && valores.parcelasPersonalizadas.length > 0;
+          const descricaoParcelas = temParcelasPersonalizadasNaMensagem
+            ? `${qtdParcelas}x com valores personalizados`
+            : `${qtdParcelas}x de R$ ${parseFloat(valores.valorParcela || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+          const nomeCartaoNaMensagem =
+            typeof valores.cartao === 'object' ? valores.cartao?.nome : valores.cartao;
+          mensagem = `Compra registrada!\n${valores.descricao} - ${descricaoParcelas}\nTotal: R$ ${valorTotalNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\nCartão: ${nomeCartaoNaMensagem}`;
           break;
+        }
         case 'investimento':
           mensagem = `Investimento salvo!\n${valores.nome} - R$ ${Number(valores.valorInicial).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}\nMeta: R$ ${Number(valores.meta || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
           break;
@@ -572,7 +604,9 @@ useEffect(() => {
                 </>
               );
 
-      case 'cartao':
+      case 'cartao': {
+        const temParcelasPersonalizadas =
+          Array.isArray(valores.parcelasPersonalizadas) && valores.parcelasPersonalizadas.length > 0;
         return (
     <>
       <View style={globalStyles.inputGroup}>
@@ -596,13 +630,11 @@ useEffect(() => {
           </View>
 
             <View style={globalStyles.inputGroup}>
-              <Text style={globalStyles.label}>Cartão *</Text>
-              <TextInput
-                style={globalStyles.input}
-                value={valores.cartao || ''}
-                onChangeText={(texto) => handleChange('cartao', texto)}
-                placeholder="Ex: Nubank, C6, etc."
-                placeholderTextColor={colors.textSecondary}
+              <CartaoSelect
+                cartaoSelecionado={valores.cartao}
+                onSelecionar={(c) => handleChange('cartao', c)}
+                label="Cartão *"
+                onBloquearFechamento={setBloquearFechamento}
               />
             </View>
       {/* BOTÕES DE SELEÇÃO */}
@@ -662,9 +694,10 @@ useEffect(() => {
                 <View style={globalStyles.inputGroup}>
                   <Text style={globalStyles.label}>Valor Total *</Text>
                   <TextInput
-                    style={globalStyles.input}
+                    style={[globalStyles.input, temParcelasPersonalizadas && { opacity: 0.5 }]}
                     value={valorTotalTexto}
                     onChangeText={handleValorTotalTextoChange}
+                    editable={!temParcelasPersonalizadas}
                     placeholder="R$ 0,00"
                     keyboardType="numeric"
                     placeholderTextColor={colors.textSecondary}
@@ -673,9 +706,10 @@ useEffect(() => {
                 <View style={globalStyles.inputGroup}>
                   <Text style={globalStyles.label}>Número de Parcelas *</Text>
                   <TextInput
-                    style={globalStyles.input}
+                    style={[globalStyles.input, temParcelasPersonalizadas && { opacity: 0.5 }]}
                     value={valores.totalParcelas?.toString() || ''}
                     onChangeText={(texto) => handleChange('totalParcelas', texto)}
+                    editable={!temParcelasPersonalizadas}
                     placeholder="Ex: 12"
                     keyboardType="numeric"
                     placeholderTextColor={colors.textSecondary}
@@ -689,9 +723,10 @@ useEffect(() => {
                 <View style={globalStyles.inputGroup}>
                   <Text style={globalStyles.label}>Valor da Parcela *</Text>
                   <TextInput
-                    style={globalStyles.input}
+                    style={[globalStyles.input, temParcelasPersonalizadas && { opacity: 0.5 }]}
                     value={valorParcelaTexto}
                     onChangeText={handleValorParcelaTextoChange}
+                    editable={!temParcelasPersonalizadas}
                     placeholder="R$ 0,00"
                     keyboardType="numeric"
                     placeholderTextColor={colors.textSecondary}
@@ -700,9 +735,10 @@ useEffect(() => {
                 <View style={globalStyles.inputGroup}>
                   <Text style={globalStyles.label}>Número de Parcelas *</Text>
                   <TextInput
-                    style={globalStyles.input}
+                    style={[globalStyles.input, temParcelasPersonalizadas && { opacity: 0.5 }]}
                     value={valores.totalParcelas?.toString() || ''}
                     onChangeText={(texto) => handleChange('totalParcelas', texto)}
+                    editable={!temParcelasPersonalizadas}
                     placeholder="Ex: 12"
                     keyboardType="numeric"
                     placeholderTextColor={colors.textSecondary}
@@ -711,6 +747,20 @@ useEffect(() => {
               </>
             )}
 
+            {modoCalculo !== null && (
+              <OpcaoPersonalizarParcelas
+                totalParcelas={parseInt(valores.totalParcelas || 1, 10)}
+                valorBaseParaDivisaoIgual={
+                  modoCalculo === 'parcela'
+                    ? parseBRL(valores.valorParcela) * parseInt(valores.totalParcelas || 1, 10)
+                    : parseBRL(valores.valorTotal)
+                }
+                parcelasPersonalizadas={valores.parcelasPersonalizadas}
+                onChange={(novoValor) => handleChange('parcelasPersonalizadas', novoValor)}
+                descricao={valores.descricao}
+                onBloquearFechamento={setBloquearFechamento}
+              />
+            )}
 
             {!datasPadraoPorDescricao[valores.descricao] && (
               <View style={globalStyles.inputGroup}>
@@ -732,6 +782,7 @@ useEffect(() => {
                 </View>
           </>
         );
+      }
 
 case 'investimento':
         return (

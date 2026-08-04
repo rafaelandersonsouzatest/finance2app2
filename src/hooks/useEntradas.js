@@ -7,6 +7,7 @@ import { colors } from '../styles/colors';
 import { normalizarParaISO } from '../utils/formatarData';
 import { useAuth } from "../auth/useAuth";
 import { getBasePath } from "../utils/firestorePaths";
+import { removerIndefinidos } from "../utils/firestoreSanitize";
 
 
 // =========================================================
@@ -38,10 +39,18 @@ export const useEntradas = (mes, ano) => {
             ...data,
             valor: parseFloat(data.valor) || 0,
             pago: data.pago === true,
+            // 🔹 `data.membro`/`data.categoria` podem ser `null` (nenhum
+            // Membro/categoria escolhido) — em JS, `typeof null === 'object'`
+            // também é `true`; sem o `data.membro &&` aqui, `null?.nome` vira
+            // `undefined`, valor que o Firestore rejeita em qualquer escrita
+            // futura desse item (mesmo bug já corrigido em useCartoes.js —
+            // ver ARQUITETURA.md seção 15.11).
             membro:
-              typeof data.membro === "object" ? data.membro?.nome : data.membro,
+              data.membro && typeof data.membro === "object"
+                ? data.membro?.nome
+                : data.membro,
             categoria:
-              typeof data.categoria === "object"
+              data.categoria && typeof data.categoria === "object"
                 ? data.categoria?.nome
                 : data.categoria,
           };
@@ -134,14 +143,17 @@ export const useEntradas = (mes, ano) => {
             gerarDataComDia(diaPadrao, entrada.mes || mes, entrada.ano || ano)
           );
 
-      const docRef = await addDoc(collection(db, `${basePath}/entradas`), {
-        ...entrada,
-        pago: entrada.pago === true,
-        data: dataFinal,
-        valor: parseFloat(entrada.valor),
-        compartilhado: false, // 👈 novo campo padrão
-        criadoEm: serverTimestamp(),
-      });
+      const docRef = await addDoc(
+        collection(db, `${basePath}/entradas`),
+        removerIndefinidos({
+          ...entrada,
+          pago: entrada.pago === true,
+          data: dataFinal,
+          valor: parseFloat(entrada.valor),
+          compartilhado: false, // 👈 novo campo padrão
+          criadoEm: serverTimestamp(),
+        })
+      );
 
       return { ...entrada, id: docRef.id };
     } catch (err) {
@@ -169,11 +181,14 @@ export const useEntradas = (mes, ano) => {
         dadosAtualizados.dataPagamento = null;
       }
 
-      await updateDoc(ref, {
-        ...dadosAtualizados,
-        valor: parseFloat(dadosAtualizados.valor),
-        atualizadoEm: serverTimestamp(),
-      });
+      await updateDoc(
+        ref,
+        removerIndefinidos({
+          ...dadosAtualizados,
+          valor: parseFloat(dadosAtualizados.valor),
+          atualizadoEm: serverTimestamp(),
+        })
+      );
     } catch (err) {
       setErro(err.message);
       throw err;
@@ -242,7 +257,10 @@ const gerarFixosDoMes = async () => {
 
       novosDocs.push({
         descricao: modelo.descricao,
-        categoria: modelo.categoria,
+        // 🔹 `|| null`: modelos antigos podem não ter esse campo — sem o
+        // fallback, `categoria: undefined` quebraria o batch.set (mesmo bug
+        // corrigido em useCartoes.js, ver ARQUITETURA.md seção 15.11).
+        categoria: modelo.categoria || null,
         // 🔹 Propaga a referência estável do modelo (ver SPRINT4_DISCOVERY.md)
         categoriaId: modelo.categoriaId || null,
         categoriaNome: modelo.categoriaNome || null,
@@ -264,7 +282,7 @@ const gerarFixosDoMes = async () => {
     const batch = writeBatch(db);
 
     // 🟢 adiciona como novas ENTRADAS, não GASTOS
-    novosDocs.forEach((e) => batch.set(doc(refEntradas), e));
+    novosDocs.forEach((e) => batch.set(doc(refEntradas), removerIndefinidos(e)));
 
     await batch.commit();
 

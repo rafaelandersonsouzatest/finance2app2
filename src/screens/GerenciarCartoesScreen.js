@@ -1,21 +1,16 @@
 // Administração de cartões cadastrados — diferente de CartoesScreen.js, que
-// trata lançamentos/faturas do mês. Hoje não existe nem o conceito de
-// "cartão cadastrado" separado de lançamento (ver PROJECT_STATUS.md), então
-// esta tela ainda é só estrutura.
-import React from 'react';
-import PlaceholderMenuScreen from '../components/PlaceholderMenuScreen';
+// trata lançamentos/faturas do mês. A partir da Sprint 6, "Cartão" passa a
+// ser uma entidade própria (ver useCarteira.js/ARQUITETURA.md), no mesmo
+// padrão de Categorias/Membros — esta tela deixa de ser um placeholder e
+// embrulha o CRUD compartilhado (CartoesManager), igual CategoriasScreen.js.
+import { View } from 'react-native';
+import { globalStyles } from '../styles/globalStyles';
+import CartoesManager from '../components/carteira/CartoesManager';
 
 export default function GerenciarCartoesScreen() {
   return (
-    <PlaceholderMenuScreen
-      icone="credit-card-outline"
-      descricao="Administração dos cartões cadastrados."
-      itensFuturos={[
-        'Cartão padrão',
-        'Ordenar cartões',
-        'Arquivar cartões',
-        'Configurações específicas',
-      ]}
-    />
+    <View style={globalStyles.container}>
+      <CartoesManager />
+    </View>
   );
 }

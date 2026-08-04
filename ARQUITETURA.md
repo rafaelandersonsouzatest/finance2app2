@@ -110,6 +110,7 @@ Na prática, **`compartilhado` nunca é passado como `true`** em nenhuma chamada
 - **Lançamentos fixos via modelos**: `gerarFixosDoMes()` (presente em `useGastos` e `useEntradas`) verifica se já existem lançamentos com `origemModelo: true` no mês; se não, lê os modelos ativos (`modelosDeGasto`/`modelosDeEntrada`) e gera lançamentos em lote (`writeBatch`). Suporta modo de cálculo `valor` (fixo) ou `porcentagem` (calculado sobre entradas selecionadas).
 - **Gastos dinâmicos recalculados automaticamente**: `useEntradas.js` mantém um segundo listener que, sempre que as entradas do mês mudam, recalcula e sobrescreve (via `writeBatch`) os gastos com `fixacao: "dinamico"` e `modoCalculo: "porcentagem"`.
 - **Parcelamento e antecipação de empréstimos** (regra oficializada em 2026-07-24, Sprint 1 / A3): `useEmprestimos.js` gera parcelas dividindo o valor total. Cada parcela grava `valorContratado` (o valor total original — **fixo desde a criação, nunca recalculado depois**) e `economiaTotal` (soma dos descontos de todas as antecipações do empréstimo, denormalizada em todas as parcelas do mesmo `idCompra`, recalculada via `recalcularEconomiaTotal` só quando uma antecipação ou reversão de antecipação realmente muda um desconto). "Valor efetivamente pago" é sempre derivado **na exibição** — soma do campo `valor` (já reflete desconto, quando antecipada) apenas das parcelas com `pago === true` ou `adiantada === true`; nunca é `valorContratado - economiaTotal` (isso foi um erro conceitual do A3, corrigido em 2026-07-25 após a 1ª bateria de testes — aquela fórmula projetava o total final considerando descontos já aplicados, e não refletia quantas parcelas de fato já tinham sido pagas). A barra de progresso (ajustada em 2026-07-25, após 2ª bateria de testes) é `valorPago ÷ valorReferencia`, onde `valorReferencia` **difere por tipo**: para empréstimo é `valorContratado - economiaTotal` (o que de fato será pago, descontos já considerados — necessário para a barra chegar a 100% mesmo com desconto, já que `valorContratado` é fixo e nunca diminui); para cartão é o próprio `valorReal` (soma ao vivo das parcelas, que já reflete qualquer desconto, sem precisar subtrair de novo). Quando todas as parcelas de um grupo (`idCompra`) estão pagas (`parcelasPagas === totalParcelas`), exibe um selo "✅ Empréstimo quitado"/"✅ Compra quitada" — checagem por contagem de parcelas, não por dinheiro, então não depende de arredondamento. O indicador "Parcelas Pagas" por item individual (antes chamado "Progresso", mostrava a posição `parcelaAtual/totalParcelas`) também foi corrigido para mostrar `parcelasPagas/totalParcelas` — quantas já foram pagas, não a posição da parcela sendo vista. Exibido em `ModalDetalhes.js`/`ModalHistoricoParcelas.js` (com fallback por soma para empréstimos criados antes da mudança do A3, sem `valorContratado`/`economiaTotal`). Cartões (`useCartoes.js`) não têm `valorContratado`/`economiaTotal` — continuam com o cálculo por soma de parcelas, escopo do A3 foi só empréstimos.
+- **`valorTotal` do cartão é sempre derivado da soma das parcelas** (regra oficializada em 2026-08-03, ver seção 15): diferente do `valorContratado` do empréstimo (fixo por design), o `valorTotal` de uma compra no cartão nunca é uma fonte de verdade independente — é recalculado (`recalcularValorTotalCompra`) sempre que o `valor` de qualquer parcela do grupo (`idCompra`) muda, inclusive fora do fluxo de personalização de parcelas.
 
 ### Riscos residuais aceitos conscientemente (backlog arquitetural, 2026-07-24)
 
@@ -481,3 +482,877 @@ estado), não um snapshot do objeto, para refletir imediatamente qualquer altera
 pequeno, só pede o nome — usado no caso raro de alguém fora da família registrada). Atalho
 para "Gerenciar membros" mantido como link de texto discreto no rodapé da lista, não como
 ação em destaque.
+
+## 15. Parcelas personalizadas no cartão (✅ implementado em 2026-08-03)
+
+Resumo de produto em `PROJECT_STATUS.md` seção 13. Esta seção documenta o desenho técnico.
+
+### 15.1 Modelo de dados: sem entidade nova
+
+Uma compra parcelada continua sendo o que já era desde antes desta mudança (ver seção 7):
+N documentos independentes em `users/{uid}/cartoes`, ligados só pela string `idCompra`, cada
+um com o seu próprio campo `valor`. **Não existe um novo campo "modo de parcelamento" nem um
+documento "compra" separado** — se as parcelas de um `idCompra` não são todas iguais, a
+compra está personalizada; se são, não está. Essa decisão evita criar uma segunda
+representação de algo que os documentos já expressam sozinhos.
+
+### 15.2 Correção de base: `valorTotal` sempre derivado
+
+Antes desta mudança, `valorTotal` era gravado uma vez na criação e nunca mais tocado —
+`GastoCartaoCard.js` lê esse campo diretamente (diferente de `ModalDetalhes.js`/
+`ModalHistoricoParcelas.js`, que já resomavam as parcelas), então uma edição pontual de
+parcela deixava o total exibido nesse card errado. `useCartoes.js` ganhou:
+
+- `recalcularValorTotalCompra(basePath, idCompra)`: mesmo padrão de
+  `recalcularEconomiaTotal` em `useEmprestimos.js` — soma o `valor` de todas as parcelas do
+  grupo e grava o resultado como `valorTotal` em todas elas, num só `writeBatch`. Chamada por
+  `updateCartao` sempre que o `valor` de uma parcela muda (comparando com o valor anterior,
+  para não gerar leitura/escrita extra em ações que não tocam o valor, como marcar como
+  pago).
+- `addCartao` também passou a gravar `valorTotal` como a soma real das parcelas criadas
+  (`somarParcelas`), não o valor bruto digitado no campo "Valor Total" — no caso comum
+  (parcelas iguais, divisão exata), o resultado é idêntico a antes; só passa a ser mais
+  preciso quando a divisão não é exata (ex.: R$ 100 ÷ 3).
+
+### 15.3 `src/utils/parcelamento.js` — única fórmula de divisão igual
+
+`dividirValorIgualmente(valorTotal, quantidadeParcelas)` é a mesma conta que `addCartao` já
+fazia inline (sem arredondamento redistribuído — a última parcela não absorve a diferença de
+centavos, para não introduzir um comportamento novo no cálculo automático padrão). Extraída
+para ser reaproveitada tanto pela criação automática quanto pelo editor de parcelas
+(preenchimento inicial e botão "Restaurar parcelas iguais"), evitando duas implementações da
+mesma divisão. `somarParcelas(valores)` é a única fórmula usada para derivar um total a
+partir de parcelas — nunca o inverso.
+
+### 15.4 `ModalEditorParcelas.js` — editor, sem conhecimento de Firestore
+
+Componente puramente controlado: recebe `valoresIniciais` (array já resolvido pelo chamador)
+e devolve o array final em `aoConfirmar`, sem saber se está numa compra nova (criação) ou
+numa já existente (edição). Cada linha (`LinhaParcela`) usa sua própria instância de
+`useCurrencyInput` — uma por componente de lista, não dentro de um loop, mesmo padrão de
+máscara monetária do resto do app. "Restaurar parcelas iguais" reparte o **total atual**
+(soma do que está sendo exibido no momento, não o valor total original antes de abrir o
+editor) — decisão deliberada: dentro do editor não existe um campo "total" separado dos
+valores das parcelas, então o total exibido é a única referência que faz sentido.
+Editar uma parcela nunca recalcula as demais (pedido explícito) — redistribuição automática
+fica como possível melhoria futura, não implementada.
+
+### 15.5 `OpcaoPersonalizarParcelas.js` — opção única, reaproveitada
+
+Um só componente usado por `ModalCriacao.js` e `ModalEdicao.js`: linha com checkbox
+("Editar valores das parcelas", ícone `checkbox-marked`/`checkbox-blank-outline`, mesmo
+padrão visual de `ModalParcelasAdiantamento.js`), visível só quando `totalParcelas > 1`.
+Prioridade do valor inicial do editor: (1) já personalizado nesta sessão → (2) valores já
+gravados no Firestore, quando a compra já existe (`valoresExistentes`, edição) → (3) cálculo
+automático de sempre (criação nova). Isso garante que, ao editar uma compra já personalizada,
+o editor abre com os valores reais gravados, não com uma divisão recalculada do zero.
+
+### 15.6 Criação (`ModalCriacao.js`) — interface inalterada
+
+Os dois modos de lançamento existentes ("Valor Total" / "Valor da Parcela") continuam
+exatamente iguais. A opção nova aparece uma única vez, logo abaixo dos campos de parcela,
+independente do modo escolhido. Enquanto personalizado, os campos "Valor Total"/"Valor da
+Parcela"/"Número de Parcelas" ficam desabilitados (evita os campos automáticos e o array
+personalizado ficarem depois com contagens diferentes) — removendo a personalização
+(`Remover`) os reabilita. No salvamento, se há parcelas personalizadas, o `valorTotal`
+gravado é sempre a soma delas, nunca o valor calculado pelos campos automáticos.
+
+### 15.7 Edição (`ModalEdicao.js`) — busca as parcelas irmãs
+
+Diferente da criação, `ModalEdicao` abre para **uma única parcela** (o documento que o
+usuário tocou na lista). Para oferecer "Editar valores das parcelas" ali, o componente
+principal (não o `CamposModal` memoizado) instancia `useCartoes()` sem `mes`/`ano` (não liga
+o listener, só reaproveita `buscarParcelasDaCompra`) e, ao abrir para uma compra com mais de
+1 parcela, busca todos os documentos do mesmo `idCompra` (não só o que está aberto — a lista
+mensal não contém as parcelas de outros meses). Se os valores reais já não são todos iguais,
+a personalização é detectada automaticamente (checkbox abre marcado, mostrando o total real).
+O salvamento passa o array de valores para `updateCartao`, que grava todas as parcelas do
+grupo + o `valorTotal` num único `writeBatch` (`salvarParcelasPersonalizadas`) — os outros
+campos da parcela aberta (descrição, comprador, data, categoria, pago) são gravados
+separadamente, sem tocar `valor`/`valorTotal` de novo.
+
+### 15.8 Fora do escopo, por decisão explícita
+
+- **Empréstimos**: mesma necessidade poderia existir (ex.: seguro/IOF numa parcela), mas a
+  arquitetura de âncora é diferente (`valorContratado` fixo, nunca derivado — ver seção 8) —
+  precisaria de uma proposta própria, não uma extensão direta deste desenho.
+- **Redistribuição automática ao editar uma parcela**: pedido explícito do usuário para não
+  implementar agora — editar uma parcela nunca toca as demais.
+- **Arredondamento do split automático**: o cálculo automático padrão (fora do editor)
+  continua sem redistribuir centavos de divisão não exata — comportamento preexistente, não
+  alterado, para não introduzir uma mudança de resultado em compras que nunca usarem o editor.
+
+### 15.9 Regra de negócio: parcela paga/antecipada tem valor imutável
+
+Decisão (2026-08-03): entre permitir editar qualquer parcela (mais flexível, mas risco de
+"reescrever" quanto já foi efetivamente pago) e bloquear a edição de parcelas já pagas ou
+antecipadas, permitindo só as em aberto — optamos pela segunda. Justificativa: o valor de uma
+parcela com `pago === true` ou `adiantada === true` já entrou no cálculo de "quanto já foi
+pago" em `ModalDetalhes.js`/`ModalHistoricoParcelas.js`; alterá-lo depois seria reescrever um
+registro histórico, não corrigir uma compra futura — o mesmo princípio já aplicado a
+`valorContratado` do empréstimo (fixo desde a criação, nunca recalculado, ver seção 8). Só
+metadados (descrição, comprador, data, categoria) continuam editáveis numa parcela paga —
+a trava é só sobre o campo `valor`.
+
+Aplicado em duas camadas (defesa em profundidade, não só UI):
+
+- **UI**: `ModalEditorParcelas.js` recebe `bloqueadas` (array de booleans, mesmo índice de
+  `valoresIniciais`) — linhas bloqueadas mostram um ícone de cadeado e o valor em texto, sem
+  campo editável. "Restaurar parcelas iguais" reparte o total só entre as parcelas abertas,
+  nunca toca as bloqueadas. `ModalEdicao.js` calcula `parcelasBloqueadas` a partir do que
+  `buscarParcelasDaCompra` retorna (`pago === true || adiantada === true`) e também bloqueia
+  o campo "Valor" comum quando a própria parcela aberta já está paga/antecipada — regra vale
+  tanto dentro do editor quanto fora dele.
+- **Dados**: `useCartoes.js` — `updateCartao` (caminho comum, fora do editor) ignora qualquer
+  mudança de `valor` se a parcela já está bloqueada; `salvarParcelasPersonalizadas` (caminho
+  do editor) recalcula `valorTotal` a partir do valor **real gravado** de cada parcela
+  bloqueada, não do array recebido, mesmo que a UI tentasse enviar outro número.
+
+**Lacuna encontrada e corrigida durante esta mudança** (não introduzida agora, preexistente):
+`anteciparParcelas` mudava o `valor` da parcela (aplicando desconto) sem nunca recalcular o
+`valorTotal` do grupo — e também nunca gravava `valorOriginal`, então a reversão de
+antecipação (`updateCartao`, branch "Reverter antecipação?") sempre caía no fallback
+`atual.valor` em vez de restaurar o valor pré-desconto de verdade. Corrigido: `valorOriginal`
+agora é gravado na antecipação, e tanto antecipar quanto reverter chamam
+`recalcularValorTotalCompra` no final. `mesOriginal`/`anoOriginal` (data original, não valor)
+continuam com o mesmo problema — fora do escopo desta correção, que foi só sobre valores.
+
+### 15.10 Destaque no histórico (`ModalHistoricoParcelas.js`)
+
+`ParcelaItem` já distinguia Pendente/Antecipada/Paga (ícone, cor, e "Pago com Desconto" vs.
+"Valor Original" quando há desconto) — igual para empréstimo e cartão, nada mudou aí. Ganhou
+um selo adicional, não-exclusivo com os anteriores (uma parcela pode estar paga **e** ter
+valor personalizado ao mesmo tempo): "✏️ Valor personalizado", calculado no momento da busca
+(`fetchParcelas`), comparando o valor original de cada parcela (`valorOriginal ?? valor` —
+antes de qualquer desconto de antecipação) contra uma divisão igual do `totalReal` do grupo
+(`dividirValorIgualmente`, mesma fórmula do resto da feature). Não é um campo persistido — é
+recalculado a cada abertura do histórico, então funciona tanto para compras já existentes
+antes desta mudança (nenhuma nunca vai aparecer como alterada, já que todas nasceram iguais)
+quanto para novas. Só se aplica a cartão — empréstimo não tem personalização (ver 15.8).
+
+### 15.11 Bug real encontrado em produção: `undefined` em `updateDoc` (corrigido em 2026-08-04)
+
+Cenário relatado: compra parcelada com comprador "Outra pessoa..." (nome digitado, sem
+Membro cadastrado) → personalizar parcelas → "Restaurar parcelas iguais" → Salvar → Firestore
+rejeitava a escrita (`Unsupported field value: undefined`). Investigação encontrou **duas
+causas raiz distintas**, as duas em `useCartoes.js`, nenhuma introduzida pela feature de
+parcelas personalizadas — só exposta por ela, no primeiro fluxo de edição completo testado
+para uma compra "Outra pessoa":
+
+1. **Campo `membro` vestigial no listener de `cartoes`**: a normalização do snapshot
+   declarava incondicionalmente `membro: typeof data.membro === 'object' ? data.membro?.nome
+   : data.membro` — mas nenhuma compra de cartão jamais grava um campo `membro` (cartão usa
+   `pessoa`/`membroId`/`membroNome`, unificados na Sprint 5; `membro` é o campo de
+   **Entradas**, não de cartão). Como `data.membro` nunca existe, essa linha sempre produzia
+   `membro: undefined` — presente como chave explícita em todo item de cartão, carregado sem
+   alteração por `ModalEdicao.js` (`{...item}`) até o `updateDoc` final. Removida — cartão não
+   declara mais esse campo, ponto.
+2. **`typeof x === 'object'` sem excluir `null`**: em JS, `typeof null === 'object'` também é
+   `true`. Os campos opcionais `pessoa`/`categoria` são gravados como `null` (não `undefined`)
+   quando ausentes — mas o listener fazia `typeof data.categoria === 'object' ?
+   data.categoria?.nome : data.categoria`, que para `null` cai no ramo verdadeiro e resolve
+   `null?.nome` → `undefined`. Ou seja: **toda compra sem categoria selecionada** já carregava
+   `categoria: undefined` no estado do app, pronta para quebrar a próxima edição. Corrigido
+   adicionando o guard `data.categoria && typeof ...` (mesmo padrão que `ModalCriacao.js`/
+   `ModalEdicao.js` já usavam corretamente nas suas próprias conversões — `v.categoria &&
+   typeof v.categoria === 'object'` — só o listener do hook estava sem o guard).
+
+**Correção estrutural, não só pontual**: `removerIndefinidos(objeto)` (mesmo princípio de
+`sanitizarOpcoes` em `utils/avatar.js` — Firestore rejeita `undefined` em qualquer escrita)
+foi extraída para `src/utils/firestoreSanitize.js` (compartilhada, não duplicada por hook) e
+aplicada em **todo** `updateDoc`/`addDoc`/`batch.set` que grava um objeto vindo de UI:
+- `useCartoes.js`: `addCartao`, e as três escritas de `updateCartao` (caminho comum,
+  personalização e reversão de antecipação).
+- `useEntradas.js`: `adicionarEntrada`, `atualizarEntrada`, e o `batch.set` de
+  `gerarFixosDoMes`.
+- `useGastos.js`: `addGasto`, `updateGasto`, e o `batch.set` de `gerarFixosDoMes`.
+- `useEmprestimos.js`: `addEmprestimo` (`batch.set`) e as duas escritas de `updateEmprestimo`
+  (caminho comum e reversão de antecipação).
+
+Escritas que só constroem objetos internamente, sem entrada de UI (`recalcularValorTotalCompra`,
+`salvarParcelasPersonalizadas`, `anteciparParcelas`/`anteciparParcelasEmprestimo`,
+`toggleCartaoStatus`, `recalcularEconomiaTotal`, o `batch.update` de gastos dinâmicos em
+`useEntradas.js`) não precisaram do wrapper — todos os valores ali já são deterministicamente
+definidos, sem entrada de UI.
+
+**`useEntradas.js` — mesmo bug, corrigido (2026-08-04)**: tinha o mesmo padrão sem guard
+(`typeof data.membro === "object"` / `typeof data.categoria === "object"`, sem o `data.X &&`
+antes) no listener — mesmo risco relatado em cartão, mas aqui para Entradas com "Outra
+pessoa..." ou sem categoria. Diferença importante: em Entradas, `membro` **é** um campo real
+(não vestigial como em cartão) — a correção foi só adicionar o guard, sem remover o campo.
+
+**Varredura completa em todos os hooks/listeners (2026-08-04)**, a pedido do usuário, para
+eliminar a classe inteira do bug, não só os dois casos já encontrados:
+
+- **`typeof x === 'object'` sem excluir `null`**: só existia nos listeners de `useCartoes.js`
+  e `useEntradas.js` (ambos já corrigidos acima). Achados adicionais do mesmo padrão, sem
+  risco de escrita (leitura pura, dentro de JSX): `GastoCartaoCard.js` (`transacao.pessoa`) e
+  `GerenciarModelosModal.js` (`entrada.membro`, ao listar entradas para o modo "porcentagem")
+  — corrigidos por completude, mesmo sem crash possível hoje (`pessoa` é campo obrigatório em
+  cartão; `entrada.membro` já vem seguro do listener corrigido). `ModalCriacao.js`/
+  `ModalEdicao.js` já tinham o guard correto nas suas 3 ocorrências cada — não precisaram de
+  mudança.
+- **Campo vestigial (como o `membro` de cartão)**: nenhum outro encontrado. Só
+  `useCartoes.js`/`useEntradas.js` re-derivam campos (`pessoa`/`categoria`/`membro`) no
+  listener via esse padrão — os demais hooks (`useGastos.js`, `useEmprestimos.js`,
+  `useInvestimentos.js`, `useMembros.js`, `useCategorias.js`, `useModelos.js`) só espalham
+  `...data()` sem redeclarar nada, então não têm como introduzir essa classe específica de bug.
+- **Mesma classe, formato diferente (campo opcional sem `|| null`)**: encontrados dois
+  gêmeos do que já tinha sido corrigido em `useEntradas.js`'s `gerarFixosDoMes` — `useGastos.js`
+  (`gerarFixosDoMes`: `categoria: modelo.categoria` sem fallback) e `useEmprestimos.js`
+  (`addEmprestimo`: `categoria` na construção de cada parcela, sem fallback — os campos
+  vizinhos `categoriaId`/`categoriaNome` já tinham `|| null`). Ambos corrigidos com o mesmo
+  `|| null`. Nenhum dos dois era alcançável pelo fluxo atual do app (`ModalCriacao.js`
+  sempre inicializa `categoria` como `null`, nunca deixa `undefined`), mas ficam protegidos
+  contra dados legados (modelos antigos sem o campo).
+- **`useInvestimentos.js`/`useMembros.js`/`useCategorias.js`/`useModelos.js`**: auditados,
+  nenhum risco encontrado — não usam o padrão `typeof === 'object'`, e todo campo opcional já
+  tem fallback explícito (`|| null`, `|| 'Sem nome'` etc.) nas funções de escrita. Não
+  alterados.
+
+### 15.12 `removerIndefinidos` — contrato exato (remove só `undefined`)
+
+Confirmado por leitura e verificação empírica: `removerIndefinidos` só remove chaves com
+`objeto[chave] !== undefined`. `null`, `""`, `NaN`, `0`, `false` e objetos/arrays vazios
+**nunca** são removidos nem alterados — continuam gravados exatamente como vieram. Isso é
+proposital: `null` faz parte da modelagem do app (ex.: `categoria: null` = "nenhuma categoria
+selecionada", um valor válido e diferente de "campo ausente"). O comentário no topo do
+arquivo (`src/utils/firestoreSanitize.js`) documenta esse contrato explicitamente.
+
+### 15.13 Causa raiz real: `valorTotal` voltando a ficar obsoleto depois de personalizar
+
+**Sintoma relatado (2026-08-04)**: o card da lista de cartões mostrava um total diferente do
+`ModalDetalhes.js` para uma compra com parcela personalizada (card: total antigo; detalhes:
+total correto). A seção 15.2 já tinha corrigido `valorTotal` para ser sempre recalculado — mas
+havia um segundo ponto, mais sutil, onde ele voltava a ficar velho.
+
+**Causa raiz**: `updateCartao` recebe `cartao` (= `v`, construído em `ModalEdicao.js` a partir
+de `{...item}`) — e `item` já carrega o `valorTotal` que estava gravado **no momento em que o
+modal abriu**. Antes desta correção, esse campo nunca era removido do objeto antes das
+escritas. Sequência exata do bug:
+
+1. Usuário abre `ModalEdicao` para a parcela X de uma compra de 4 parcelas iguais (ex.: R$26
+   cada, `valorTotal: 104`). `item.valorTotal` = `104`.
+2. Usuário personaliza as parcelas (uma vai para R$250) e confirma no editor. `salvarParcelasPersonalizadas`
+   já roda aqui? **Não** — o editor só guarda o array em `valores.parcelasPersonalizadas`;
+   nada é escrito no Firestore ainda (ver seção 15.6/15.7).
+3. Usuário toca "Salvar" no `ModalEdicao`. `updateCartao` entra no ramo de personalização:
+   `salvarParcelasPersonalizadas` grava corretamente `valor` + `valorTotal: 328` (a soma real)
+   em **todas** as parcelas do grupo, incluindo a parcela X.
+4. Na sequência, o mesmo `updateCartao` faz uma **segunda escrita** na parcela X, só para
+   salvar os outros campos do formulário (descrição, comprador, data, categoria, pago) —
+   `outrosCampos = {...dadosAtualizados}` menos `valor`. Mas `dadosAtualizados` **ainda
+   carregava o `valorTotal: 104` antigo** (de `item`, do passo 1) — essa segunda escrita
+   sobrescrevia de volta o `valorTotal` correto (328) para o valor antigo (104), só na parcela
+   X (as outras parcelas do grupo, não tocadas por essa segunda escrita, ficavam com 328
+   correto — por isso o total variava dependendo de qual parcela do grupo era exibida no
+   card).
+5. O mesmo problema existia no caminho comum (edição sem personalização): se `valorMudou` for
+   `false` (ex.: o usuário só editou a descrição), `recalcularValorTotalCompra` nem roda — mas
+   a própria escrita comum já tinha acabado de gravar o `valorTotal` antigo de `item`,
+   silenciosamente, mesmo sem precisar.
+
+**Por que o card e o `ModalDetalhes`/`ModalHistoricoParcelas` discordavam**: `GastoCartaoCard.js`
+é a única tela que ainda lê `transacao.valorTotal` diretamente (ver seção 15.2) — então foi a
+única a exibir o valor poluído. `ModalDetalhes.js`/`ModalHistoricoParcelas.js` sempre
+resomam as parcelas via query própria, nunca confiam no campo — por isso mostravam o valor
+certo, mascarando o bug em vez de expô-lo.
+
+**Correção — fonte única de verdade de fato única**: `updateCartao` agora remove
+`valorTotal` do objeto recebido **antes de qualquer outra coisa**, no mesmo lugar onde já
+removia `parcelasPersonalizadas`:
+```js
+const { parcelasPersonalizadas, valorTotal: _valorTotalIgnorado, ...dadosCartao } = cartao;
+```
+Isso garante, por construção, que **nenhuma escrita genérica** (comum ou de personalização)
+possa gravar um `valorTotal` vindo de fora — só `recalcularValorTotalCompra` e
+`salvarParcelasPersonalizadas` (as duas funções dedicadas) têm permissão de escrevê-lo. Não é
+mais possível reintroduzir esse bug adicionando um novo campo ou um novo caminho de edição.
+
+**Mesma causa raiz, corrigida por precaução em `useEmprestimos.js`**: `economiaTotal` (que,
+diferente de `valorContratado`, pode mudar depois da criação — via antecipação/reversão) tinha
+exatamente a mesma exposição em `updateEmprestimo`. `valorContratado` nunca muda de verdade
+(sempre igual em `item` e no banco), então não havia bug vivo ali — mas `economiaTotal` podia
+sofrer o mesmo problema se uma parcela do grupo fosse antecipada por outra tela entre a
+abertura do modal e o "Salvar" de uma edição não relacionada nesta parcela. Corrigido com o
+mesmo padrão: `valorContratado`/`economiaTotal` removidos do objeto recebido antes de qualquer
+escrita — só `recalcularEconomiaTotal` pode defini-los.
+
+### 15.14 Formatação monetária no histórico de parcelas (ponto em vez de vírgula)
+
+**Causa raiz**: `ParcelaItem`, em `ModalHistoricoParcelas.js`, usava `.toFixed(2)`
+(`valorOriginal.toFixed(2)`, `valorPago.toFixed(2)` ×2) e `.toFixed(1)`
+(`descontoPercentual.toFixed(1)`) — método nativo do JS que **sempre** usa ponto como
+separador decimal, independente de localidade. O componente vizinho no mesmo arquivo,
+`ResumoFinanceiro`, já usava corretamente `.toLocaleString('pt-BR', { minimumFractionDigits:
+2 })` (o padrão usado no resto do app) — só `ParcelaItem` tinha ficado com o método errado,
+provavelmente por ser um trecho mais antigo que nunca foi revisitado quando o padrão
+`toLocaleString('pt-BR', ...)` se consolidou no restante do projeto. Corrigido trocando as 4
+ocorrências para `.toLocaleString('pt-BR', ...)`, igual ao `ResumoFinanceiro` — nenhuma
+mudança de comportamento além do separador decimal.
+
+### 15.15 `CampoMonetario.js` — único componente de entrada monetária do app (2026-08-05)
+
+A pedido do usuário, auditoria de todos os campos de valor monetário do app (criação e edição
+de entrada/gasto/empréstimo/cartão, investimentos, modelos recorrentes, editor de parcelas)
+para confirmar se `ModalEditorParcelas.js` usava a mesma implementação do resto do projeto.
+
+**Padrão já confirmado como oficial antes desta auditoria**: `useCurrencyInput` (`src/hooks/
+useCurrencyInput.js`) — digita em centavos, formata via `formatarBRL` a cada tecla, com um
+`bloqueadoRef` para não processar dois `onChangeText` em paralelo. Usado (corretamente) em
+`ModalCriacao.js`, `ModalParcelasAdiantamento.js`, `MovimentacaoInvestModal.js`, e — o achado
+importante — **também já em `ModalEditorParcelas.js`**: a máscara em si nunca foi diferente
+ali, `LinhaParcela` já usava `useCurrencyInput` + `handleChange` + `formatarBRL`, sem parse
+próprio, sem reposicionamento manual de cursor.
+
+**Duas diferenças reais encontradas, nenhuma na máscara**:
+
+1. **`GerenciarModelosModal.js` tinha uma implementação própria e paralela**: funções locais
+   `formatarMoeda`/`desformatarMoeda`, chamadas direto no `onChangeText` (sem o
+   `bloqueadoRef`/debounce que `useCurrencyInput` tem), `keyboardType="decimal-pad"`. Essa era
+   a segunda forma real de editar dinheiro no projeto — não estava relacionada a
+   `ModalEditorParcelas.js`, mas era exatamente o tipo de duplicação que o usuário queria
+   eliminar.
+2. **`ModalEditorParcelas.js`'s `LinhaParcela` não era `memo`izada**, e vive dentro de uma
+   `FlatList` (uma linha por parcela). Mecanismo de máscara idêntico ao resto do app, mas
+   digitar em UMA linha disparava `setValores` no componente pai, que re-renderizava **todas**
+   as linhas (não só a editada) a cada tecla — diferente de `CampoMonetario` usado em
+   `ModalEdicao.js`, que sempre vive isolado (um campo por formulário, sem lista). Sob
+   digitação rápida, o `bloqueadoRef` de 50ms do `useCurrencyInput` podia colidir com o
+   próximo `onChangeText` se o re-render de N linhas demorasse mais que isso — sintoma
+   plausível de "trava"/lentidão ao digitar, mesmo com a máscara sendo a mesma.
+
+**Correção — componente único, exportado, reaproveitado nos três lugares**:
+`src/components/CampoMonetario.js` (novo) extrai exatamente o componente que já existia
+localmente dentro de `ModalEdicao.js` (mesmo `useCurrencyInput`, mesmo `useEffect` de
+resincronização, mesmo `TextInput`/`keyboardType="numeric"`/placeholder), agora `memo`izado e
+compartilhado:
+- `ModalEdicao.js`: o `CampoMonetario` local virou um adaptador fino (`campo`/`valores`/
+  `atualizarCampo` → `valor`/`onChange`) que chama o componente compartilhado — nenhum dos
+  ~6 call sites em `CamposModal` precisou mudar.
+- `ModalEditorParcelas.js`: `LinhaParcela` agora é `memo`izada e delega a edição ao
+  `CampoMonetario` compartilhado; `atualizarParcela` (no componente pai) passou a ser uma
+  referência estável (`useCallback`) repassada igual para todas as linhas — sem isso, o
+  `memo` não teria efeito (toda linha receberia uma função `onChange` nova a cada render do
+  pai). Cada linha passa a receber `indice` como prop e delega para essa mesma função, em vez
+  de cada linha criar seu próprio closure.
+- `GerenciarModelosModal.js`: `formatarMoeda`/`desformatarMoeda` removidos; o campo "Valor"
+  (modo `"valor"`) passou a usar `CampoMonetario`. O campo de porcentagem (modo
+  `"porcentagem"`) foi mantido como estava — não é um valor monetário, é um número solto, sem
+  relação com esse padrão.
+
+**Fora do escopo, por decisão explícita (risco vs. benefício)**: `ModalCriacao.js` já usa
+`useCurrencyInput` diretamente nos seus 5 campos monetários (`valor`, `valorTotal`,
+`valorParcela`, `valorInicial`, `meta`) — mecanismo idêntico ao componente compartilhado, só
+não está encapsulado num componente. Migrar esses 5 call sites para `CampoMonetario` não
+mudaria nenhum comportamento (mesmo hook por baixo) e exigiria tocar num arquivo grande e já
+frágil (837 linhas, "god component" documentado na seção 6) só por uniformidade de código —
+sem reduzir bug nem duplicação real de comportamento. Não feito agora; candidato a limpeza
+futura de baixo risco, não urgente.
+
+## 16. Entidade Cartões / Carteira (✅ implementado em 2026-08-05, Sprint 6)
+
+Quarta entidade própria do sistema, no mesmo desenho de Categorias (Sprint 4) e Membros
+(Sprint 2/5): antes desta sprint, "cartão" era só uma string livre digitada em cada compra,
+com vencimento/cor resolvidos por três lookups hardcoded independentes (`vencimentoCartaoPorNome`
+em `utils/datasPadrao.js`, `colors.byInstitution` lido em 4 lugares com fallbacks diferentes,
+e uma heurística de ícone por `.includes()` em `GastoCartaoCard.js`) — não escalava para
+usuários com bancos diferentes dos 3 hardcoded (Nubank/Inter/C6).
+
+### 16.1 Escolha de nome da coleção: `carteira`, não `cartoes`
+
+Decisão tomada em conversa com o usuário antes de escrever qualquer código: o nome óbvio
+("seguir o mesmo padrão de `categorias`/`membros`" sugeriria `cartoes`) **colide** com
+`users/{uid}/cartoes`, que já é a coleção de **lançamentos** (parcelas de compra no cartão,
+usada por `useCartoes.js` desde antes desta sprint). Renomear a coleção de lançamentos foi
+descartado (exigiria migração só por causa de um nome). A entidade nova vive em
+`users/{uid}/carteira` — nome que representa o conceito ("a carteira de cartões do usuário"),
+sem colidir com nada existente e sem exigir nenhuma migração.
+
+### 16.2 Modelo de dados: `users/{uid}/carteira/{id}`
+
+```js
+{
+  nome: string,             // ex.: "Nubank Roxinho" — livre, escolhido pelo usuário
+  banco: string | null,     // ex.: "Nubank" — livre, sem lookup hardcoded
+  ultimos4Digitos: string | null,  // opcional
+  cor: string,              // hex — substitui colors.byInstitution para cartão cadastrado
+  diaVencimento: number,    // 1-31 — substitui vencimentoCartaoPorNome
+  diaFechamento: number,    // 1-31 — substitui a estimativa "diaVencimento - 7"
+  ativo: boolean,           // arquivar em vez de excluir, mesmo padrão de categorias/membros
+  criadoEm: timestamp,
+  atualizadoEm: timestamp | null,
+}
+```
+Escopo desta sprint, por decisão explícita: nada além disso. `limite`, `bandeira`, `cashback`,
+`anuidade`, `programa de pontos` ficam preparados para uma sprint futura — o modelo de dados
+(documento plano, por usuário, com `ativo`) não precisa mudar de forma para acomodá-los depois.
+
+### 16.3 `useCarteira.js` — mesmo padrão de `useMembros.js`/`useCategorias.js`
+
+Listener `onSnapshot` (`orderBy('criadoEm','asc')`) + CRUD (`adicionarCartao`,
+`atualizarCartao`, `arquivarCartao`/`reativarCartao`, `excluirCartao`), validação de nome
+duplicado (case-insensitive, mesmo critério de `useMembros.js`). `excluirCartao` bloqueia a
+exclusão se o cartão já foi usado em algum lançamento (`where('cartaoId','==', id)` em
+`users/{uid}/cartoes`) — mesma guarda de `excluirCategoria`, para nunca deixar um `cartaoId`
+órfão. Arquivar (`ativo: false`) é sempre permitido e reversível.
+
+### 16.4 Convivência nos lançamentos: `cartaoId` + `cartao`, sem migração
+
+Mesmo padrão já usado duas vezes (`categoriaId`+`categoriaNome`, `membroId`+`membroNome`):
+cada parcela em `users/{uid}/cartoes` grava `cartaoId` (referência estável, `null` para
+cartão informal ou lançamento antigo) e continua gravando `cartao` (nome, string, sempre
+preenchido) — nenhuma tela nunca depende só do `cartaoId` para renderizar. Lançamentos
+antigos (só `cartao`, sem `cartaoId`) continuam funcionando exatamente como antes; não há
+nenhuma migração em massa.
+
+### 16.5 `CartaoSelect.js` — mesmo padrão de `MembroSelect.js`
+
+Substitui o `TextInput` livre em `ModalCriacao.js` (única opção antes desta sprint) e passa a
+existir também em `ModalEdicao.js` (**antes desta sprint, não havia nenhum jeito de editar o
+cartão de uma compra já lançada** — gap fechado agora). Dentro do seletor só existem duas
+coisas, por decisão explícita do usuário: a lista de cartões cadastrados (renderizados com
+`CartaoVisual` em tamanho compacto — não é lista textual) e o atalho "Gerenciar cartões". Sem
+botão de criação rápida dentro do seletor — quem precisa cadastrar um cartão acessa
+"Gerenciar cartões", cadastra, volta e continua o lançamento (mesmo fluxo de
+"Gerenciar membros" a partir do `MembroSelect`). Existe também "Outro cartão..." — mesmo
+tratamento de "Outra pessoa..." do `MembroSelect` (decisão tomada em conversa com o usuário
+antes de implementar: cartão informal continua permitido, não é obrigatório cadastrar).
+
+### 16.6 `CartaoVisual.js` — único componente visual, reaproveitado em 3 lugares
+
+Cartão bancário genérico (inspirado em Apple Wallet/Google Wallet, sem copiar identidade
+visual de nenhuma instituição): gradiente a partir da cor cadastrada (`expo-linear-gradient`,
+dependência já instalada — não foi preciso adicionar nenhuma nova), nome, banco, últimos 4
+dígitos mascarados, dia de vencimento. Dois tamanhos (`normal`/`compacto`), nenhum outro
+componente duplica essa renderização — usado em `CartoesManager.js` (Gerenciar Cartões),
+`CartaoSelect.js` (lista de seleção) e `CartaoCard.js` (resumo por cartão).
+
+### 16.7 Gestão de cartões: `CartoesManager.js`, mesmo padrão de `CategoriasManager.js`
+
+CRUD completo (listar, criar, editar, arquivar/reativar, excluir com a guarda da seção 16.3),
+compartilhado entre `GerenciarCartoesScreen.js` (tela cheia, deixou de ser `PlaceholderMenuScreen`
+— rota já existia desde a Sprint 2, só ganhou conteúdo real agora) e `GerenciarCarteiraModal.js`
+(bottom sheet, aberto a partir do atalho dentro do `CartaoSelect`) — nenhuma lógica duplicada
+entre os dois, ambos só embrulham `CartoesManager`, mesmo padrão de
+`CategoriasScreen.js`/`GerenciarCategoriasModal.js`.
+
+### 16.8 Remoção de hardcodes: o que muda de fonte, o que continua como fallback
+
+`useCartoes.js` (`addCartao`) passa a resolver `cor`/`diaVencimento`/`diaFechamento` a partir
+do cartão cadastrado (`getDoc` por `cartaoId`) quando o lançamento referencia um; **só cai**
+para `vencimentoCartaoPorNome`/`colors.byInstitution` (inalterados, ver `utils/datasPadrao.js`/
+`styles/colors.js`) quando o lançamento é informal ("Outro cartão...") ou antigo (sem
+`cartaoId`) — mantidos deliberadamente como fallback de compatibilidade, não removidos, para
+não quebrar lançamentos que nunca vão referenciar um cartão cadastrado. `updateCartao`
+recalcula `corCartao` sempre que o lançamento referencia um `cartaoId` (a cada edição, não só
+quando o cartão muda) — se o usuário alterar a cor do cartão em "Gerenciar Cartões", os
+lançamentos antigos desse cartão se atualizam sozinhos na próxima vez que forem editados.
+`GastoCartaoCard.js` perdeu a heurística de ícone por nome (`getCartaoIcon`, `.includes()`) —
+usa sempre o mesmo ícone genérico agora, já que a identidade visual do cartão vem do cadastro
+(cor), não de adivinhar o banco pelo texto digitado.
+
+**Dia de fechamento real**: `addCartao` usa `diaFechamento` do cartão cadastrado (quando
+existir) para decidir em qual mês cai a primeira parcela de uma compra nova — substitui a
+estimativa "diaVencimento - 7" já catalogada como dívida técnica de baixa severidade em
+`PROJECT_STATUS.md`. Essa estimativa continua sendo usada só para cartão informal/lançamento
+antigo, sem cartão cadastrado.
+
+### 16.9 Resumo por cartão (`CartoesScreen.js`, aba "Por Cartão") — de filtro a resumo de verdade
+
+Antes desta sprint, "Por Cartão" só agrupava as compras do mês por nome de texto e mostrava um
+total + lista simples (`CartaoCard.js` antigo). Passou a agrupar por `cartaoId` (nome só para
+informal/legado) e, ao abrir um cartão, buscar **todo o histórico daquele cartão** (todos os
+meses — `useCartoes.buscarParcelasDoCartao`, nova função, `where('cartaoId', ...)` sem filtro
+de mês/ano) — indicadores como "parcelas futuras"/"próximo vencimento" não têm como ser
+calculados só com os dados do mês em exibição, que é tudo que o listener escopado por mês/ano
+do `useCartoes.js` sempre teve. O resumo mostra o `CartaoVisual` no topo, os indicadores
+(saldo utilizado, total de compras, quantidade, parcelas futuras/pagas/pendentes, maior
+compra, próximo vencimento) e a lista de compras enriquecida (descrição, valor total, parcela
+atual, comprador, categoria, status) — nenhuma informação que já existia foi removida, só
+organizada e ampliada. Tocar numa compra continua abrindo os detalhes normalmente
+(`onPressItem`, mesmo callback que a tela já repassava antes).
+
+### 16.10 Fora do escopo desta sprint, por decisão explícita
+
+`limite`, `bandeira`, `cashback`, `anuidade`, `programa de pontos` — preparados para o modelo
+de dados (seção 16.2), não implementados. Nenhuma migração retroativa de lançamentos antigos
+para vincular a um cartão cadastrado (o usuário precisa selecionar o cartão certo manualmente
+da próxima vez que editar um lançamento antigo, se quiser vinculá-lo).
+
+### 16.11 Ajustes pós-teste (2026-08-06)
+
+Achados do usuário testando a Sprint 6:
+
+- **Paleta de cores ampliada**: `CORES_DISPONIVEIS` em `FormularioCartaoModal.js` passou de
+  11 cores decorativas (compartilhadas com `FormularioCategoriaModal.js`) para uma paleta
+  própria de 15 cores reais de cartão (preto, grafite, prata, dourado, rosé gold etc.) — cor
+  de cartão é um domínio diferente de cor de categoria, não faz sentido as duas usarem a
+  mesma paleta. Todas escolhidas escuras o bastante para o texto branco do `CartaoVisual`
+  continuar legível por cima.
+- **Resumo do mês de volta ao desenho do cartão**: `CartaoVisual.js` ganhou a prop opcional
+  `resumoMes` (ex.: "3 compras este mês"), renderizada só no tamanho `normal`. Achado do
+  usuário: o modal antigo (pré-Sprint 6) mostrava "X transações neste mês" na face do cartão
+  antes de abrir o resumo — a reescrita da seção 16.9 tinha perdido essa informação ao mover
+  tudo para dentro do modal. `CartaoCard.js` calcula a partir de `gastos` (mês atual, já
+  disponível sem busca extra) e passa só para a `CartaoVisual` de fora do modal — a de dentro
+  não recebe, para não confundir "este mês" com os indicadores de histórico completo.
+- **Lista do resumo agrupada por compra, não por parcela**: `CartaoCard.js` mostrava uma
+  linha por PARCELA (uma compra de 10x aparecia 10 vezes, uma por parcela) — o pedido original
+  (seção 16.9) era mostrar as *compras*. Corrigido: agrupa por `idCompra`, escolhendo como
+  "parcela atual" a primeira ainda pendente (ou a última, se a compra já estiver quitada —
+  mesmo critério de "compra quitada" de `ModalHistoricoParcelas.js`) como representante da
+  linha. O selo de status passa a mostrar "Quitada" quando não sobra nenhuma parcela pendente.
+- **Seletor de cartão com miniatura no formato de cartão**: `CartaoSelect.js` trocou a bolinha
+  colorida (mesmo padrão do círculo de cor em outros seletores) por um pequeno retângulo
+  arredondado na cor do cartão, proporção parecida com um cartão de verdade — mais imersivo,
+  sem introduzir um segundo componente visual (é só um `View` inline, não usa `CartaoVisual`
+  em tamanho reduzido, que ficaria grande demais dentro do campo fechado do seletor).
+- **Cascata de cartão entre parcelas da mesma compra** (achado real de inconsistência): editar
+  o cartão de UMA parcela só atualizava aquele documento — as demais parcelas da mesma compra
+  continuavam com o cartão antigo. Corrigido: `updateCartao` (em `useCartoes.js`) agora
+  propaga `cartaoId`/`cartao`/`corCartao` para todas as parcelas do mesmo `idCompra`
+  (`propagarCartaoParaGrupo`, mesmo padrão de batch já usado para `valorTotal`) sempre que o
+  `CartaoSelect` é tocado numa edição — independente de a parcela estar bloqueada por já ter
+  sido paga (cartão é metadado da compra, só o `valor` de uma parcela paga é imutável, ver
+  seção 15.9). **Categoria e comprador têm exatamente o mesmo problema hoje** (editar numa
+  parcela não propaga para as demais) — decisão e implementação registradas na seção 16.12.
+
+### 16.12 Regra de negócio: campos da compra vs. campos da parcela (2026-08-06)
+
+Generalização do achado da seção 16.11 (cascata de cartão). O usuário formalizou como regra de
+negócio: toda compra parcelada — cartão ou empréstimo — tem campos que descrevem a COMPRA
+inteira (devem ser sempre iguais em todas as parcelas do mesmo `idCompra`) e campos que
+descrevem a PARCELA (legitimamente diferentes entre parcelas).
+
+- **Campos da compra, cartão** (`CAMPOS_DA_COMPRA_CARTAO` em `useCartoes.js`): `descricao`,
+  `pessoa`/`membroId`/`membroNome` (comprador), `categoria`/`categoriaId`/`categoriaNome`,
+  `cartaoId`/`cartao`/`corCartao`, `dataCompra`. `valorTotal` continua fora dessa lista — não é
+  um campo digitado pelo usuário, é derivado (soma das parcelas) e já tem seu próprio mecanismo
+  (`recalcularValorTotalCompra`/`salvarParcelasPersonalizadas`).
+- **Campos da compra, empréstimo** (`CAMPOS_DA_COMPRA_EMPRESTIMO` em `useEmprestimos.js`):
+  `descricao`, `credor`, `categoria`/`categoriaId`/`categoriaNome`. `valorContratado` e
+  `economiaTotal` seguem fora pelo mesmo motivo (derivados, com mecanismo próprio já existente).
+- **Campos da parcela** (nas duas entidades): `valor`, `pago`, `adiantada`, `dataPagamento`,
+  `dataVencimento`, `mes`/`ano`, `valorOriginal`/`descontoAplicado` (antecipação),
+  `parcelaAtual`.
+- **Mecanismo único** (`src/utils/propagacaoCompra.js`): antes desta mudança, cada campo de
+  compra que precisasse de propagação exigiria sua própria função dedicada (era o caso de
+  `propagarCartaoParaGrupo`, específica de cartão/cor). Isso foi generalizado em duas funções
+  puras reaproveitadas pelos dois hooks:
+  - `extrairCamposDaCompra(dadosAtualizados, camposDaCompra)` — tira do objeto que seria
+    gravado só na parcela atual os campos presentes na lista de campos da compra.
+  - `propagarCamposDaCompra(colecaoPath, idCompra, campos)` — grava esses campos, num único
+    `writeBatch`, em todas as parcelas com o mesmo `idCompra`.
+  Incluir um novo campo de compra no futuro é só adicionar o nome na lista
+  `CAMPOS_DA_COMPRA_CARTAO`/`CAMPOS_DA_COMPRA_EMPRESTIMO` do hook correspondente — nenhuma
+  lógica nova precisa ser escrita. `propagarCartaoParaGrupo` (seção 16.11) foi removida, seu
+  comportamento agora é um caso do mecanismo genérico.
+- **Achado corrigido de passagem**: `useEmprestimos.js` não tinha a trava de `valor` imutável
+  para parcela paga/antecipada que `useCartoes.js` já tinha desde a seção 15.9 — as duas
+  entidades ficam consistentes agora (`parcelaBloqueada` em `updateEmprestimo`).
+- **Auditoria feita antes de implementar** (pedido explícito do usuário): busca por todo
+  escritor direto de `${basePath}/cartoes` e `${basePath}/emprestimos` no projeto — os únicos
+  são os dois hooks acima; `useCarteira.js` só faz uma leitura (`getDocs`) nessas coleções para
+  validar exclusão de um cartão cadastrado, não escreve nelas. Nenhum outro ponto do código
+  atualiza um campo de compra isoladamente numa única parcela.
+- **`useGastos.js`/`useEntradas.js` não têm `idCompra`** — não existe conceito de "mesma
+  compra, várias parcelas" nesses dois hooks hoje, então essa regra não se aplica a eles.
+
+## 17. Exclusão parcelada e mecanismo único de confirmação (2026-08-06)
+
+Antes desta mudança, "excluir" era 4+ implementações independentes e inconsistentes: só
+`SaidasScreen.js` (aba Empréstimos) perguntava "só esta parcela ou tudo"; cartão nunca
+oferecia essa escolha e nunca recalculava `valorTotal` das parcelas restantes; e o botão
+"Excluir" dentro de `ModalEdicao.js` (usado pela Agenda Financeira/Calendário e Central de
+Avisos) excluía **sem nenhuma confirmação**, para qualquer tipo de lançamento. As telas
+`GastosScreen.js`/`EmprestimosScreen.js`/`CartoesScreen.js` também tinham seu próprio
+`handleExcluir` duplicado — inerte hoje porque são sempre renderizadas com `isEmbedded=true`
+dentro de `SaidasScreen.js` (não existe rota própria para elas, achado já catalogado), mas uma
+armadilha latente caso `SaidasTabs.js` (também órfão) seja ligado no futuro.
+
+### 17.1 `reestruturarParcelamento` — único ponto que altera a estrutura de um parcelamento
+
+`src/utils/reestruturarParcelamento.js` exporta `reestruturarParcelamento(colecaoPath,
+idCompra, { idsParaRemover, novosValores })`: um único `writeBatch` que remove os documentos
+indicados, renumera as parcelas restantes (`parcelaAtual` 1..N) e atualiza `totalParcelas`, e
+aplica `novosValores[docId]` só nas parcelas não bloqueadas. **Nunca mexe no estado
+financeiro de uma parcela** (`pago`, `adiantada`, `dataPagamento`, `valorOriginal`,
+`descontoAplicado` etc.) — renumeração e exclusão são uma preocupação puramente estrutural,
+separada do histórico financeiro de cada parcela.
+
+Reaproveitada por três fluxos, nenhum duplica a lógica de renumeração:
+- Exclusão de uma parcela (`excluirParcela`/`excluirParcelaComValoresPersonalizados` em
+  `useCartoes.js`/`useEmprestimos.js`).
+- `salvarParcelasPersonalizadas` (editor de parcelas, seção 15) — refatorada para chamar
+  `reestruturarParcelamento` com `idsParaRemover: []` (só redefine valores, não remove nada).
+
+### 17.2 Regra de negócio: o que fazer com o valor da parcela excluída
+
+Ao excluir só uma parcela de um grupo com mais de uma (`totalParcelas > 1`), o valor daquela
+parcela pode: **(a)** simplesmente sair do total (`modo: 'reduzir'`, nenhuma outra parcela
+muda), ou **(b)** ser redistribuído entre as parcelas restantes ainda não bloqueadas — igualmente
+(`modo: 'igual'`) ou manualmente (reaproveitando o `ModalEditorParcelas` já existente, seção
+15). **A redistribuição sempre reparte só o valor da PARCELA EXCLUÍDA, nunca o valor total da
+compra** — o incremento por parcela vem de `dividirValorIgualmente(valorDaParcelaExcluida,
+quantidadeDeParcelasElegíveis)`, somado ao valor que cada parcela restante já tinha. Se
+nenhuma parcela restante for elegível (todas já pagas/antecipadas), a opção "Redistribuir"
+simplesmente não é oferecida.
+
+O fluxo de "Redistribuir manualmente" abre o `ModalEditorParcelas` **antes** de qualquer
+gravação: os valores iniciais mostrados já simulam o estado pós-exclusão (N-1 parcelas, cada
+uma com seu valor atual + a fração do valor excluído). Cancelar o editor não grava nada — a
+exclusão do documento, a renumeração e a gravação dos novos valores só acontecem juntas,
+num único `reestruturarParcelamento`, quando o usuário confirma o editor. Isso mantém a
+operação atômica e o `ModalEditorParcelas` **100% desacoplado de persistência**, como já era
+antes (ele só recebe valores iniciais e devolve o array final em `aoConfirmar` — nunca soube o
+que o chamador faz com isso).
+
+### 17.3 `useExclusaoParcelada.js` — mecanismo único de confirmação
+
+Novo hook, mesmo padrão de `useAdiantamento.js` (guarda só o estado dos modais; quem chama
+renderiza `<AlertaModal>`/`<ModalEditorParcelas>` com esse estado — nenhuma JSX é retornada
+pelo hook). Cada chamador só descreve as funções de exclusão do hook de dados
+correspondente (`excluirParcela`, `excluirGrupoInteiro`, `excluirComValoresPersonalizados`,
+`buscarParcelasDoGrupo`); o hook decide a árvore de perguntas:
+
+- Gasto/entrada, ou cartão/empréstimo com 1 parcela só: 1 alerta — Cancelar/Excluir.
+- Cartão/empréstimo com mais de 1 parcela: (1) Cancelar/Somente esta parcela/Excluir tudo →
+  (2, se "somente esta") Cancelar/Remover do total/Redistribuir → (3, se "Redistribuir")
+  Cancelar/Igualmente/Manualmente.
+
+Usado por **todos** os pontos de exclusão do app, eliminando a duplicação: `SaidasScreen.js`,
+`GastosScreen.js`, `EmprestimosScreen.js`, `CartoesScreen.js` e, via `useEventosFinanceiros.js`
+(`confirmarExcluir`, que substituiu o antigo `excluir` sem confirmação), o botão "Excluir" de
+`ModalEdicao.js` alcançado pela Agenda Financeira (Calendário e Linha do Tempo) e pela Central
+de Avisos. Gasto e entrada, que antes excluíam sem perguntar nada nesses últimos caminhos,
+agora também pedem confirmação simples.
+
+### 17.4 Novas funções expostas pelos hooks
+
+- `useCartoes.js`/`useEmprestimos.js`: `excluirParcela(id, {idCompra, modo})`,
+  `excluirParcelaComValoresPersonalizados(id, idCompra, novosValoresPorId)`,
+  `excluirGrupoInteiro(idCompra)` substituem `deleteCartao`/`deleteEmprestimo`.
+  `useEmprestimos.js` ganhou `buscarParcelasDaCompra` (já existia em `useCartoes.js`).
+- Cartão sempre roda `recalcularValorTotalCompra` depois de excluir/redistribuir (mesma
+  função da seção 15.12); empréstimo não precisa — não tem `valorTotal` agregado.
+
+### 17.5 Achados
+
+- `useEmprestimos.js` não tinha (e continua sem, por decisão explícita: fora do escopo desta
+  mudança) o `valorTotal` agregado que `useCartoes.js` tem — `valorContratado` é o valor
+  original da contratação, nunca recalculado.
+- `GastosScreen.js`/`EmprestimosScreen.js`/`CartoesScreen.js` como telas standalone continuam
+  sem rota própria (`SaidasTabs.js` órfão) — não é um problema novo desta mudança, mas agora
+  que usam o mesmo mecanismo de exclusão de `SaidasScreen.js`, deixou de ser uma armadilha
+  latente: qualquer caminho de exclusão do app se comporta da mesma forma.
+
+## 18. Linha do Tempo (Histórico de Eventos) (✅ implementada em 2026-08-06 para Cartões e Empréstimos)
+
+> **Status: implementada para Cartões e Empréstimos, conforme a ordem sugerida na seção 18.6.**
+> Gastos, Entradas e Investimentos ainda não emitem eventos — ver `PROJECT_STATUS.md` seção 16
+> para o registro do que falta.
+
+### 18.0 Motivação e análise do que já existe
+
+Pedido do usuário: um registro de eventos relevantes (compra criada, parcela paga, categoria
+alterada etc.) reutilizável entre Gastos, Entradas, Cartões, Empréstimos e Investimentos —
+explicitamente **não** uma auditoria completa (sem snapshots inteiros de documentos).
+
+Antes de desenhar, mapeou-se o projeto inteiro em busca de estrutura reaproveitável.
+Conclusão: **não existe hoje nenhum log de eventos ou trilha de auditoria**. Dois primos que
+parecem mas não são a mesma coisa:
+- `ModalHistoricoParcelas.js` — visão **derivada do estado atual** (consulta ao vivo as
+  parcelas por `idCompra`, calcula pago/antecipada/personalizado na hora); não guarda nada do
+  que já aconteceu no passado.
+- `useEventosFinanceiros.js`/`utils/eventosFinanceiros.js` — projeção **para frente**
+  (agenda/calendário), não histórico.
+
+Achado estrutural relevante: não existe um funil único de escrita no projeto — cada hook
+(`useGastos`, `useEntradas`, `useCartoes`, `useEmprestimos`, `useInvestimentos`) chama
+`addDoc`/`updateDoc`/`deleteDoc` diretamente. Isso significa que gerar eventos não pode ser
+plugado num só lugar central; vai exigir uma chamada a mais em cada função de mutação
+relevante dos 5 hooks (~15 pontos). A duplicação evitada por esta arquitetura é a *mecânica*
+de gravar o evento (schema, formato, escrita), não o "lembrar de chamar" em cada função — isso
+é inerente à ausência de um funil de escrita, e corrigir isso seria um refactor bem maior,
+fora do escopo desta proposta.
+
+### 18.1 Modelo de dados
+
+Coleção única e plana, mesmo padrão de convivência de `categorias`/`membros`/`carteira`:
+`users/{uid}/linhaDoTempo/{eventoId}`.
+
+```
+{
+  versao: 1,                    // schema do evento — evolução futura sem migrar eventos antigos
+  acao: 'criado' | 'editado' | 'excluido' | 'pago' | 'antecipado' | 'revertido'
+      | 'redistribuido' | 'valores_personalizados',
+  entidade: 'gasto' | 'entrada' | 'cartao' | 'emprestimo' | 'investimento',
+  entidadeId: string,
+  idCompra: string | null,      // presente em cartão/empréstimo; null em gasto/entrada/investimento avulso
+  alteracoes: {                 // só quando acao === 'editado'; um evento cobre N campos de uma vez
+    categoria: { antes: 'Alimentação', depois: 'Transporte' },
+    cartao:    { antes: 'Nubank',      depois: 'Inter' },
+  } | null,
+  origem: {
+    agente: 'usuario' | 'sistema',
+    canal: 'modal_edicao' | 'modal_criacao' | 'exclusao' | 'geracao_automatica' | 'recorrencia' | string,
+  },
+  usuarioId: string,
+  criadoEm: serverTimestamp(),
+}
+```
+
+Decisões de modelagem e o porquê de cada uma:
+
+- **`acao` separado de `entidade`** (não um `tipo` misturando os dois) — conjunto pequeno e
+  fechado de verbos genéricos, válido para qualquer entidade (nem toda entidade usa todos:
+  `antecipado` não se aplica a gasto/entrada). Isso evita ter que inventar um novo valor de
+  enum cada vez que surgir uma ação nova no futuro — o eixo que cresce é `entidade` (já
+  fechado hoje) ou, dentro de `acao: 'editado'`, a lista de campos relevantes (ver 18.2), nunca
+  o próprio conjunto de ações.
+- **`pago`/`antecipado`/`revertido`/`redistribuido`/`valores_personalizados` como ações
+  próprias**, em vez de todas caírem em `editado` — são ações que o usuário reconhece como
+  coisas distintas ("antecipei uma parcela" ≠ "editei um campo"), mesmo sendo, por baixo, um
+  `updateDoc` como qualquer outro. `revertido` cobre o fluxo já existente de "Reverter
+  antecipação?" (`global.alertaGlobal` em `useCartoes.js`/`useEmprestimos.js`).
+- **`alteracoes` como objeto por campo, não lista de `{campo, antes, depois}`** — decisão
+  tomada por consultabilidade no Firestore, não por facilidade de implementação: um campo mapa
+  permite `where('alteracoes.cartao', '!=', null)` direto, com índice; uma lista não é
+  consultável por campo sem trazer tudo e filtrar no cliente (Firestore não indexa "existe um
+  elemento do array com `campo === X`"). Também garante, pela própria estrutura, que um campo
+  não apareça duplicado no mesmo evento.
+- **Sem `descricao` pronta gravada no evento** — só dados estruturados com valores já
+  legíveis (nomes, não IDs — mesmo princípio de denormalização usado em todo o projeto:
+  `categoriaNome`, `membroNome`, `cartao`). A frase exibida na UI é montada por uma função de
+  renderização única, a partir de `acao` + `entidade` + `alteracoes`, no momento de exibir —
+  trocar o texto, traduzir, ou mudar o estilo no futuro é mudar essa função, não os dados já
+  gravados. Como os *valores* guardados em `alteracoes` já são o nome legível no momento do
+  evento (não uma referência), o evento continua legível mesmo que a categoria/cartão original
+  tenha sido renomeado ou excluído depois.
+- **`origem` como objeto (`agente`+`canal`), não uma string única** — permite filtrar só por
+  `agente` sem se importar com o `canal` (`where('origem.agente','==','sistema')`); com uma
+  string concatenada isso exigiria truque de prefixo, que o Firestore não faz bem. `agente` é
+  fechado (`usuario`/`sistema`); `canal` é deliberadamente mais solto (não um enum rígido),
+  porque novas telas vão continuar aparecendo.
+- **Sem campo de referências cruzadas (`referencias`/`loteId`) por enquanto** — cenários reais
+  existem (a reversão de uma antecipação referenciar o evento de antecipação original; um
+  futuro lote de importação agrupar N eventos), mas nenhum tem consumidor hoje. Como o schema
+  já tem `versao`, esse campo pode ser adicionado depois sem migrar nem quebrar eventos
+  antigos — não vale a pena incluir algo especulativo agora.
+
+### 18.2 Gravação sem duplicação — configuração central, não constantes espalhadas
+
+Um utilitário novo, mesmo estilo de `propagacaoCompra.js`/`reestruturarParcelamento.js`
+(arquivo pequeno, uma responsabilidade, chamado pelos hooks): `src/utils/registrarEvento.js`,
+exportando uma função só (`addDoc` + `removerIndefinidos` na coleção `linhaDoTempo`).
+
+Os "campos relevantes" por entidade — a lista curada que decide o que vira evento de
+`acao: 'editado'` (para não transformar a Linha do Tempo numa auditoria técnica: timestamps,
+IDs internos, `totalParcelas`, propagações automáticas nunca geram evento) — ficam
+centralizados num único arquivo de configuração, não espalhados pelos hooks:
+
+```js
+// src/utils/linhaDoTempoConfig.js
+export const CAMPOS_RELEVANTES = {
+  gasto: ['descricao', 'categoria', 'valor'],
+  entrada: ['descricao', 'categoria', 'membro', 'valor'],
+  cartao: ['descricao', 'categoria', 'cartao', 'pessoa'],
+  emprestimo: ['descricao', 'categoria', 'credor'],
+  investimento: [...],
+};
+```
+
+Uma função pura, `detectarAlteracoes(entidade, atual, novosDados)`, compara só esses campos e
+devolve o `alteracoes` já pronto. Cada função de mutação nos hooks chama essa função +
+`registrarEvento` numa linha a mais, no ponto em que já sabe o que mudou (todo `update*` já lê
+o documento atual antes de escrever — o mesmo `atual` serve para a comparação). Incluir um
+campo novo no futuro é editar essa lista central, igual já foi feito com
+`CAMPOS_DA_COMPRA_CARTAO`/`CAMPOS_DA_COMPRA_EMPRESTIMO` (seção 16.12).
+
+**Regra de ouro, para não estourar volume de escrita**: um evento por ação do usuário, nunca
+um por documento alterado internamente. Uma propagação automática de campo de compra
+(`propagarCamposDaCompra`) ou um recálculo de total não geram evento — só a ação que os
+disparou (uma edição do usuário) gera um evento `editado` cobrindo todos os campos que
+mudaram naquela ação, mesmo que por baixo dos panos vários documentos tenham sido tocados.
+
+### 18.3 Exibição — mesma infraestrutura para visão contextual e futura visão global
+
+A consulta muda só o filtro, o mecanismo é o mesmo:
+- **Contextual** (nova aba "Linha do Tempo" dentro de `ModalHistoricoParcelas.js`, ao lado da
+  aba "Parcelas" já existente, que continua mostrando o estado atual sem nenhuma mudança):
+  `idCompra` presente → filtra por ele; gasto/entrada/investimento avulso (sem `idCompra`) →
+  filtra por `entidadeId`.
+- **Futura tela global de atividade do app**: mesma coleção, filtro por `usuarioId` +
+  paginação (`limit`/`startAfter`, coleção cresce indefinidamente ao longo da vida da conta).
+
+Um único componente de apresentação (lista cronológica, mesma linguagem visual de
+`LinhaDoTempoFinanceira.js` — ícone + descrição por linha, agrupado por data) recebe os
+eventos já buscados e só renderiza; quem decide o filtro é sempre quem chama, nunca o
+componente. Evita dois mecanismos de UI diferentes quando a visão global existir.
+
+### 18.4 Performance
+
+- Sem `onSnapshot` — histórico é append-only e consultado sob demanda (abrir um modal/tela),
+  então `getDocs` simples basta; nenhum listener permanente rodando, ao contrário dos hooks de
+  dinheiro que precisam de tempo real.
+- Índices em `(idCompra, criadoEm)`, `(entidadeId, criadoEm)` e `(usuarioId, criadoEm)`
+  mantêm as três consultas (por compra / por item avulso / geral) baratas mesmo com a coleção
+  grande.
+- Paginação obrigatória na visão global (não na contextual, que é sempre um conjunto pequeno).
+
+### 18.5 Preparado para auditoria completa no futuro
+
+`alteracoes` já é o embrião de um diff completo — no futuro, dá para engordar cada entrada com
+mais metadado (ex.: `motivo`) sem quebrar eventos antigos, graças ao `versao`. `usuarioId` em
+todo evento antecipa o Modo Família (multi-usuário). Se um dia for necessária uma trilha de
+auditoria separada e mais pesada (snapshots completos), os mesmos pontos de chamada podem
+adicionar uma segunda chamada (`registrarAuditoria`) sem misturar com `linhaDoTempo` — os dois
+propósitos continuam desacoplados desde o início.
+
+### 18.6 Ordem de implementação — Cartões e Empréstimos (2026-08-06)
+
+Implementado conforme a ordem sugerida: Cartões e Empréstimos primeiro. Gastos, Entradas e
+Investimentos ficam para uma próxima rodada, seguindo o mesmo padrão (ver seção 18.8).
+
+### 18.7 Decisões tomadas durante a implementação
+
+- **`orderBy` do Firestore evitado por propósito** (`useLinhaDoTempo.js`): uma consulta com
+  igualdade num campo (`idCompra`) e ordenação por outro (`criadoEm`) exige um índice composto
+  configurado manualmente no console do Firebase — e o app tem 4 projetos Firebase
+  independentes (meu-app/rafael/marina/christian). Para não depender de infraestrutura fora do
+  código (que eu não tenho como criar em nome do usuário), a ordenação é feita no cliente após
+  a busca — mesmo critério já usado em `buscarParcelasDaCompra`. Sem custo de desempenho real:
+  poucos eventos por compra.
+- **Mapeamento `modo` de exclusão → `acao`** (`excluirParcela`/`excluirParcelaComValoresPersonalizados`
+  em `useCartoes.js`/`useEmprestimos.js`): `modo: 'reduzir'` (ou nenhum grupo) → `acao: 'excluido'`;
+  `modo: 'igual'` ou exclusão com valores manuais → `acao: 'redistribuido'` (as duas variantes de
+  "excluir com redistribuição" da seção 17 caem na mesma ação — o que importa pro usuário é que
+  o valor foi redistribuído, não qual dos dois métodos escolheu).
+- **`pago` como ação própria, não `editado`**: em `updateCartao`/`updateEmprestimo`, uma
+  transição de `pago` para `true` sempre emite `acao: 'pago'` (com `alteracoes` de outros
+  campos que tenham mudado na mesma chamada, se houver); desmarcar como pago não gera evento.
+  `toggleCartaoStatus` (`useCartoes.js`) é um caminho de mutação **separado** de `updateCartao`
+  (usado pelo toggle direto em `CartoesScreen.js` — aba "Gastos do mês") e precisou do próprio
+  `registrarEvento`, mesma regra do "só marcar como pago gera evento".
+- **`alteracoesCampos` sempre calculado antes de qualquer mutação do objeto de entrada** — a
+  propagação de campos da compra (seção 16.12) remove chaves de `dadosAtualizados`/`dados`
+  depois de as propagar; `detectarAlteracoes` precisa rodar antes disso, contra o objeto
+  original recebido.
+- **Aba "Linha do Tempo" dentro de `ModalHistoricoParcelas.js`**: reaproveita `ModernTabs.js`
+  (mesmo componente de abas de `CartoesScreen.js`/`SaidasScreen.js`), busca os eventos num
+  `useEffect` próprio (independente da aba ativa, para não recarregar ao alternar), e
+  renderiza via `LinhaDoTempoEventos.js` (componente único de apresentação, ver seção 18.3).
+
+### 18.8 Arquivos
+
+`src/utils/linhaDoTempoConfig.js` (`CAMPOS_RELEVANTES`, `detectarAlteracoes`),
+`src/utils/registrarEvento.js`, `src/utils/linhaDoTempoRender.js` (frase e ícone por evento),
+`src/hooks/useLinhaDoTempo.js` (`buscarEventosDaCompra`), `src/components/LinhaDoTempoEventos.js`
+(apresentação), `src/components/ModalHistoricoParcelas.js` (aba nova), `src/hooks/useCartoes.js`
+e `src/hooks/useEmprestimos.js` (todas as funções de mutação passam a chamar `registrarEvento`).
+
+**Pendente para uma próxima rodada**: Gastos, Entradas e Investimentos ainda não emitem
+eventos nem têm `CAMPOS_RELEVANTES` próprios; quando entrarem, também precisam de
+`buscarEventosDoItem(entidadeId)` em `useLinhaDoTempo.js` (hoje só existe
+`buscarEventosDaCompra`, para entidades com `idCompra`).

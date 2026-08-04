@@ -14,7 +14,9 @@ import { globalStyles } from '../styles/globalStyles';
 import ModalDetalhes from '../components/ModalDetalhes';
 import ModalEdicao from '../components/ModalEdicao';
 import ModalHistoricoParcelas from '../components/ModalHistoricoParcelas';
+import ModalEditorParcelas from '../components/ModalEditorParcelas';
 import { handleGerarFixosUtil } from '../utils/handleGerarFixos';
+import { useExclusaoParcelada } from '../hooks/useExclusaoParcelada';
 import { useAdiantamento } from '../hooks/useAdiantamento';
 import ModalParcelasAdiantamento from '../components/ModalParcelasAdiantamento';
 import CartoesScreen from './CartoesScreen';
@@ -248,8 +250,20 @@ export default function SaidasScreen() {
     loading: loadingEmprestimos,
     addEmprestimo,
     updateEmprestimo,
-    deleteEmprestimo,
+    excluirParcela: excluirParcelaEmprestimo,
+    excluirGrupoInteiro: excluirGrupoInteiroEmprestimo,
+    excluirParcelaComValoresPersonalizados: excluirParcelaComValoresPersonalizadosEmprestimo,
+    buscarParcelasDaCompra: buscarParcelasDaCompraEmprestimo,
   } = useEmprestimos(selectedMonth, selectedYear);
+
+  const {
+    confirmarExclusao,
+    alertaExclusao,
+    fecharAlertaExclusao,
+    editorExclusao,
+    fecharEditorExclusao,
+    confirmarEditorExclusao,
+  } = useExclusaoParcelada();
 
   const {
   modalAdiantamentoVisivel,
@@ -274,7 +288,10 @@ export default function SaidasScreen() {
     loading: loadingCartoes,
     addCartao,
     updateCartao,
-    deleteCartao,
+    excluirParcela: excluirParcelaCartao,
+    excluirGrupoInteiro: excluirGrupoInteiroCartao,
+    excluirParcelaComValoresPersonalizados: excluirParcelaComValoresPersonalizadosCartao,
+    buscarParcelasDaCompra: buscarParcelasDaCompraCartao,
   } = useCartoes(selectedMonth, selectedYear);
 
 
@@ -374,94 +391,71 @@ const handleEditar = async (itemEditado) => {
   setItemSelecionado(null);
 };
 
+// 🔹 Excluir gasto/empréstimo/compra — mecanismo único, ver
+// useExclusaoParcelada.js (ARQUITETURA.md seção 17). Fecha o modal de
+// detalhes e limpa a seleção assim que a exclusão de fato é confirmada e
+// executada — cancelar em qualquer etapa do fluxo não fecha nada.
 const handleExcluir = () => {
   const item = itemSelecionado;
-
   if (!item) return;
 
-  // 🔹 Define o tipo correto para o alerta
-  const tipo =
-    abaAtiva === 'gastos'
-      ? 'Gasto'
-      : abaAtiva === 'emprestimos'
-      ? 'Empréstimo'
-      : 'Compra';
+  const fecharSelecao = () => {
+    setModalDetalhesVisivel(false);
+    setItemSelecionado(null);
+  };
 
-  // 🔹 GASTOS
   if (abaAtiva === 'gastos') {
-    setAlerta({
-      visivel: true,
-      titulo: `Excluir ${tipo}`,
-      mensagem: `Tem certeza que deseja excluir "${item.descricao}"?`,
-      botoes: [
-        { texto: 'Cancelar', onPress: () => setAlerta({ visivel: false }), style: 'primary' },
-        {
-          texto: 'Excluir',
-          onPress: async () => {
-            await deleteGasto(item.id);
-            setAlerta({ visivel: false });
-            setModalDetalhesVisivel(false);
-            setItemSelecionado(null);
-          },
-          style: 'destructive',
-        },
-      ],
+    confirmarExclusao({
+      item,
+      tipoLabel: 'Gasto',
+      excluirParcela: async (id) => {
+        await deleteGasto(id);
+        fecharSelecao();
+      },
     });
     return;
   }
 
-  // 🔹 EMPRÉSTIMOS
   if (abaAtiva === 'emprestimos') {
-    setAlerta({
-      visivel: true,
-      titulo: `Excluir ${tipo}`,
-      mensagem: `Você deseja excluir apenas esta parcela ou o empréstimo inteiro de "${item.descricao}"?`,
-      botoes: [
-        { texto: 'Cancelar', onPress: () => setAlerta({ visivel: false }), style: 'primary' },
-        {
-          texto: 'Somente esta parcela',
-          onPress: async () => {
-            await deleteEmprestimo(item.id);
-            setAlerta({ visivel: false });
-            setModalDetalhesVisivel(false);
-            setItemSelecionado(null);
-          },
-          style: 'default',
-        },
-        {
-          texto: 'Excluir empréstimo inteiro',
-          onPress: async () => {
-            await deleteEmprestimo(item.id, item.idCompra, true);
-            setAlerta({ visivel: false });
-            setModalDetalhesVisivel(false);
-            setItemSelecionado(null);
-          },
-          style: 'destructive',
-        },
-      ],
+    confirmarExclusao({
+      item,
+      tipoLabel: 'Empréstimo',
+      suportaGrupo: true,
+      buscarParcelasDoGrupo: buscarParcelasDaCompraEmprestimo,
+      excluirParcela: async (id, opts) => {
+        await excluirParcelaEmprestimo(id, opts);
+        fecharSelecao();
+      },
+      excluirGrupoInteiro: async (idCompra) => {
+        await excluirGrupoInteiroEmprestimo(idCompra);
+        fecharSelecao();
+      },
+      excluirComValoresPersonalizados: async (id, idCompra, novosValoresPorId) => {
+        await excluirParcelaComValoresPersonalizadosEmprestimo(id, idCompra, novosValoresPorId);
+        fecharSelecao();
+      },
     });
     return;
   }
 
-  // 🔹 CARTÕES
   if (abaAtiva === 'cartoes') {
-    setAlerta({
-      visivel: true,
-      titulo: `Excluir ${tipo}`,
-      mensagem: `Deseja excluir a compra "${item.descricao}" deste cartão?`,
-      botoes: [
-        { texto: 'Cancelar', onPress: () => setAlerta({ visivel: false }), style: 'primary' },
-        {
-          texto: 'Excluir',
-          onPress: async () => {
-            await deleteCartao(item.id);
-            setAlerta({ visivel: false });
-            setModalDetalhesVisivel(false);
-            setItemSelecionado(null);
-          },
-          style: 'destructive',
-        },
-      ],
+    confirmarExclusao({
+      item,
+      tipoLabel: 'Compra',
+      suportaGrupo: true,
+      buscarParcelasDoGrupo: buscarParcelasDaCompraCartao,
+      excluirParcela: async (id, opts) => {
+        await excluirParcelaCartao(id, opts);
+        fecharSelecao();
+      },
+      excluirGrupoInteiro: async (idCompra) => {
+        await excluirGrupoInteiroCartao(idCompra);
+        fecharSelecao();
+      },
+      excluirComValoresPersonalizados: async (id, idCompra, novosValoresPorId) => {
+        await excluirParcelaComValoresPersonalizadosCartao(id, idCompra, novosValoresPorId);
+        fecharSelecao();
+      },
     });
   }
 };
@@ -643,6 +637,16 @@ tipo={
         {...alerta}
       />
 
+      <AlertaModal visible={alertaExclusao.visivel} onClose={fecharAlertaExclusao} {...alertaExclusao} />
+      <ModalEditorParcelas
+        visivel={editorExclusao.visivel}
+        aoFechar={fecharEditorExclusao}
+        aoConfirmar={confirmarEditorExclusao}
+        descricao={editorExclusao.descricao}
+        totalParcelas={editorExclusao.valoresIniciais.length}
+        valoresIniciais={editorExclusao.valoresIniciais}
+        bloqueadas={editorExclusao.bloqueadas}
+      />
 
       <ModalHistoricoParcelas
         visible={historicoModalVisivel}

@@ -7,7 +7,9 @@ import ListItemGasto from '../components/ListItemGasto';
 import ModalCriacao from '../components/ModalCriacao';
 import GerenciarModelosModal from '../components/GerenciarModelosModal';
 import AlertaModal from '../components/AlertaModal';
+import ModalEditorParcelas from '../components/ModalEditorParcelas';
 import { handleGerarFixosUtil } from '../utils/handleGerarFixos';
+import { useExclusaoParcelada } from '../hooks/useExclusaoParcelada';
 
 export default function GastosScreen({
   isEmbedded = false,
@@ -27,6 +29,14 @@ export default function GastosScreen({
   const [modalCriacaoVisivel, setModalCriacaoVisivel] = useState(false);
   const [modalModelosVisivel, setModalModelosVisivel] = useState(false);
   const [alerta, setAlerta] = useState({ visivel: false, titulo: '', mensagem: '', botoes: [] });
+  const {
+    confirmarExclusao,
+    alertaExclusao,
+    fecharAlertaExclusao,
+    editorExclusao,
+    fecharEditorExclusao,
+    confirmarEditorExclusao,
+  } = useExclusaoParcelada();
 
   const total = useMemo(
     () => gastos.filter((g) => g.pago).reduce((s, g) => s + (Number(g.valor) || 0), 0),
@@ -48,24 +58,8 @@ export default function GastosScreen({
     setModalCriacaoVisivel(false);
   };
 
-  const handleExcluir = async (item) => {
-    if (!item?.id) return;
-    setAlerta({
-      visivel: true,
-      titulo: 'Excluir Gasto',
-      mensagem: `Tem certeza que deseja excluir "${item.descricao}"?`,
-      botoes: [
-        { texto: 'Cancelar', onPress: () => setAlerta({ visivel: false }), style: 'primary' },
-        {
-          texto: 'Excluir',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteGasto(item.id);
-            setAlerta({ visivel: false });
-          },
-        },
-      ],
-    });
+  const handleExcluir = (item) => {
+    confirmarExclusao({ item, tipoLabel: 'Gasto', excluirParcela: deleteGasto });
   };
 
   const handleToggleStatus = async (id) => {
@@ -112,6 +106,17 @@ export default function GastosScreen({
             visible={alerta.visivel}
             onClose={() => setAlerta({ visivel: false })}
             {...alerta}
+          />
+
+          <AlertaModal visible={alertaExclusao.visivel} onClose={fecharAlertaExclusao} {...alertaExclusao} />
+          <ModalEditorParcelas
+            visivel={editorExclusao.visivel}
+            aoFechar={fecharEditorExclusao}
+            aoConfirmar={confirmarEditorExclusao}
+            descricao={editorExclusao.descricao}
+            totalParcelas={editorExclusao.valoresIniciais.length}
+            valoresIniciais={editorExclusao.valoresIniciais}
+            bloqueadas={editorExclusao.bloqueadas}
           />
         </>
       )}

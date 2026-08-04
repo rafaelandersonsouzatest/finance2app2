@@ -18,13 +18,17 @@ import { vibrarSucesso } from '../utils/haptics';
 import { datasPadraoPorDescricao } from '../utils/datasPadrao';
 import { gerarDataComDia } from '../utils/gerarDataComDia';
 import { formatarDataParaExibicao, normalizarParaISO } from '../utils/formatarData';
-import { formatarBRL, parseBRL } from '../utils/formatarValor';
+import { parseBRL } from '../utils/formatarValor';
 import SeletorData from './SeletorData';
-import { useCurrencyInput } from '../hooks/useCurrencyInput';
+import CampoMonetarioCompartilhado from './CampoMonetario';
 import CategoriaSelect from './CategoriaSelect';
 import { MembroSelect } from '../components/MembroSelect';
+import { CartaoSelect } from '../components/CartaoSelect';
 import { useCategorias } from '../hooks/useCategorias';
 import { useMembros } from '../hooks/useMembros';
+import { useCarteira } from '../hooks/useCarteira';
+import { useCartoes } from '../hooks/useCartoes';
+import OpcaoPersonalizarParcelas from './OpcaoPersonalizarParcelas';
 
 
 // ==========================================================
@@ -43,29 +47,17 @@ const CampoTexto = memo(({ label, campo, placeholder, valores, atualizarCampo })
   </View>
 ));
 
-const CampoMonetario = memo(({ label, campo, valores, atualizarCampo }) => {
-  const { texto, handleChange, setTexto } = useCurrencyInput(valores[campo] || 0, (valorNum) =>
-    atualizarCampo(campo, valorNum)
-  );
-
-  useEffect(() => {
-    setTexto(formatarBRL(valores[campo] || 0));
-  }, [valores[campo]]);
-
-  return (
-    <View style={globalStyles.inputGroup}>
-      <Text style={globalStyles.label}>{label}</Text>
-      <TextInput
-        style={globalStyles.input}
-        value={texto}
-        onChangeText={handleChange}
-        keyboardType="numeric"
-        placeholder="R$ 0,00"
-        placeholderTextColor={colors.textSecondary}
-      />
-    </View>
-  );
-});
+// 🔹 Adaptador fino para o padrão `campo`/`valores`/`atualizarCampo` já usado
+// por todos os campos deste arquivo — por baixo, sempre o mesmo componente
+// compartilhado por todo o app (`CampoMonetario.js`), nunca uma implementação
+// própria de máscara monetária.
+const CampoMonetario = memo(({ label, campo, valores, atualizarCampo }) => (
+  <CampoMonetarioCompartilhado
+    label={label}
+    valor={valores[campo]}
+    onChange={(valorNum) => atualizarCampo(campo, valorNum)}
+  />
+));
 
 const CampoData = memo(({ label, campo, valores, atualizarCampo }) => (
   <View style={globalStyles.inputGroup}>
@@ -121,7 +113,7 @@ const CampoStatusPago = memo(({ label, pago, aoAlternar }) => (
 // ==========================================================
 // 🔹 CAMPOS POR TIPO (ISOLADOS DO MODAL)
 // ==========================================================
-const CamposModal = memo(({ tipo, valores, atualizarCampo, marcarComoPago }) => {
+const CamposModal = memo(({ tipo, valores, atualizarCampo, marcarComoPago, parcelasExistentes, parcelasBloqueadas }) => {
   const renderCamposPorTipo = () => {
     switch (tipo) {
       case 'entrada':
@@ -175,7 +167,43 @@ const CamposModal = memo(({ tipo, valores, atualizarCampo, marcarComoPago }) => 
                 verdade. Achado durante a unificação Comprador/Membro, ver
                 SPRINT5_DISCOVERY.md seção 4.3.2. */}
             <MembroSelect label="Comprador" membroSelecionado={valores.pessoa} onSelecionar={(membro) => atualizarCampo('pessoa', membro)} />
-            <CampoMonetario label="Valor *" campo="valor" valores={valores} atualizarCampo={atualizarCampo} />
+            <CartaoSelect label="Cartão *" cartaoSelecionado={valores.cartao} onSelecionar={(cartao) => atualizarCampo('cartao', cartao)} />
+
+            {valores.pago || valores.adiantada ? (
+              <View style={globalStyles.inputGroup}>
+                <Text style={globalStyles.label}>Valor *</Text>
+                <Text style={[globalStyles.text, { color: colors.textSecondary }]}>
+                  R$ {Number(valores.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {'  '}· {valores.adiantada ? 'parcela antecipada' : 'parcela já paga'}, valor não pode ser alterado
+                </Text>
+              </View>
+            ) : !(Array.isArray(valores.parcelasPersonalizadas) && valores.parcelasPersonalizadas.length > 0) ? (
+              <CampoMonetario label="Valor *" campo="valor" valores={valores} atualizarCampo={atualizarCampo} />
+            ) : (
+              <View style={globalStyles.inputGroup}>
+                <Text style={globalStyles.label}>Valor desta parcela</Text>
+                <Text style={[globalStyles.text, { color: colors.textSecondary }]}>
+                  R${' '}
+                  {Number(
+                    valores.parcelasPersonalizadas[(valores.parcelaAtual || 1) - 1] || 0
+                  ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {'  '}· definido em "Editar valores das parcelas"
+                </Text>
+              </View>
+            )}
+
+            {(valores.totalParcelas || 1) > 1 && (
+              <OpcaoPersonalizarParcelas
+                totalParcelas={valores.totalParcelas}
+                valorBaseParaDivisaoIgual={Number(valores.valor || 0) * Number(valores.totalParcelas || 1)}
+                valoresExistentes={parcelasExistentes}
+                parcelasBloqueadas={parcelasBloqueadas}
+                parcelasPersonalizadas={valores.parcelasPersonalizadas}
+                onChange={(novoValor) => atualizarCampo('parcelasPersonalizadas', novoValor)}
+                descricao={valores.descricao}
+              />
+            )}
+
             <CampoData label="Data da Compra *" campo="dataCompra" valores={valores} atualizarCampo={atualizarCampo} />
             <CampoStatusPago label="Pago?" pago={valores.pago} aoAlternar={marcarComoPago} />
             {valores.pago && <CampoData label="Data de Pagamento 💰" campo="dataPagamento" valores={valores} atualizarCampo={atualizarCampo} />}
@@ -216,6 +244,43 @@ export default function ModalEdicao({ visivel, aoFechar, aoSalvar, aoExcluir, it
   const [valores, setValores] = useState({});
   const { categorias } = useCategorias();
   const { membros } = useMembros();
+  const { cartoesCadastrados } = useCarteira();
+  const { buscarParcelasDaCompra } = useCartoes();
+  const [parcelasExistentes, setParcelasExistentes] = useState(null);
+  const [parcelasBloqueadas, setParcelasBloqueadas] = useState(null);
+
+  // 🔹 Compra no cartão com mais de 1 parcela: busca os valores já gravados
+  // de todas as parcelas do grupo (não só a que está aberta agora) — usados
+  // como base do editor de parcelas. Se já não forem todas iguais, a compra
+  // já tinha sido personalizada antes; o editor deve abrir com esses valores
+  // reais, não recalculados. Também marca quais parcelas já estão pagas ou
+  // antecipadas — essas nunca podem ter o valor alterado (ver ARQUITETURA.md
+  // seção 15.9: risco de inconsistência financeira retroativa).
+  useEffect(() => {
+    if (tipo !== 'cartao' || !visivel || !item?.idCompra || (item?.totalParcelas || 1) <= 1) {
+      setParcelasExistentes(null);
+      setParcelasBloqueadas(null);
+      return;
+    }
+
+    let ativo = true;
+    buscarParcelasDaCompra(item.idCompra).then((parcelas) => {
+      if (!ativo) return;
+      const valoresReais = parcelas.map((p) => Number(p.valor) || 0);
+      const bloqueios = parcelas.map((p) => p.pago === true || p.adiantada === true);
+      setParcelasExistentes(valoresReais);
+      setParcelasBloqueadas(bloqueios);
+
+      const jaPersonalizada = valoresReais.some((v) => v !== valoresReais[0]);
+      if (jaPersonalizada) {
+        setValores((prev) => ({ ...prev, parcelasPersonalizadas: valoresReais }));
+      }
+    });
+
+    return () => {
+      ativo = false;
+    };
+  }, [visivel, tipo, item?.idCompra]);
 
 useEffect(() => {
   if (!visivel) return; // só roda se o modal estiver aberto
@@ -261,6 +326,17 @@ useEffect(() => {
     v.categoria = categorias.find((c) => c.id === v.categoriaId) || { nome: v.categoriaNome || v.categoria };
   } else if (v.categoria && typeof v.categoria === 'string') {
     v.categoria = { nome: v.categoria };
+  }
+
+  // 🔹 Cartão: resolve o objeto completo (cor/banco) a partir de cartaoId
+  // quando existir — mesmo padrão de categoriaId acima. Lançamentos antigos
+  // (só `cartao` string, sem cartaoId) ganham um objeto sintético só com o
+  // nome, sem `id` — handleSalvar sabe não gravar cartaoId nesse caso (ver
+  // ARQUITETURA.md, Sprint 6 — Entidade Cartões).
+  if (v.cartaoId) {
+    v.cartao = cartoesCadastrados.find((c) => c.id === v.cartaoId) || { nome: v.cartao };
+  } else if (v.cartao && typeof v.cartao === 'string') {
+    v.cartao = { nome: v.cartao };
   }
 
   // 🔹 Atualiza SOMENTE ao abrir o modal (não a cada re-render)
@@ -319,6 +395,14 @@ const handleSalvar = () => {
       }
       v.categoria = v.categoria.nome || '';
     }
+    // 🔹 CartaoSelect seleciona um objeto completo ({id, nome, cor, banco})
+    // — id fica null para "Outro cartão..." (mesmo tratamento do
+    // membro/pessoa acima, não o de categoria — cartão informal é um estado
+    // válido e intencional, não só "campo nunca tocado").
+    if (v.cartao && typeof v.cartao === 'object') {
+      v.cartaoId = v.cartao.id || null;
+      v.cartao = v.cartao.nome || '';
+    }
 
 
 
@@ -369,7 +453,14 @@ return (
           </View>
 
           {/* Campos (mantém exatamente como antes) */}
-          <CamposModal tipo={tipo} valores={valores} atualizarCampo={atualizarCampo} marcarComoPago={marcarComoPago} />
+          <CamposModal
+            tipo={tipo}
+            valores={valores}
+            atualizarCampo={atualizarCampo}
+            marcarComoPago={marcarComoPago}
+            parcelasExistentes={parcelasExistentes}
+            parcelasBloqueadas={parcelasBloqueadas}
+          />
 
           {/* Botões (mantém) */}
           <View style={[globalStyles.buttonRow, { marginTop: 20 }]}>

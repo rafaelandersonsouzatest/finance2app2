@@ -8,6 +8,8 @@ import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import { useProximosEventos } from '../hooks/useEventosFinanceiros';
 import ItemEventoFinanceiro from '../components/agenda/ItemEventoFinanceiro';
+import AlertaModal from '../components/AlertaModal';
+import ModalEditorParcelas from '../components/ModalEditorParcelas';
 
 const JANELA_DIAS = 7;
 
@@ -33,8 +35,20 @@ function Secao({ titulo, eventos, textoVazio, onToggleStatus, onEditar, onExclui
 }
 
 export default function CentralAvisosScreen() {
-  const { vencidos, venceHoje, proximosDias, loading, toggleStatus, editar, excluir } =
-    useProximosEventos(JANELA_DIAS);
+  const {
+    vencidos,
+    venceHoje,
+    proximosDias,
+    loading,
+    toggleStatus,
+    editar,
+    confirmarExcluir,
+    alertaExclusao,
+    fecharAlertaExclusao,
+    editorExclusao,
+    fecharEditorExclusao,
+    confirmarEditorExclusao,
+  } = useProximosEventos(JANELA_DIAS);
 
   if (loading) {
     return (
@@ -44,7 +58,7 @@ export default function CentralAvisosScreen() {
     );
   }
 
-  const acoes = { onToggleStatus: toggleStatus, onEditar: editar, onExcluir: excluir };
+  const acoes = { onToggleStatus: toggleStatus, onEditar: editar, onExcluir: confirmarExcluir };
 
   return (
     <ScrollView style={globalStyles.container} contentContainerStyle={{ padding: 16 }}>
@@ -55,6 +69,17 @@ export default function CentralAvisosScreen() {
         eventos={proximosDias}
         textoVazio="Nada previsto para os próximos dias."
         {...acoes}
+      />
+
+      <AlertaModal visible={alertaExclusao.visivel} onClose={fecharAlertaExclusao} {...alertaExclusao} />
+      <ModalEditorParcelas
+        visivel={editorExclusao.visivel}
+        aoFechar={fecharEditorExclusao}
+        aoConfirmar={confirmarEditorExclusao}
+        descricao={editorExclusao.descricao}
+        totalParcelas={editorExclusao.valoresIniciais.length}
+        valoresIniciais={editorExclusao.valoresIniciais}
+        bloqueadas={editorExclusao.bloqueadas}
       />
     </ScrollView>
   );

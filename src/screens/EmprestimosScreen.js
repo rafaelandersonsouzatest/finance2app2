@@ -7,6 +7,8 @@ import ListItemEmprestimo from '../components/ListItemEmprestimo';
 import ModalHistoricoParcelas from '../components/ModalHistoricoParcelas';
 import ModalParcelasAdiantamento from '../components/ModalParcelasAdiantamento';
 import AlertaModal from '../components/AlertaModal';
+import ModalEditorParcelas from '../components/ModalEditorParcelas';
+import { useExclusaoParcelada } from '../hooks/useExclusaoParcelada';
 
 // 🧩 Função auxiliar para extrair data de forma segura
 const extractDate = (item) => {
@@ -33,9 +35,21 @@ export default function EmprestimosScreen({ isEmbedded = false, onPressItem, onD
   const {
     emprestimos,
     updateEmprestimo,
-    deleteEmprestimo,
+    excluirParcela,
+    excluirGrupoInteiro,
+    excluirParcelaComValoresPersonalizados,
+    buscarParcelasDaCompra,
     anteciparParcelasEmprestimo, // ✅ pegamos a função daqui
   } = useEmprestimos(selectedMonth, selectedYear);
+
+  const {
+    confirmarExclusao,
+    alertaExclusao,
+    fecharAlertaExclusao,
+    editorExclusao,
+    fecharEditorExclusao,
+    confirmarEditorExclusao,
+  } = useExclusaoParcelada();
 
   // 🔹 Hook de adiantamento (agora recebe a função externa)
   const {
@@ -68,10 +82,18 @@ export default function EmprestimosScreen({ isEmbedded = false, onPressItem, onD
     if (item) await updateEmprestimo(id, { ...item, pago: !item.pago });
   };
 
-  // 🔹 Excluir parcela ou empréstimo
-  const handleExcluir = async (item) => {
-    if (!item?.id) return;
-    await deleteEmprestimo(item.id);
+  // 🔹 Excluir parcela ou empréstimo — mecanismo único, ver
+  // useExclusaoParcelada.js (ARQUITETURA.md seção 17).
+  const handleExcluir = (item) => {
+    confirmarExclusao({
+      item,
+      tipoLabel: 'Empréstimo',
+      suportaGrupo: true,
+      buscarParcelasDoGrupo: buscarParcelasDaCompra,
+      excluirParcela,
+      excluirGrupoInteiro,
+      excluirComValoresPersonalizados: excluirParcelaComValoresPersonalizados,
+    });
   };
 
   return (
@@ -116,6 +138,17 @@ export default function EmprestimosScreen({ isEmbedded = false, onPressItem, onD
               visible={alerta.visivel}
               onClose={() => setAlerta({ ...alerta, visivel: false })}
               {...alerta}
+            />
+
+            <AlertaModal visible={alertaExclusao.visivel} onClose={fecharAlertaExclusao} {...alertaExclusao} />
+            <ModalEditorParcelas
+              visivel={editorExclusao.visivel}
+              aoFechar={fecharEditorExclusao}
+              aoConfirmar={confirmarEditorExclusao}
+              descricao={editorExclusao.descricao}
+              totalParcelas={editorExclusao.valoresIniciais.length}
+              valoresIniciais={editorExclusao.valoresIniciais}
+              bloqueadas={editorExclusao.bloqueadas}
             />
           </>
     </View>

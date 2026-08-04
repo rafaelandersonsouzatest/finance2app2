@@ -203,3 +203,19 @@ Duas decisões desta sprint afetam diretamente fases futuras deste roadmap:
 - **Fase 6 — IA**: o campo `motor` no formato do avatar (`{ tipo, motor, versao, dados }`)
   permite trocar ou complementar o motor de geração (ex.: um avatar gerado por IA) sem
   quebrar avatares já existentes.
+
+---
+
+## Atualização — Entidade Cartões / Carteira (2026-08-05)
+
+Sprint 6: "Cartão" deixou de ser uma string livre digitada em cada compra e virou uma
+entidade própria (`users/{uid}/carteira`, via `useCarteira.js`), no mesmo desenho de
+Categorias e Membros. Ver `PROJECT_STATUS.md` seção 14 e `ARQUITETURA.md` seção 16 para o
+desenho técnico completo.
+
+| Fase | Como a Entidade Cartões se conecta a ela |
+|---|---|
+| Fase 2 — Modo Família | Cartões vivem em `getBasePath(user)` sem `compartilhado=true`, mesma posição de `categorias`/`membros` — viram compartilháveis entre membros da família só trocando essa chamada, quando o gap de `tenantId` (ver seção 3 de `ARQUITETURA.md`) for resolvido. Útil desde já: uma família real costuma ter cartões titulares/adicionais compartilhados entre seus membros. |
+| Fase 5 — Premium | O modelo de dados já reserva espaço para `limite`, `bandeira`, `cashback`, `anuidade`, `programa de pontos` (não implementados nesta sprint) — candidatos naturais a diferenciação de tier quando os planos pagos forem definidos (ex.: número de cartões cadastrados, alertas de fatura). |
+| Fase 6 — IA | `cartaoId` estável é a mesma chave que reconhecimento de padrão de gasto por cartão (ex.: "esse cartão você usa mais para Lazer") precisaria — sem ela, esse tipo de recurso ficaria refém de comparação de texto frágil, mesmo raciocínio já registrado para `categoriaId` acima. |
+| Nova fase a considerar (Open Finance, seção Product Discovery) | Um cartão cadastrado com identidade própria (nome, banco, cor, vencimento) é a estrutura de dados natural para receber, no futuro, uma importação automática de fatura por Open Finance — não implementado, só uma base que não precisaria ser redesenhada quando essa fase for avaliada. |

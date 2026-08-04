@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { MembroSelect } from "../components/MembroSelect";
+import CampoMonetario from "./CampoMonetario";
 import { globalStyles } from "../styles/globalStyles";
 import { colors } from "../styles/colors";
 import ModernTabs from "./ModernTabs";
@@ -32,7 +33,11 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
   const { membros } = useMembros();
 
   const [descricao, setDescricao] = useState("");
-  const [valor, setValor] = useState("");
+  // 🔹 Valor monetário edita via CampoMonetario (número, mesmo componente
+  // usado em todo o resto do app); porcentagem é um campo numérico solto,
+  // sem relação com o padrão monetário — não faz sentido unificar os dois.
+  const [valorMonetario, setValorMonetario] = useState(0);
+  const [valorPercentual, setValorPercentual] = useState("");
   const [categoria, setCategoria] = useState(null);
   const [dia, setDia] = useState("");
   const [membro, setMembro] = useState(null);
@@ -45,31 +50,17 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
   const keyMes = `${selectedYear}-${selectedMonth}`;
   const entradasSelecionadas = entradasPorMes[keyMes] || [];
 
-  // 💰 Formata como moeda (R$ 0,00)
-  const formatarMoeda = (texto) => {
-    const numeros = String(texto || "").replace(/\D/g, "");
-    const valorNumerico = Number(numeros) / 100;
-
-    return valorNumerico.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
-  };
-
-  // 🔢 Remove máscara e devolve número limpo
-  const desformatarMoeda = (texto) => {
-    return String(texto || "").replace(/[R$\s.]/g, "").replace(",", ".");
-  };
-
   // 🔄 Preenche ao editar
   useEffect(() => {
     if (initialData) {
       setDescricao(initialData.descricao || "");
-      setValor(
-        initialData?.modoCalculo === "porcentagem"
-          ? String(initialData.valor ?? "")
-          : formatarMoeda(String(initialData.valor ?? 0))
-      );
+      if (initialData?.modoCalculo === "porcentagem") {
+        setValorPercentual(String(initialData.valor ?? ""));
+        setValorMonetario(0);
+      } else {
+        setValorPercentual("");
+        setValorMonetario(Number(initialData.valor) || 0);
+      }
       if (initialData.categoriaId) {
         setCategoria(
           categorias.find((c) => c.id === initialData.categoriaId) || {
@@ -109,7 +100,8 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
       }
     } else {
       setDescricao("");
-      setValor("");
+      setValorPercentual("");
+      setValorMonetario(0);
       setCategoria(null);
       setDia("");
       setMembro(null);
@@ -125,11 +117,9 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
   const validarCampos = () => {
     const novosErros = {};
     const valorNum =
-      parseFloat(
-        modoCalculo === "porcentagem"
-          ? String(valor).replace(",", ".")
-          : desformatarMoeda(valor)
-      ) || 0;
+      modoCalculo === "porcentagem"
+        ? parseFloat(String(valorPercentual).replace(",", ".")) || 0
+        : Number(valorMonetario) || 0;
 
     const diaNum = parseInt(dia, 10);
 
@@ -158,11 +148,9 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
     const modelo = {
       descricao: descricao.trim(),
       valor:
-        parseFloat(
-          modoCalculo === "porcentagem"
-            ? String(valor).replace(",", ".")
-            : desformatarMoeda(valor)
-        ) || 0,
+        modoCalculo === "porcentagem"
+          ? parseFloat(String(valorPercentual).replace(",", ".")) || 0
+          : Number(valorMonetario) || 0,
       // 🔹 categoria (string) mantida por compatibilidade com exibição
       // existente; categoriaId/categoriaNome são a referência estável para
       // Metas/Relatórios futuros (ver SPRINT4_DISCOVERY.md).
@@ -259,30 +247,44 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
       )}
 
       {/* Valor */}
-      <TextInput
-        placeholder={
-          modoCalculo === "porcentagem" ? "Porcentagem (%) *" : "Valor *"
-        }
-        value={valor}
-        onChangeText={(t) => {
-          if (modoCalculo === "porcentagem") {
-            setValor(t.replace(/[^0-9.,]/g, ""));
-          } else {
-            setValor(formatarMoeda(t));
-          }
-
-          if (erros.valor) {
-            setErros((prev) => ({ ...prev, valor: null }));
-          }
-        }}
-        keyboardType="decimal-pad"
-        placeholderTextColor={colors.textSecondary}
-        style={[
-          globalStyles.input,
-          erros.valor && globalStyles.inputError,
-          tipo === "entrada" && { marginTop: 12 },
-        ]}
-      />
+      {modoCalculo === "porcentagem" ? (
+        <TextInput
+          placeholder="Porcentagem (%) *"
+          value={valorPercentual}
+          onChangeText={(t) => {
+            setValorPercentual(t.replace(/[^0-9.,]/g, ""));
+            if (erros.valor) {
+              setErros((prev) => ({ ...prev, valor: null }));
+            }
+          }}
+          keyboardType="decimal-pad"
+          placeholderTextColor={colors.textSecondary}
+          style={[
+            globalStyles.input,
+            erros.valor && globalStyles.inputError,
+            tipo === "entrada" && { marginTop: 12 },
+          ]}
+        />
+      ) : (
+        // 🔹 Mesmo componente de entrada monetária usado em todo o app —
+        // antes daqui era uma máscara própria (formatarMoeda/desformatarMoeda),
+        // achado numa auditoria pedida pelo usuário (ver ARQUITETURA.md).
+        <CampoMonetario
+          placeholder="Valor *"
+          valor={valorMonetario}
+          onChange={(v) => {
+            setValorMonetario(v);
+            if (erros.valor) {
+              setErros((prev) => ({ ...prev, valor: null }));
+            }
+          }}
+          style={{ marginBottom: 0 }}
+          textInputStyle={[
+            erros.valor && globalStyles.inputError,
+            tipo === "entrada" && { marginTop: 12 },
+          ]}
+        />
+      )}
       {erros.valor && (
         <Text style={globalStyles.errorMessage}>{erros.valor}</Text>
       )}
@@ -521,7 +523,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
                         >
                           {entrada.descricao} — R${" "}
                           {Number(entrada.valor || 0).toFixed(2)} (
-                          {typeof entrada.membro === "object"
+                          {entrada.membro && typeof entrada.membro === "object"
                             ? entrada.membro?.nome || "Sem nome"
                             : entrada.membro || "Sem membro"}
                           )

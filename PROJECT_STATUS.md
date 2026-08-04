@@ -10,6 +10,7 @@
 | **0.2.0** — Hub do Usuário, Agenda Financeira e Perfil | 2026-07-28 | `63b5375` | `meu-app`, `rafael`, `christian` | `main` |
 | **0.3.0** — Sprint 4: Categorias e Subcategorias (base do Planejamento Financeiro) | 2026-07-29 | `b6c1715` | `meu-app`, `rafael`, `christian` | `main` |
 | **0.3.1** — chore: owner do Expo do ambiente Convidado renomeado para `finance-app-convidado` | 2026-07-29 | `e48014e` | `meu-app`, `rafael`, `christian` | `main` |
+| **0.4.0** — Sprint 5: Sistema de Identidade e Avatares | 2026-07-30 | `47cd7a7` | `meu-app`, `rafael`, `christian` | `main` |
 
 Publicada com o script `publish-all.ps1` (novo, raiz do projeto — ver seção 11). Antes desta release, corrigido um bug de configuração que impedia publicar para `christian`: `app.config.js` tinha um `owner` fixo (`rafael.anderson.souza`) para todos os ambientes, mas o projeto `christian` (hoje o ambiente de distribuição para convidados/testadores externos) pertence a uma organização Expo diferente (`finance-app-convidado`) — `owner` agora varia por `APP_ENV`, mesmo padrão já usado para `name`/`slug`/`projectId` (ver `ARQUITETURA.md` seção 7).
 
@@ -42,6 +43,8 @@ O script **não** publica para `marina` — se um dia isso for necessário, é s
 - **Perfil do Usuário** (mini sprint, ✅ implementada em 2026-07-28, ver seção 10): `ContaScreen.js` permite editar o nome de exibição (`apelido`) diretamente; "Alterar senha" (`AlterarSenhaScreen.js`, já existia mas estava fora de navegação) agora está acessível por ali; fallback de nome melhorado (usa a parte antes do `@` do e-mail antes de cair em "Usuário" genérico); e `avatarUrl: null` já reservado no perfil para uma futura foto de usuário.
 - **Categorias e Subcategorias / módulo Planejamento Financeiro** (Sprint 4, ✅ implementada em 2026-07-28, ver seção 11): categorias deixaram de ser texto solto no aparelho e viraram entidade sincronizada do Firestore, com hierarquia (categoria → subcategoria), gerenciável em Menu do Usuário → Planejamento Financeiro → Categorias. Primeira funcionalidade do novo módulo Planejamento Financeiro, que vai abrigar Metas Financeiras (Sprint 6), Orçamentos, Limites e Relatórios.
 - **Identidade e Avatares** (Sprint 5, ✅ implementada em 2026-07-30, ver seção 12): "usuário autenticado" e "Membro" deixaram de ser dois conceitos paralelos — todo usuário ganha um membro-espelho automaticamente (`ehProprietario: true`), e "Comprador" (cartão) e "Membro" (entrada) foram unificados num único seletor (`membroId`/`membroNome`). Todo Membro (cadastrado ou "Outra pessoa..." informal) tem um avatar vetorial gerado automaticamente (DiceBear/`avataaars`), com editor completo por seções (rosto, cabelo, barba, roupa, expressão, acessórios, fundo).
+- **Parcelas personalizadas no cartão** (✅ implementada em 2026-08-03, ver seção 13): uma compra parcelada no cartão pode ter parcelas com valores diferentes entre si (ex.: taxa de emissão só na 1ª parcela) via a opção opcional "Editar valores das parcelas", tanto na criação quanto na edição de uma compra já existente. O comportamento automático (parcelas iguais) continua sendo o padrão em 100% dos casos que não usarem essa opção.
+- **Entidade Cartões / Carteira** (✅ implementada em 2026-08-05, ver seção 14): "Cartão" deixou de ser uma string livre digitada em cada compra e virou uma entidade própria (`useCarteira.js`, coleção `users/{uid}/carteira`), no mesmo padrão de Categorias e Membros — cadastro com nome, banco, últimos 4 dígitos, cor, dia de vencimento e de fechamento, gerenciável em Menu do Usuário → Cartões (deixou de ser placeholder), com um seletor próprio (`CartaoSelect`) substituindo o campo de texto livre em `ModalCriacao`/`ModalEdicao`. Compras antigas (só o nome em texto, sem cartão cadastrado) continuam funcionando sem qualquer migração.
 
 ## 2. Em desenvolvimento (mudanças presentes no working tree, ainda não commitadas)
 
@@ -60,6 +63,8 @@ Conforme `git status` no momento desta análise:
   - **Conclusão**: o Modo Família tem UI parcial, mas nenhuma trilha de dados funcional até hoje.
 - **Alterar Senha** (`AlterarSenhaScreen.js`): implementada, mas fora da navegação ativa (comentada em `BottomTabs.js`).
 - **Login com Google** (`loginWithGoogle` em `useAuth.js`): implementado via `expo-auth-session` com fluxo manual de `authUrl`, mas não foi verificado nesta análise se o botão está exposto/funcional nas telas de login atuais.
+- **Linha do Tempo (Histórico de Eventos) — Gastos, Entradas e Investimentos**: implementada
+  para Cartões e Empréstimos (ver seção 16); esses três módulos ainda não emitem eventos.
 
 ## 4. Código morto identificado (candidatos a remoção, não removidos nesta análise)
 
@@ -83,11 +88,13 @@ Conforme `git status` no momento desta análise:
 | ~~Campo de valor em movimentações de investimento sem máscara monetária~~ ✅ Corrigido (2026-07-25) | `MovimentacaoInvestModal.js` | — era `TextInput` puro; agora usa `useCurrencyInput` |
 | ~~Membro do modelo não copiado para a entrada gerada~~ ✅ Corrigido (2026-07-25) | `useEntradas.js` (`gerarFixosDoMes`) | — o objeto da entrada gerada nunca incluía o campo `membro` do modelo; `useGastos.js` não tem esse problema (gastos não usam o conceito de membro) |
 | ~~FAB da tela de Investimentos não flutuava (ficava preso no fluxo do layout)~~ ✅ Corrigido (2026-07-25) | `TelaPadrao.js` | — `globalStyles.fabPrimary` não declara `position`/`right`/`bottom` (o `FabMenu`, usado pelas outras telas, fornece isso via seu próprio wrapper); o botão simples (usado só quando não há `fabActions`, caso de Investimentos) esquecia de declarar `position: 'absolute'` |
-| Divisão de parcelas sem arredondamento de centavos | `useEmprestimos.js`, e também `ModalCriacao.js`/`GastoCartaoCard.js`/`TelaPadrao.js` (achado ampliado na varredura de 2026-07-24, ver seção 6) | Média |
+| Divisão de parcelas sem arredondamento de centavos | `useEmprestimos.js`, e também `ModalCriacao.js`/`GastoCartaoCard.js`/`TelaPadrao.js` (achado ampliado na varredura de 2026-07-24, ver seção 6). No cartão, o sintoma mais grave (`valorTotal` podendo ficar diferente da soma das parcelas) foi corrigido na Sprint de Parcelas Personalizadas (ver seção 13) — a divergência residual de poucos centavos no split automático em si (ex.: R$100 ÷ 3) continua existindo, mas hoje só nesse ponto, não mais se propagando para o total exibido | Média → Baixa (só cartão) |
 | ~~`Math.max(0, ...)` mascarava saldo negativo real de investimento~~ ✅ Corrigido (Sprint 1 / A4, 2026-07-24) | `useInvestimentos.js` | — regra de negócio: saldo nunca fica negativo, validada em `addTransaction`/`updateTransaction`/`deleteTransaction`/`updateInvestment` (rejeitam a operação em vez de só clampar o valor exibido); `Math.max(0)` virou só rede de segurança visual para dados legados |
 | Movimentações de investimento reescritas como array inteiro sem transação atômica | `useInvestimentos.js` | Média — risco de condição de corrida entre dispositivos |
 | `idCompra` gerado sem sanitização (colisão possível) | `useCartoes.js` | Baixa/Média |
-| "Fechamento estimado" de fatura hardcoded (`diaVencimento - 7`) | `useCartoes.js` | Baixa |
+| ~~"Fechamento estimado" de fatura hardcoded (`diaVencimento - 7`)~~ ✅ Resolvido para cartões cadastrados (2026-08-05, Sprint 6) | `useCartoes.js` | — `diaFechamento` real vem do cadastro do cartão (`useCarteira.js`) quando o lançamento referencia um; a estimativa continua só para cartão informal/lançamento antigo, sem cadastro — ver seção 14 |
+| Reverter antecipação de parcela do cartão não restaura a data original | `useCartoes.js` (`updateCartao`, branch "Reverter antecipação?") | Baixa — achado em 2026-08-03 investigando a consistência de `valorTotal`: `anteciparParcelas` nunca gravou `mesOriginal`/`anoOriginal` (só `useEmprestimos.js` grava esses campos), então a reversão sempre cai no fallback `atual.mes`/`atual.ano` em vez do mês/ano de vencimento originais. O valor (`valorOriginal`) foi corrigido junto (ver seção 13); a data ficou de fora por ser um problema separado, não coberto pelo pedido |
+| ~~`typeof x === 'object'` sem excluir `null` produzia `membro`/`categoria: undefined` (Firestore rejeita em qualquer escrita futura)~~ ✅ Corrigido (2026-08-04) | Varredura completa em todos os hooks/listeners — `useCartoes.js`, `useEntradas.js` (os 2 com o padrão em si), e o mesmo risco de campo sem fallback também em `useGastos.js`/`useEmprestimos.js` (`gerarFixosDoMes`/`addEmprestimo`) | — ver seção 13 para o detalhe completo; `useInvestimentos.js`/`useMembros.js`/`useCategorias.js`/`useModelos.js` auditados e já estavam seguros |
 | ~~Validação de força de senha é só visual, não era exigida no submit~~ ✅ Corrigido (Sprint 1 / B2, 2026-07-24) | `RegisterScreen.js` | — `validarSenha()` existia mas nunca era chamada em `handleRegister` (achado durante a correção); agora é chamada, com regra rigorosa em produção e simplificada (`__DEV__`) em desenvolvimento |
 | ~~Checagem de CPF/e-mail duplicado é só client-side, sem garantia atômica~~ ✅ Corrigido (Sprint 1, 2026-07-24) | `useAuth.js` register | — checagem de CPF agora via reserva `documentosCadastrados`, e-mail delegado ao Firebase Auth nativo, escrita em `writeBatch` |
 | ~~Race condition entre `register()` e o listener `onAuthStateChanged`~~ ✅ Corrigido (Sprint 1, 2026-07-24) | `useAuth.js` | — descoberto durante a revisão do fluxo de cadastro; perfil podia nascer com dados incompletos dependendo de qual dos dois "ganhasse" a corrida |
@@ -116,7 +123,7 @@ Varredura completa do app em busca de parse/formatação/cálculo de dinheiro fo
 
 | # | Achado | Prioridade |
 |---|---|---|
-| 1 | 5 implementações paralelas de parse/formatação de moeda (`formatarValor.js`, `GerenciarModelosModal.js`, `EstatisticasComponent.js`, `SaidasScreen.js`, `VisibilityContext.js` — esta última é a mais usada no app) | 🟠 Alta |
+| 1 | ~~5 implementações paralelas de parse/formatação de moeda~~ — a de `GerenciarModelosModal.js` (`formatarMoeda`/`desformatarMoeda`, usada na *edição* do campo "Valor") foi eliminada em 2026-08-05 (ver seção 13, `CampoMonetario.js`). Seguem de pé, fora do escopo dessa correção (formatação de *exibição*, não de edição): `formatarValor.js`, `EstatisticasComponent.js`, `SaidasScreen.js`, `VisibilityContext.js` (esta última a mais usada no app) | 🟠 Alta → Média |
 | 2 | Bug "vírgula sem tratar milhar" ativo em `MovimentacaoInvestModal.js` (campo não passa por `useCurrencyInput`) | 🔴 Alta |
 | 3 | Divisão de parcelas sem arredondamento (`ModalCriacao.js`) + reconstituição inversa em 3 lugares (`GastoCartaoCard.js`, `TelaPadrao.js`) — risco de "drift" de centavos visível ao usuário | 🟠 Alta |
 | 2b | Mesmo bug de vírgula, mas em código hoje inativo (`ModalEdicao.js`, `GerenciarModelosModal.js`, `InvestimentosScreen.js`) | 🟡 Média |
@@ -149,7 +156,7 @@ Arquitetura completa em `ARQUITETURA.md` seção 11. Todos os 7 passos da propos
 | 👤 Conta | Ver nome, ver e-mail, logout (com confirmação) | Alterar nome/e-mail/senha (`AlterarSenhaScreen.js` já pronta para reaproveitar), vincular Google, excluir conta, gerenciamento de plano |
 | 💰 Financeiro | Só estrutura (tela placeholder) | Moeda, backup/importação/exportação |
 | 👥 Membros | Tela oficial de administração, consumindo o novo `useMembros.js` (mesma lógica do seletor rápido — elimina a triplicação, ver seção 3); **avatares por membro** implementados na Sprint 5 (ver seção 12) | Convite por link, permissões (Modo Família) |
-| 💳 Cartões | Só estrutura (tela placeholder — hoje não existe nem o conceito de "cartão cadastrado" separado de lançamento) | Cartão padrão, ordenar, arquivar, configurações específicas |
+| 💳 Cartões | ✅ Funcional desde a Sprint 6 (2026-08-05, ver seção 14) — listar/criar/editar/arquivar cartões cadastrados, visual próprio | Cartão padrão, ordenar, limite/bandeira/cashback/anuidade/programa de pontos |
 | 🎨 Aparência | Só estrutura (tela placeholder) | Tema claro/escuro/automático, personalizações |
 | 🔔 Notificações | Só estrutura (tela placeholder) | Contas vencendo, parcelas, investimentos, metas, lembretes |
 | ℹ️ Sobre | Versão do app, nome do app | Changelog, política de privacidade, termos, contato |
@@ -349,3 +356,288 @@ importante da auditoria de fechamento):
 **Itens registrados como melhoria futura (não bloqueiam o fechamento da sprint)**: ver
 `SPRINT5_DISCOVERY.md` para a lista completa, incluindo a ideia de detectar nomes repetidos
 de "Outra pessoa..." entre lançamentos e oferecer a conversão retroativa para um Membro real.
+
+## 13. Parcelas personalizadas no cartão (✅ implementada em 2026-08-03)
+
+Discovery completo (análise da arquitetura de parcelamento existente, problemas encontrados,
+opções avaliadas) registrado na conversa que antecedeu esta implementação — resumo técnico
+em `ARQUITETURA.md` seção 15. Motivação: uma compra parcelada podia ter uma taxa (emissão,
+IOF etc.) só na 1ª parcela, cenário que a arquitetura anterior não suportava sem quebrar a
+consistência do total exibido em outras telas.
+
+- **Correção de base (antes de qualquer tela nova)**: `valorTotal` de uma compra no cartão
+  deixou de poder ficar diferente da soma das parcelas. `useCartoes.js` ganhou
+  `recalcularValorTotalCompra` (mesmo padrão já usado por `recalcularEconomiaTotal` em
+  `useEmprestimos.js`), chamada sempre que o valor de uma parcela é editado — mesmo fora do
+  novo editor, por um edição direta do campo "Valor" já existente. Isso corrige uma
+  inconsistência que já existia antes desta sprint: `GastoCartaoCard.js` lê o campo
+  `valorTotal` diretamente (não resoma as parcelas como `ModalDetalhes.js`/
+  `ModalHistoricoParcelas.js` já faziam), então uma edição pontual de parcela deixava esse
+  card com o total errado.
+- **Interface inalterada para o caso comum**: os dois modos de lançamento existentes ("Valor
+  Total" / "Valor da Parcela") continuam exatamente iguais. Uma única opção nova, "Editar
+  valores das parcelas" (`OpcaoPersonalizarParcelas.js`), aparece só quando há mais de 1
+  parcela, tanto em `ModalCriacao.js` quanto em `ModalEdicao.js`.
+- **Editor** (`ModalEditorParcelas.js`): nasce preenchido com o cálculo automático de sempre
+  (ou com os valores já gravados, se a compra já tinha parcelas diferentes entre si);
+  mostra o total somado em tempo real; editar uma parcela nunca recalcula as demais
+  (comportamento explicitamente pedido — redistribuição automática fica registrada como
+  possível melhoria futura, não implementada); botão "Restaurar parcelas iguais" reparte o
+  total atual (o que está sendo mostrado no momento, não o valor original antes de abrir o
+  editor) igualmente entre as parcelas.
+- **Sem migração**: nenhum campo novo obrigatório foi criado. Cada parcela continua sendo um
+  documento próprio na subcoleção `cartoes`, só com o `valor` correspondente — a
+  personalização não é um "modo" gravado no banco, é só uma consequência de as parcelas do
+  mesmo `idCompra` não serem todas iguais. Compras antigas continuam funcionando sem
+  qualquer alteração de leitura.
+- **Regra de negócio (decidida em 2026-08-03): parcela paga/antecipada não pode ter o valor
+  alterado.** Avaliadas duas opções (bloquear só as pagas vs. permitir editar qualquer uma) —
+  optamos por bloquear, para não permitir reescrever quanto já foi efetivamente pago (mesmo
+  princípio já usado para `valorContratado` do empréstimo). Aplicado em duas camadas: UI
+  (`ModalEditorParcelas.js` mostra a linha com cadeado, sem campo editável; "Restaurar
+  parcelas iguais" nunca redistribui sobre elas; `ModalEdicao.js` também bloqueia o campo
+  "Valor" comum quando a própria parcela aberta já está paga/antecipada) e dados
+  (`updateCartao`/`salvarParcelasPersonalizadas`, em `useCartoes.js`, ignoram qualquer
+  mudança de valor numa parcela bloqueada, mesmo que a UI tentasse enviar outra coisa —
+  defesa em profundidade). Metadados (descrição, comprador, data, categoria) continuam
+  editáveis numa parcela paga; só o valor é imutável. Detalhe técnico completo em
+  `ARQUITETURA.md` seção 15.9, incluindo uma lacuna preexistente encontrada e corrigida no
+  caminho: `anteciparParcelas` nunca recalculava o `valorTotal` do grupo (nem gravava
+  `valorOriginal`), então tanto antecipar quanto reverter uma antecipação deixavam o total
+  dessincronizado — corrigido junto, por ser a mesma inconsistência que esta sprint já existia
+  para eliminar.
+- **Destaque no histórico** (`ModalHistoricoParcelas.js`): além de Pendente/Antecipada/Paga
+  (que já existiam, iguais para empréstimo e cartão), parcelas de cartão com valor
+  personalizado agora ganham o selo "✏️ Valor personalizado" — calculado a cada abertura do
+  histórico (não é um campo gravado), comparando o valor original de cada parcela contra uma
+  divisão igual do total do grupo.
+- **Bug real corrigido (2026-08-04): `Unsupported field value: undefined` ao salvar compra de
+  "Outra pessoa..." personalizada.** Duas causas raiz em `useCartoes.js`, nenhuma introduzida
+  por esta sprint (só exposta por ela): (1) o listener de `cartoes` declarava um campo
+  `membro` vestigial (cartão nunca grava isso — usa `pessoa`/`membroId`/`membroNome`), sempre
+  `undefined`; removido. (2) `typeof x === 'object'` sem excluir `null` fazia `categoria`
+  virar `undefined` (em vez de continuar `null`) em toda compra sem categoria selecionada.
+  Corrigido nos dois pontos, e `useCartoes.js` ganhou `removerIndefinidos()` aplicada a toda
+  escrita que parte de dado vindo de UI — defesa em profundidade para qualquer campo
+  parecido que apareça depois. A função foi extraída para `src/utils/firestoreSanitize.js`
+  (compartilhada) no dia seguinte, quando o mesmo padrão sem guard foi encontrado e corrigido
+  em `useEntradas.js` também — ver linha correspondente na seção 5 e detalhe completo em
+  `ARQUITETURA.md` seção 15.11.
+- **Varredura completa do bug em todos os hooks (2026-08-04)**, a pedido do usuário, para
+  eliminar a classe inteira (não só os dois casos já corrigidos): confirmado que só
+  `useCartoes.js`/`useEntradas.js` tinham o padrão `typeof === 'object'` sem excluir `null`
+  nos seus listeners (ambos já corrigidos); encontrados e corrigidos dois gêmeos do mesmo
+  risco em formato de campo opcional sem `|| null` — `useGastos.js` (`gerarFixosDoMes`) e
+  `useEmprestimos.js` (`addEmprestimo`), nenhum alcançável pelo fluxo atual do app, mas
+  protegidos contra dados legados. `useInvestimentos.js`, `useMembros.js`, `useCategorias.js`
+  e `useModelos.js` auditados e já estavam seguros — não alterados. `removerIndefinidos()`
+  agora também protege as escritas de `useGastos.js` e `useEmprestimos.js`. Também corrigidos
+  dois casos do mesmo padrão sem guard em telas de exibição pura (`GastoCartaoCard.js`,
+  `GerenciarModelosModal.js`) — sem risco de crash (não escrevem no Firestore), corrigidos por
+  completude. Nenhum outro campo vestigial (como o `membro` de cartão) foi encontrado.
+- **Confirmado (2026-08-04): `removerIndefinidos` remove só `undefined`.** Verificado por
+  leitura e teste empírico — `null`, `""`, `NaN`, `0`, `false` e objetos/arrays vazios nunca
+  são removidos. Comentário no arquivo atualizado para deixar esse contrato explícito.
+- **Bug real corrigido (2026-08-04): total do card ficava obsoleto depois de personalizar
+  parcelas.** Causa raiz: `updateCartao` recebia `valorTotal` como parte do objeto de edição
+  (vindo de `item`, cacheado de quando o modal abriu) e nunca o descartava — então qualquer
+  "Salvar" (mesmo o do próprio editor de parcelas, ou uma edição sem relação nenhuma como só a
+  descrição) reescrevia o `valorTotal` correto de volta para o valor antigo, só na parcela que
+  estava aberta no momento. `GastoCartaoCard.js` (única tela que ainda lê esse campo direto)
+  mostrava o valor poluído; `ModalDetalhes.js`/`ModalHistoricoParcelas.js` sempre resomam as
+  parcelas, por isso mostravam o valor certo e mascaravam o bug. Corrigido removendo
+  `valorTotal` do objeto recebido por `updateCartao` antes de qualquer escrita — só as
+  funções dedicadas (`recalcularValorTotalCompra`/`salvarParcelasPersonalizadas`) podem
+  defini-lo agora, por construção. Mesma causa raiz corrigida por precaução em
+  `useEmprestimos.js` (`economiaTotal`, que pode mudar depois da criação — diferente de
+  `valorContratado`, que nunca muda). Detalhe completo em `ARQUITETURA.md` seção 15.13.
+- **Bug corrigido (2026-08-04): valores no histórico de parcelas com ponto em vez de
+  vírgula.** `ParcelaItem`, em `ModalHistoricoParcelas.js`, usava `.toFixed(2)`/`.toFixed(1)`
+  (sempre ponto, independente de localidade) em vez de `.toLocaleString('pt-BR', ...)` — o
+  padrão que o componente vizinho no mesmo arquivo (`ResumoFinanceiro`) já usava
+  corretamente. Corrigidas as 4 ocorrências. Detalhe em `ARQUITETURA.md` seção 15.14.
+- **Auditoria de campos monetários (2026-08-05), a pedido do usuário**: confirmado que
+  `ModalEditorParcelas.js` já usava a mesma máscara (`useCurrencyInput`) do resto do app — a
+  edição de parcela nunca teve um parse diferente. Duas diferenças reais encontradas, nenhuma
+  na máscara em si: `GerenciarModelosModal.js` tinha sua própria implementação paralela
+  (`formatarMoeda`/`desformatarMoeda`, sem o debounce que `useCurrencyInput` tem); e
+  `LinhaParcela` (dentro do editor de parcelas) não era `memo`izada, então digitar numa linha
+  re-renderizava a lista inteira. Extraído `src/components/CampoMonetario.js` (único
+  componente de entrada monetária do app, exportado) e migrados os dois pontos para ele —
+  `ModalEdicao.js` também passou a importar de lá (era onde o componente já existia, só não
+  compartilhado). `ModalCriacao.js` ficou de fora por decisão explícita: já usa o mesmo
+  `useCurrencyInput` por baixo, migrar seria só estética num arquivo grande e frágil, sem
+  reduzir bug nenhum. Detalhe completo em `ARQUITETURA.md` seção 15.15.
+- **Arquivos**: `src/utils/parcelamento.js` (novo, `dividirValorIgualmente`/`somarParcelas`),
+  `src/components/ModalEditorParcelas.js` (novo), `src/components/OpcaoPersonalizarParcelas.js`
+  (novo), `src/hooks/useCartoes.js` (`recalcularValorTotalCompra`,
+  `salvarParcelasPersonalizadas`, `buscarParcelasDaCompra`, e `addCartao`/`updateCartao`/
+  `anteciparParcelas` ajustados), `src/components/ModalCriacao.js`, `src/components/ModalEdicao.js`
+  (opção nova + campos automáticos desabilitados enquanto personalizado ou já pago) e
+  `src/components/ModalHistoricoParcelas.js` (selo de valor personalizado).
+- **Fora do escopo desta sprint, por decisão explícita**: o mesmo recurso para
+  `useEmprestimos.js` (arquitetura de âncora diferente — `valorContratado` fixo — precisaria
+  de uma proposta própria) e qualquer redistribuição automática entre parcelas ao editar uma
+  delas.
+
+## 14. Entidade Cartões / Carteira (✅ implementada em 2026-08-05, Sprint 6)
+
+Quarta entidade própria do sistema (depois de Categorias, Membros e Modelos), não só uma
+tela de cadastro nova — ver `ARQUITETURA.md` seção 16 para o desenho técnico completo. Motivação:
+"Cartão" era uma string livre digitada em cada compra, com vencimento/cor resolvidos por três
+lookups hardcoded independentes (`vencimentoCartaoPorNome`, `colors.byInstitution`, uma
+heurística de ícone por `.includes()`) — só previa 3 bancos (Nubank/Inter/C6), não escalava
+para usuários diferentes com cartões diferentes.
+
+- **Decisão de nome de coleção**: a entidade nova vive em `users/{uid}/carteira`, não
+  `cartoes` — esse nome já era usado pelos lançamentos (parcelas de compra) desde antes desta
+  sprint. Renomear a coleção de lançamentos para liberar "cartoes" foi avaliado e descartado
+  em conversa com o usuário (exigiria migração só por causa do nome, sem ganho real).
+- **Modelo de dados** (`users/{uid}/carteira/{id}`): `nome`, `banco`, `ultimos4Digitos`
+  (opcional), `cor`, `diaVencimento`, `diaFechamento`, `ativo`, `criadoEm`, `atualizadoEm` —
+  nada além disso nesta sprint; `limite`/`bandeira`/`cashback`/`anuidade`/`programa de pontos`
+  ficam para uma sprint futura, por decisão explícita.
+- **`useCarteira.js`**: mesmo padrão de `useMembros.js`/`useCategorias.js` — listener +
+  CRUD + validação de nome duplicado + arquivar/reativar (reversível) + exclusão bloqueada se
+  o cartão já foi usado em algum lançamento (mesma guarda de `excluirCategoria`).
+- **Convivência sem migração**: cada lançamento no cartão grava `cartaoId` (referência
+  estável, `null` para cartão informal) + `cartao` (nome, sempre preenchido) — mesmo padrão já
+  usado para categoria e membro. Compras antigas (só `cartao`, sem `cartaoId`) continuam
+  funcionando exatamente como antes.
+- **`CartaoSelect.js`**: substitui o `TextInput` livre em `ModalCriacao.js` e passa a existir
+  também em `ModalEdicao.js` — antes desta sprint não havia como editar o cartão de uma
+  compra já lançada. Mesmo padrão de `MembroSelect.js`: lista de cartões cadastrados (mostrados
+  com o cartão visual, não texto), "Outro cartão..." para o caso informal (decisão tomada
+  antes de implementar: continuar permitindo, não exigir cadastro obrigatório) e "Gerenciar
+  cartões" — sem botão de criação rápida dentro do seletor.
+- **`CartaoVisual.js`**: cartão bancário genérico (gradiente com a cor cadastrada, nome,
+  banco, últimos 4 dígitos mascarados, vencimento) inspirado em Apple Wallet/Google Wallet,
+  sem copiar identidade visual de nenhuma instituição — usa `expo-linear-gradient`, dependência
+  já instalada (nenhuma nova adicionada). Único componente visual, reaproveitado em três
+  lugares: Gerenciar Cartões, seletor e resumo por cartão.
+- **Gestão de cartões**: `GerenciarCartoesScreen.js` deixou de ser `PlaceholderMenuScreen` (a
+  rota já existia desde a Sprint 2) e ganhou CRUD completo via `CartoesManager.js`,
+  compartilhado com o atalho "Gerenciar cartões" do seletor (`GerenciarCarteiraModal.js`) —
+  mesmo padrão de `CategoriasManager.js`/`CategoriasScreen.js`/`GerenciarCategoriasModal.js`.
+- **Remoção de hardcodes**: `useCartoes.js` passa a resolver cor/vencimento/fechamento do
+  cartão cadastrado quando o lançamento referencia um; os hardcodes antigos
+  (`vencimentoCartaoPorNome`/`colors.byInstitution`) continuam existindo só como fallback para
+  cartão informal ou lançamento antigo — decisão consciente, não um resquício esquecido. A
+  heurística de ícone por nome em `GastoCartaoCard.js` foi removida (ícone genérico agora).
+- **Dia de fechamento real**: resolve um achado de baixa severidade já catalogado (seção 5) —
+  a estimativa "diaVencimento - 7" só continua valendo para cartão informal/lançamento antigo.
+- **Resumo por cartão enriquecido** (`CartoesScreen.js`, aba "Por Cartão"): deixou de ser um
+  filtro simples (total + lista) e virou um resumo de verdade — cartão visual no topo,
+  indicadores (saldo utilizado, total de compras, quantidade, parcelas futuras/pagas/pendentes,
+  maior compra, próximo vencimento) calculados sobre o histórico completo do cartão (nova
+  função `buscarParcelasDoCartao`, sem filtro de mês/ano — o listener escopado por mês do
+  `useCartoes.js` não tem como fornecer "parcelas futuras"), e lista de compras enriquecida
+  (descrição, valor total, parcela atual, comprador, categoria, status). Nenhuma informação
+  removida.
+- **Arquivos**: `src/hooks/useCarteira.js` (novo), `src/components/CartaoVisual.js` (novo),
+  `src/components/CartaoSelect.js` (novo), `src/components/carteira/` (novo: `FormularioCartaoModal.js`,
+  `CartoesManager.js`, `GerenciarCarteiraModal.js`), `src/screens/GerenciarCartoesScreen.js`
+  (deixou de ser placeholder), `src/hooks/useCartoes.js` (`buscarParcelasDoCartao`,
+  `addCartao`/`updateCartao` ajustados), `src/components/ModalCriacao.js`/`ModalEdicao.js`
+  (`CartaoSelect` no lugar do texto livre), `src/components/GastoCartaoCard.js` (heurística de
+  ícone removida), `src/components/CartaoCard.js` (reescrito — resumo em vez de filtro),
+  `src/screens/CartoesScreen.js` (agrupamento por `cartaoId`).
+- **Fora do escopo desta sprint, por decisão explícita**: `limite`, `bandeira`, `cashback`,
+  `anuidade`, `programa de pontos` — preparados no modelo de dados, não implementados. Nenhuma
+  migração retroativa de lançamentos antigos para vincular a um cartão cadastrado.
+
+### 14.1 Ajustes pós-teste (2026-08-06)
+
+Achados do usuário testando a Sprint 6 em dispositivo — ver `ARQUITETURA.md` seção 16.11 para
+o detalhamento técnico de cada um:
+
+- Paleta de cores do cartão ampliada para 15 cores reais de mercado (incluindo preto), deixou
+  de compartilhar a paleta decorativa de categorias.
+- O resumo do mês ("X compras este mês") voltou a aparecer no desenho do cartão dentro do
+  filtro "Por Cartão" — tinha ficado só dentro do modal na reescrita da Sprint 6.
+- **Bug real corrigido**: o modal de resumo por cartão mostrava uma linha por parcela, não por
+  compra (uma compra de 10x virava 10 linhas quase idênticas). Agora agrupa por `idCompra`.
+- **Inconsistência real corrigida**: editar o cartão de uma parcela não atualizava as demais
+  parcelas da mesma compra. `updateCartao` agora propaga `cartaoId`/`cartao`/`corCartao` para
+  todo o grupo (`propagarCartaoParaGrupo`, mesmo padrão de batch já usado para `valorTotal`).
+- Miniatura do `CartaoSelect` trocou de bolinha colorida para um retângulo no formato de
+  cartão.
+- **Categoria e comprador tinham o mesmo problema do cartão** (editar numa parcela não
+  propagava para as demais da compra) — o usuário formalizou como regra de negócio (ver
+  `ARQUITETURA.md` seção 16.12) e pediu implementação: campos que descrevem a COMPRA inteira
+  (descrição, categoria, cartão, comprador, cartão, data da compra, e para empréstimos também
+  credor) agora sempre propagam para todas as parcelas do mesmo `idCompra`; campos que
+  descrevem a PARCELA (valor, pago, data de pagamento, vencimento, mês/ano) continuam
+  individuais. Implementado com um mecanismo único e reaproveitável
+  (`src/utils/propagacaoCompra.js`), usado tanto por `useCartoes.js` quanto por
+  `useEmprestimos.js` — incluir um novo campo de compra no futuro não exige lógica nova, só
+  adicionar o nome numa lista.
+- **Corrigido de passagem**: `useEmprestimos.js` não bloqueava a edição do `valor` de uma
+  parcela já paga/antecipada, ao contrário de `useCartoes.js` (que já tinha essa trava desde a
+  seção 13). As duas entidades ficam consistentes agora.
+- Auditoria feita antes de implementar (pedido do usuário): confirmado que só `useCartoes.js` e
+  `useEmprestimos.js` escrevem campos de compra/parcela nessas coleções — nenhum outro ponto do
+  código faz isso isoladamente numa única parcela.
+
+## 15. Exclusão parcelada padronizada (✅ implementada em 2026-08-06)
+
+Motivação: perguntar sobre exclusão de empréstimo ("só esta parcela ou tudo?") levou a mapear
+como exclusão funcionava em todo o app — achado: 4+ implementações de "handleExcluir"
+copiadas e inconsistentes (só a aba Empréstimos de `SaidasScreen.js` oferecia a escolha;
+cartão nunca oferecia e nunca recalculava o total; o botão "Excluir" de `ModalEdicao.js`,
+usado pela Agenda Financeira/Calendário e Central de Avisos, excluía **sem confirmação
+nenhuma**, para qualquer tipo de lançamento). Ver `ARQUITETURA.md` seção 17 para o desenho
+técnico completo.
+
+- **Todo ponto de exclusão do app agora usa o mesmo mecanismo**
+  (`src/hooks/useExclusaoParcelada.js`): `SaidasScreen.js`, `GastosScreen.js`,
+  `EmprestimosScreen.js`, `CartoesScreen.js`, e — via `useEventosFinanceiros.js` — o Calendário,
+  a Linha do Tempo e a Central de Avisos. Gasto/entrada, que nesses últimos caminhos excluíam
+  sem perguntar nada, agora pedem confirmação simples.
+- **Cartão e empréstimo com mais de 1 parcela** ganharam a mesma escolha: excluir só a parcela
+  ou o grupo inteiro; se só a parcela, o que fazer com o valor dela — remover do total,
+  redistribuir igualmente entre as demais parcelas em aberto, ou redistribuir manualmente
+  (reaproveita o `ModalEditorParcelas` já existente, aberto **antes** de qualquer exclusão —
+  cancelar não apaga nada, tudo é gravado de uma vez só ao confirmar).
+- **Regra de negócio explícita**: a redistribuição sempre reparte só o valor da parcela
+  excluída, nunca o valor total da compra.
+- **`src/utils/reestruturarParcelamento.js`**: único ponto que remove parcela(s) e renumera as
+  restantes (`parcelaAtual`/`totalParcelas`) — nunca toca no estado financeiro
+  (`pago`/`adiantada`/`dataPagamento` etc.). Reaproveitado também por `salvarParcelasPersonalizadas`
+  (editor de parcelas, seção 13), que não tinha essa lógica centralizada antes.
+- **Achado corrigido de passagem**: excluir uma parcela de cartão nunca recalculava
+  `valorTotal` das parcelas restantes — corrigido junto (`recalcularValorTotalCompra` roda
+  depois de toda exclusão/redistribuição de cartão).
+- **Arquivos**: `src/utils/reestruturarParcelamento.js` (novo), `src/hooks/useExclusaoParcelada.js`
+  (novo), `useCartoes.js`/`useEmprestimos.js` (`deleteCartao`/`deleteEmprestimo` substituídos por
+  `excluirParcela`/`excluirParcelaComValoresPersonalizados`/`excluirGrupoInteiro`),
+  `useEventosFinanceiros.js` (`excluir` substituído por `confirmarExcluir` + estado dos modais),
+  `SaidasScreen.js`, `GastosScreen.js`, `EmprestimosScreen.js`, `CartoesScreen.js`,
+  `LinhaDoTempoFinanceira.js`, `CalendarioFinanceiro.js`, `CentralAvisosScreen.js`.
+
+## 16. Linha do Tempo (Histórico de Eventos) (✅ implementada em 2026-08-06 para Cartões e Empréstimos)
+
+Arquitetura fechada previamente (ver `ARQUITETURA.md` seção 18) e implementada nesta rodada
+para os dois módulos sugeridos primeiro. Motivação: registrar eventos relevantes (compra
+criada, parcela paga, categoria alterada etc.) sem virar uma auditoria técnica completa.
+
+- **Coleção nova** `users/{uid}/linhaDoTempo` — um documento por ação do usuário (nunca por
+  documento alterado internamente por propagação automática ou recálculo).
+- **Todas as funções de mutação de `useCartoes.js`/`useEmprestimos.js`** (criar, editar,
+  marcar como pago, antecipar, reverter antecipação, excluir parcela/grupo, redistribuir,
+  personalizar valores) passam a registrar um evento, incluindo `toggleCartaoStatus` — um
+  caminho de mutação separado de `updateCartao` que também precisava do próprio registro.
+- **Nova aba "Linha do Tempo"** dentro de `ModalHistoricoParcelas.js`, ao lado da aba
+  "Parcelas" já existente (que não mudou nada) — mesmo `ModernTabs.js` usado em
+  `CartoesScreen.js`/`SaidasScreen.js`.
+- **Achado corrigido durante a implementação**: a consulta inicial usava `orderBy('criadoEm')`
+  do Firestore junto com o filtro por `idCompra` — isso exige um índice composto configurado
+  manualmente no console do Firebase, em cada um dos 4 projetos do app. Corrigido para ordenar
+  no cliente (mesmo critério já usado em `buscarParcelasDaCompra`), evitando uma dependência de
+  infraestrutura fora do código.
+- **Arquivos**: `src/utils/linhaDoTempoConfig.js`, `src/utils/registrarEvento.js`,
+  `src/utils/linhaDoTempoRender.js`, `src/hooks/useLinhaDoTempo.js`,
+  `src/components/LinhaDoTempoEventos.js` (novos); `src/components/ModalHistoricoParcelas.js`,
+  `src/hooks/useCartoes.js`, `src/hooks/useEmprestimos.js` (modificados).
+- **Pendente**: Gastos, Entradas e Investimentos ainda não emitem eventos — ver
+  `ARQUITETURA.md` seção 18.8 para o que falta quando esses módulos entrarem.

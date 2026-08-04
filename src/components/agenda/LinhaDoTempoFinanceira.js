@@ -10,6 +10,8 @@ import { globalStyles } from '../../styles/globalStyles';
 import { colors } from '../../styles/colors';
 import { useProximosEventos } from '../../hooks/useEventosFinanceiros';
 import ItemEventoFinanceiro from './ItemEventoFinanceiro';
+import AlertaModal from '../AlertaModal';
+import ModalEditorParcelas from '../ModalEditorParcelas';
 
 // 14 dias — dentro da janela que useProximosEventos sempre consegue cobrir
 // com dados reais (mês atual + mês seguinte), mesmo quando "hoje" cai no
@@ -30,8 +32,19 @@ function rotuloRelativo(dataISO) {
 }
 
 export default function LinhaDoTempoFinanceira() {
-  const { venceHoje, proximosDias, loading, toggleStatus, editar, excluir } =
-    useProximosEventos(JANELA_DIAS);
+  const {
+    venceHoje,
+    proximosDias,
+    loading,
+    toggleStatus,
+    editar,
+    confirmarExcluir,
+    alertaExclusao,
+    fecharAlertaExclusao,
+    editorExclusao,
+    fecharEditorExclusao,
+    confirmarEditorExclusao,
+  } = useProximosEventos(JANELA_DIAS);
   const eventos = [...venceHoje, ...proximosDias];
 
   if (loading) {
@@ -68,11 +81,22 @@ export default function LinhaDoTempoFinanceira() {
               evento={evento}
               onToggleStatus={toggleStatus}
               onEditar={editar}
-              onExcluir={excluir}
+              onExcluir={confirmarExcluir}
             />
           </View>
         );
       })}
+
+      <AlertaModal visible={alertaExclusao.visivel} onClose={fecharAlertaExclusao} {...alertaExclusao} />
+      <ModalEditorParcelas
+        visivel={editorExclusao.visivel}
+        aoFechar={fecharEditorExclusao}
+        aoConfirmar={confirmarEditorExclusao}
+        descricao={editorExclusao.descricao}
+        totalParcelas={editorExclusao.valoresIniciais.length}
+        valoresIniciais={editorExclusao.valoresIniciais}
+        bloqueadas={editorExclusao.bloqueadas}
+      />
     </View>
   );
 }

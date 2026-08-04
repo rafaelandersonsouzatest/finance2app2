@@ -6,6 +6,18 @@ import { useAuth } from "../auth/useAuth";
 import { getBasePath } from "../utils/firestorePaths";
 import { colors } from "../styles/colors";
 import { parseBRL } from "../utils/formatarValor";
+import { removerIndefinidos } from "../utils/firestoreSanitize";
+import { extrairCamposDaCompra, propagarCamposDaCompra } from "../utils/propagacaoCompra";
+import { reestruturarParcelamento } from "../utils/reestruturarParcelamento";
+import { dividirValorIgualmente } from "../utils/parcelamento";
+import { registrarEvento } from "../utils/registrarEvento";
+import { detectarAlteracoes } from "../utils/linhaDoTempoConfig";
+
+// 🔹 Campos que descrevem o EMPRÉSTIMO inteiro (iguais em todas as parcelas
+// do mesmo idCompra) — mesmo mecanismo de useCartoes.js, ver ARQUITETURA.md
+// seção 16.12. `valor`, `pago`, `dataPagamento`, `dataVencimento`, `mes`/`ano`
+// continuam de fora: são da parcela, não do empréstimo.
+const CAMPOS_DA_COMPRA_EMPRESTIMO = ["descricao", "credor", "categoria", "categoriaId", "categoriaNome"];
 
 // =========================================================
 // 🔹 HOOK: useEmprestimos — multiusuário + preparado p/ modo família
@@ -93,7 +105,11 @@ export const useEmprestimos = (mes, ano) => {
         return {
           descricao,
           credor,
-          categoria,
+          // 🔹 `|| null`: sem o fallback, um empréstimo criado sem categoria
+          // selecionada geraria `categoria: undefined`, que o Firestore
+          // rejeita em qualquer escrita (mesma classe de bug corrigida em
+          // useCartoes.js/useEntradas.js — ver ARQUITETURA.md seção 15.11).
+          categoria: categoria || null,
           // 🔹 Corrigido nesta sprint: addEmprestimo mantinha `categoria`
           // (string) mas descartava categoriaId/categoriaNome (achado durante
           // a auditoria pós-incremento 4, ver SPRINT4_DISCOVERY.md).
@@ -119,9 +135,20 @@ export const useEmprestimos = (mes, ano) => {
       const batch = writeBatch(db);
       parcelas.forEach((p) => {
         const docRef = doc(collection(db, `${basePath}/emprestimos`));
-        batch.set(docRef, p);
+        batch.set(docRef, removerIndefinidos(p));
       });
       await batch.commit();
+
+      // 🔹 Um evento só para o empréstimo inteiro, mesmo com N parcelas
+      // geradas no mesmo batch — ver ARQUITETURA.md seção 18.
+      await registrarEvento(basePath, {
+        acao: "criado",
+        entidade: "emprestimo",
+        entidadeId: idCompra,
+        idCompra,
+        origem: { agente: "usuario", canal: "criacao" },
+        usuarioId: user.uid,
+      });
     } catch (err) {
       console.error("Erro ao adicionar empréstimo:", err);
       setError(err.message);
@@ -157,7 +184,7 @@ export const useEmprestimos = (mes, ano) => {
   // =========================================================
   // 🔹 Atualizar empréstimo (inclui reversão de antecipação)
   // =========================================================
-  const updateEmprestimo = async (id, dados) => {
+  const updateEmprestimo = async (id, dadosRecebidos) => {
     if (!user?.uid) throw new Error("Usuário não autenticado.");
     try {
       const basePath = getBasePath(user);
@@ -166,6 +193,26 @@ export const useEmprestimos = (mes, ano) => {
       const atual = docSnap.data();
 
       if (!atual) throw new Error("Empréstimo não encontrado.");
+
+      // 🔹 Calculado antes de qualquer mutação de `dadosAtualizados` (a
+      // propagação de campos do empréstimo, logo abaixo, remove esses campos
+      // do objeto) — ver ARQUITETURA.md seção 18.
+      const alteracoesCampos = detectarAlteracoes("emprestimo", atual, dadosRecebidos);
+
+      // 🔹 `valorContratado`/`economiaTotal` nunca podem vir do chamador.
+      // `dadosRecebidos` (= `v` em ModalEdicao.js) vem de `{...item}`, que
+      // carrega o valor desses campos de quando o modal abriu — se
+      // sobrevivessem aqui, uma edição comum (ex.: só a descrição) os
+      // reescreveria de volta para esse valor antigo, desfazendo um
+      // recálculo de `economiaTotal` que tenha rodado nesse intervalo (mesma
+      // causa raiz do bug de `valorTotal` já corrigido em useCartoes.js —
+      // ver ARQUITETURA.md seção 15.12). Só `recalcularEconomiaTotal` pode
+      // definir esses campos.
+      const {
+        valorContratado: _valorContratadoIgnorado,
+        economiaTotal: _economiaTotalIgnorado,
+        ...dados
+      } = dadosRecebidos;
 
       // 🔹 Caso o usuário desmarque uma parcela antecipada
       if (atual?.adiantada && dados.pago === false) {
@@ -193,10 +240,18 @@ export const useEmprestimos = (mes, ano) => {
                       ano: atual.anoOriginal || atual.ano,
                       atualizadoEm: serverTimestamp(),
                     };
-                    await updateDoc(ref, revertido);
+                    await updateDoc(ref, removerIndefinidos(revertido));
                     if (atual.idCompra) {
                       await recalcularEconomiaTotal(basePath, atual.idCompra);
                     }
+                    await registrarEvento(basePath, {
+                      acao: "revertido",
+                      entidade: "emprestimo",
+                      entidadeId: id,
+                      idCompra: atual.idCompra || null,
+                      origem: { agente: "usuario", canal: "edicao" },
+                      usuarioId: user.uid,
+                    });
                     resolve(true);
                   },
                 },
@@ -214,14 +269,67 @@ export const useEmprestimos = (mes, ano) => {
         dadosAtualizados.dataPagamento = null;
       }
 
-      await updateDoc(ref, {
-        ...dadosAtualizados,
-        valor: parseBRL(dadosAtualizados.valor),
-        atualizadoEm: serverTimestamp(),
-      });
+      const pertenceAUmGrupo = !!atual?.idCompra && (atual?.totalParcelas || 1) > 1;
+      // 🔹 Regra de negócio: o valor de uma parcela já paga ou antecipada é
+      // imutável — mesma trava já existente em useCartoes.js (ver
+      // ARQUITETURA.md seção 15.9). useEmprestimos.js não tinha essa defesa
+      // até agora (achado relatado pelo usuário, ver ARQUITETURA.md seção
+      // 16.12) — corrigido aqui para as duas entidades ficarem consistentes.
+      const parcelaBloqueada = atual?.pago === true || atual?.adiantada === true;
+      if (parcelaBloqueada) {
+        dadosAtualizados.valor = atual.valor;
+      }
+
+      // 🔹 Campos do empréstimo inteiro (descrição, credor, categoria) nunca
+      // ficam só nesta parcela — propagados para todas as parcelas do mesmo
+      // idCompra num único batch, mesmo mecanismo usado por useCartoes.js
+      // (ver ARQUITETURA.md seção 16.12).
+      if (pertenceAUmGrupo) {
+        const camposDaCompra = extrairCamposDaCompra(dadosAtualizados, CAMPOS_DA_COMPRA_EMPRESTIMO);
+        if (Object.keys(camposDaCompra).length > 0) {
+          await propagarCamposDaCompra(`${basePath}/emprestimos`, atual.idCompra, camposDaCompra);
+        }
+      }
+
+      await updateDoc(
+        ref,
+        removerIndefinidos({
+          ...dadosAtualizados,
+          valor: parseBRL(dadosAtualizados.valor),
+          atualizadoEm: serverTimestamp(),
+        })
+      );
       // 🔹 valorContratado e economiaTotal não são tocados aqui — só mudam
       // na criação (valorContratado) ou numa antecipação/reversão real
       // (economiaTotal, via recalcularEconomiaTotal).
+
+      // 🔹 "Pago" tem sua própria ação (mais reconhecível pro usuário do que
+      // um "editado" genérico) — só quando de fato transiciona para true;
+      // desmarcar não gera evento (ver ARQUITETURA.md seção 18). Fora isso,
+      // um evento "editado" cobre qualquer campo relevante que mudou nesta
+      // mesma chamada.
+      const marcouComoPago = dadosAtualizados.pago === true && atual?.pago !== true;
+      if (marcouComoPago) {
+        await registrarEvento(basePath, {
+          acao: "pago",
+          entidade: "emprestimo",
+          entidadeId: id,
+          idCompra: atual?.idCompra || null,
+          alteracoes: Object.keys(alteracoesCampos).length > 0 ? alteracoesCampos : null,
+          origem: { agente: "usuario", canal: "edicao" },
+          usuarioId: user.uid,
+        });
+      } else if (Object.keys(alteracoesCampos).length > 0) {
+        await registrarEvento(basePath, {
+          acao: "editado",
+          entidade: "emprestimo",
+          entidadeId: id,
+          idCompra: atual?.idCompra || null,
+          alteracoes: alteracoesCampos,
+          origem: { agente: "usuario", canal: "edicao" },
+          usuarioId: user.uid,
+        });
+      }
     } catch (err) {
       console.error("Erro ao atualizar empréstimo:", err);
       setError(err.message);
@@ -230,31 +338,144 @@ export const useEmprestimos = (mes, ano) => {
   };
 
   // =========================================================
-  // 🔹 Excluir parcelas ou todo o empréstimo
+  // 🔹 Busca todas as parcelas de um empréstimo (mesmo `idCompra`),
+  // ordenadas — mesmo papel de buscarParcelasDaCompra em useCartoes.js.
   // =========================================================
-  const deleteEmprestimo = async (id, idCompra, excluirTudo = false) => {
+  const buscarParcelasDaCompra = async (idCompra) => {
+    if (!user?.uid) throw new Error("Usuário não autenticado.");
+    const basePath = getBasePath(user);
+    const qParcelas = query(
+      collection(db, `${basePath}/emprestimos`),
+      where("idCompra", "==", idCompra)
+    );
+    const snapshot = await getDocs(qParcelas);
+    return snapshot.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.parcelaAtual || 0) - (b.parcelaAtual || 0));
+  };
+
+  // =========================================================
+  // 🔹 Excluir uma única parcela — ver ARQUITETURA.md seção 17. Sem grupo,
+  // exclusão simples. Com grupo, `modo` decide o destino do valor da
+  // parcela excluída: 'reduzir' (some, nenhuma outra parcela muda) ou
+  // 'igual' (somado em partes iguais só entre as parcelas do grupo ainda
+  // não pagas/antecipadas — nunca redivide o valor contratado original,
+  // só o valor desta parcela). Mesmo mecanismo de useCartoes.js.
+  // =========================================================
+  const excluirParcela = async (id, { idCompra, modo } = {}) => {
     if (!user?.uid) throw new Error("Usuário não autenticado.");
     try {
       const basePath = getBasePath(user);
 
-      if (excluirTudo && idCompra) {
-        // Exclui todas as parcelas com o mesmo idCompra
-        const q = query(
+      if (!idCompra) {
+        await deleteDoc(doc(db, `${basePath}/emprestimos`, id));
+        await registrarEvento(basePath, {
+          acao: "excluido",
+          entidade: "emprestimo",
+          entidadeId: id,
+          idCompra: null,
+          origem: { agente: "usuario", canal: "exclusao" },
+          usuarioId: user.uid,
+        });
+        return;
+      }
+
+      let novosValores = {};
+      if (modo === "igual") {
+        const docSnap = await getDoc(doc(db, `${basePath}/emprestimos`, id));
+        const atual = docSnap.data();
+        const qParcelas = query(
           collection(db, `${basePath}/emprestimos`),
           where("idCompra", "==", idCompra)
         );
-        const snapshot = await getDocs(q);
-        const batch = writeBatch(db);
-        snapshot.docs.forEach((d) =>
-          batch.delete(doc(db, `${basePath}/emprestimos`, d.id))
+        const snapshot = await getDocs(qParcelas);
+        const elegiveis = snapshot.docs.filter(
+          (d) => d.id !== id && d.data().pago !== true && d.data().adiantada !== true
         );
-        await batch.commit();
-      } else {
-        // Exclui apenas a parcela individual
-        await deleteDoc(doc(db, `${basePath}/emprestimos`, id));
+        if (elegiveis.length > 0) {
+          const incrementos = dividirValorIgualmente(parseBRL(atual?.valor), elegiveis.length);
+          elegiveis.forEach((docSnap2, i) => {
+            novosValores[docSnap2.id] = parseFloat(
+              (parseBRL(docSnap2.data().valor) + incrementos[i]).toFixed(2)
+            );
+          });
+        }
       }
+
+      await reestruturarParcelamento(`${basePath}/emprestimos`, idCompra, {
+        idsParaRemover: [id],
+        novosValores,
+      });
+
+      await registrarEvento(basePath, {
+        acao: modo === "igual" ? "redistribuido" : "excluido",
+        entidade: "emprestimo",
+        entidadeId: id,
+        idCompra,
+        origem: { agente: "usuario", canal: "exclusao" },
+        usuarioId: user.uid,
+      });
     } catch (err) {
-      console.error("Erro ao excluir empréstimo:", err);
+      console.error("Erro ao excluir parcela de empréstimo:", err);
+      throw err;
+    }
+  };
+
+  // =========================================================
+  // 🔹 Exclusão com valores definidos manualmente no editor de parcelas —
+  // só grava quando o usuário confirma o editor (ver useExclusaoParcelada.js).
+  // =========================================================
+  const excluirParcelaComValoresPersonalizados = async (id, idCompra, novosValoresPorId) => {
+    if (!user?.uid) throw new Error("Usuário não autenticado.");
+    try {
+      const basePath = getBasePath(user);
+      await reestruturarParcelamento(`${basePath}/emprestimos`, idCompra, {
+        idsParaRemover: [id],
+        novosValores: novosValoresPorId,
+      });
+
+      await registrarEvento(basePath, {
+        acao: "redistribuido",
+        entidade: "emprestimo",
+        entidadeId: id,
+        idCompra,
+        origem: { agente: "usuario", canal: "exclusao" },
+        usuarioId: user.uid,
+      });
+    } catch (err) {
+      console.error("Erro ao excluir parcela de empréstimo com valores personalizados:", err);
+      throw err;
+    }
+  };
+
+  // =========================================================
+  // 🔹 Exclui todas as parcelas do empréstimo.
+  // =========================================================
+  const excluirGrupoInteiro = async (idCompra) => {
+    if (!user?.uid) throw new Error("Usuário não autenticado.");
+    try {
+      const basePath = getBasePath(user);
+      const q = query(
+        collection(db, `${basePath}/emprestimos`),
+        where("idCompra", "==", idCompra)
+      );
+      const snapshot = await getDocs(q);
+      const batch = writeBatch(db);
+      snapshot.docs.forEach((d) =>
+        batch.delete(doc(db, `${basePath}/emprestimos`, d.id))
+      );
+      await batch.commit();
+
+      await registrarEvento(basePath, {
+        acao: "excluido",
+        entidade: "emprestimo",
+        entidadeId: idCompra,
+        idCompra,
+        origem: { agente: "usuario", canal: "exclusao" },
+        usuarioId: user.uid,
+      });
+    } catch (err) {
+      console.error("Erro ao excluir empréstimo inteiro:", err);
       throw err;
     }
   };
@@ -315,9 +536,19 @@ export const useEmprestimos = (mes, ano) => {
 
       // 🔹 economiaTotal é recalculada só para o(s) empréstimo(s) que
       // realmente tiveram parcela antecipada agora — valorContratado nunca
-      // é tocado.
+      // é tocado. Um evento por empréstimo afetado, não por parcela
+      // antecipada (podem ser várias parcelas do mesmo empréstimo numa
+      // única ação de antecipar).
       for (const idCompra of idsCompraAfetados) {
         await recalcularEconomiaTotal(basePath, idCompra);
+        await registrarEvento(basePath, {
+          acao: "antecipado",
+          entidade: "emprestimo",
+          entidadeId: idCompra,
+          idCompra,
+          origem: { agente: "usuario", canal: "antecipacao" },
+          usuarioId: user.uid,
+        });
       }
 
       // Atualiza o estado local
@@ -344,7 +575,10 @@ export const useEmprestimos = (mes, ano) => {
     error,
     addEmprestimo,
     updateEmprestimo,
-    deleteEmprestimo,
+    excluirParcela,
+    excluirParcelaComValoresPersonalizados,
+    excluirGrupoInteiro,
+    buscarParcelasDaCompra,
     anteciparParcelasEmprestimo,
   };
 };

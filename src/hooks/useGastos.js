@@ -7,6 +7,7 @@ import { normalizarParaISO } from "../utils/formatarData";
 import { useAuth } from "../auth/useAuth";
 import { getBasePath } from "../utils/firestorePaths";
 import { parseBRL } from "../utils/formatarValor";
+import { removerIndefinidos } from "../utils/firestoreSanitize";
 
 // =========================================================
 // 🔹 HOOK: useGastos — preparado para multiusuário e modo família
@@ -123,7 +124,11 @@ export const useGastos = (mes, ano) => {
 
         novosGastos.push({
           descricao: modelo.descricao,
-          categoria: modelo.categoria,
+          // 🔹 `|| null`: modelos antigos podem não ter esse campo — sem o
+          // fallback, `categoria: undefined` quebraria o batch.set (mesma
+          // classe de bug corrigida em useCartoes.js/useEntradas.js — ver
+          // ARQUITETURA.md seção 15.11).
+          categoria: modelo.categoria || null,
           // 🔹 Propaga a referência estável do modelo para o lançamento
           // gerado (ver SPRINT4_DISCOVERY.md) — sem isso, gastos fixos
           // gerados por modelo nunca teriam categoriaId.
@@ -149,7 +154,7 @@ export const useGastos = (mes, ano) => {
       // 💾 Grava em lote
       const batch = writeBatch(db);
       novosGastos.forEach((g) =>
-        batch.set(doc(collection(db, `${basePath}/gastos`)), g)
+        batch.set(doc(collection(db, `${basePath}/gastos`)), removerIndefinidos(g))
       );
       await batch.commit();
 
@@ -173,13 +178,16 @@ export const useGastos = (mes, ano) => {
         gasto.dataVencimento ||
         gerarDataComDia(diaPadrao, gasto.mes || mes, gasto.ano || ano);
 
-      await addDoc(collection(db, `${basePath}/gastos`), {
-        ...gasto,
-        dataVencimento: normalizarParaISO(dataFinal),
-        valor: parseBRL(gasto.valor),
-        compartilhado: false, // 👈 novo campo padrão
-        criadoEm: serverTimestamp(),
-      });
+      await addDoc(
+        collection(db, `${basePath}/gastos`),
+        removerIndefinidos({
+          ...gasto,
+          dataVencimento: normalizarParaISO(dataFinal),
+          valor: parseBRL(gasto.valor),
+          compartilhado: false, // 👈 novo campo padrão
+          criadoEm: serverTimestamp(),
+        })
+      );
     } catch (err) {
       console.error("Erro ao adicionar gasto:", err);
       setError(err.message);
@@ -199,11 +207,14 @@ export const useGastos = (mes, ano) => {
       if (dadosAtualizados.pago === false)
         dadosAtualizados.dataPagamento = null;
 
-      await updateDoc(doc(db, `${basePath}/gastos`, id), {
-        ...dadosAtualizados,
-        valor: parseBRL(dadosAtualizados.valor),
-        atualizadoEm: serverTimestamp(),
-      });
+      await updateDoc(
+        doc(db, `${basePath}/gastos`, id),
+        removerIndefinidos({
+          ...dadosAtualizados,
+          valor: parseBRL(dadosAtualizados.valor),
+          atualizadoEm: serverTimestamp(),
+        })
+      );
     } catch (err) {
       console.error("Erro ao atualizar gasto:", err);
       setError(err.message);
