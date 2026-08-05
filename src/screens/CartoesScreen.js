@@ -2,19 +2,12 @@
 import { useMemo, useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useDateFilter } from '../contexts/DateFilterContext';
-import { useCartoes } from '../hooks/useCartoes';
 import { useCarteira } from '../hooks/useCarteira';
-import { useAdiantamento } from '../hooks/useAdiantamento';
 import GastoCartaoCard from '../components/GastoCartaoCard';
 import CartaoCard from '../components/CartaoCard';
-import ModalParcelasAdiantamento from '../components/ModalParcelasAdiantamento';
-import AlertaModal from '../components/AlertaModal';
-import ModalEditorParcelas from '../components/ModalEditorParcelas';
 import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import ModernTabs from '../components/ModernTabs';
-import { useExclusaoParcelada } from '../hooks/useExclusaoParcelada';
 
 const extractDate = (item) => {
   const possible = [
@@ -33,37 +26,26 @@ const extractDate = (item) => {
   return new Date(8640000000000000);
 };
 
-export default function CartoesScreen({ isEmbedded = false, onPressItem, onDeleteItem }) {
-  const { selectedMonth, selectedYear } = useDateFilter();
-  const {
-    cartoes: cartoesData = [],
-    updateCartao,
-    excluirParcela,
-    excluirGrupoInteiro,
-    excluirParcelaComValoresPersonalizados,
-    buscarParcelasDaCompra,
-    toggleCartaoStatus,
-  } = useCartoes(selectedMonth, selectedYear);
+// =========================================================
+// 🔹 Componente de apresentação pura para os gastos do mês (`cartoes`,
+// `onToggleStatus`, `onDeleteItem`, `onAdiantarParcelas`, `buscarParcelasDoCartao`
+// vêm de SaidasScreen.js, única fonte de verdade de dados/ações — ver
+// ARQUITETURA.md seção 19, Sprint de Saneamento). `useCarteira()` continua
+// chamado aqui: é uma necessidade própria e única desta tela (metadados dos
+// cartões cadastrados para o agrupamento "Por Cartão"), não uma duplicação —
+// nenhum outro lugar da árvore usa esse hook. `onDeleteItem` continua aceito
+// por compatibilidade de assinatura, mas nunca é chamado pelo pai — mesmo
+// comportamento de antes desta sprint.
+// =========================================================
+export default function CartoesScreen({
+  cartoes: cartoesData = [],
+  onPressItem,
+  onToggleStatus,
+  onDeleteItem,
+  onAdiantarParcelas,
+  buscarParcelasDoCartao,
+}) {
   const { cartoesCadastrados } = useCarteira();
-
-  const {
-    confirmarExclusao,
-    alertaExclusao,
-    fecharAlertaExclusao,
-    editorExclusao,
-    fecharEditorExclusao,
-    confirmarEditorExclusao,
-  } = useExclusaoParcelada();
-
-  const {
-    modalAdiantamentoVisivel,
-    parcelasParaAdiantar,
-    iniciarAdiantamento,
-    confirmarAdiantamento,
-    fecharModalAdiantamento,
-    alerta,
-    setAlerta,
-  } = useAdiantamento('cartoes');
 
   const [abaInterna, setAbaInterna] = useState('mes');
 
@@ -103,24 +85,6 @@ export default function CartoesScreen({ isEmbedded = false, onPressItem, onDelet
     return Object.values(grupos);
   }, [sortedCartoes, cartoesCadastrados]);
 
-  const handleToggleStatus = async (id, pago) => {
-    await toggleCartaoStatus(id, pago);
-  };
-
-  // 🔹 Excluir parcela ou compra inteira — mecanismo único, ver
-  // useExclusaoParcelada.js (ARQUITETURA.md seção 17).
-  const handleExcluir = (item) => {
-    confirmarExclusao({
-      item,
-      tipoLabel: 'Compra',
-      suportaGrupo: true,
-      buscarParcelasDoGrupo: buscarParcelasDaCompra,
-      excluirParcela,
-      excluirGrupoInteiro,
-      excluirComValoresPersonalizados: excluirParcelaComValoresPersonalizados,
-    });
-  };
-
   return (
     <View style={{ flex: 1 }}>
       <ModernTabs
@@ -155,39 +119,12 @@ export default function CartoesScreen({ isEmbedded = false, onPressItem, onDelet
                 transacao={item}
                 corCartao={item.corCartao || colors.byInstitution.Default}
                 onPressItem={() => onPressItem?.(item)}
-                onToggleStatus={() => handleToggleStatus(item.id, item.pago)}
-                onAdiantar={() => iniciarAdiantamento(item)}
-                onDelete={() =>
-                  isEmbedded ? onDeleteItem?.(item) : handleExcluir(item)
-                }
+                onToggleStatus={() => onToggleStatus?.(item.id, item.pago)}
+                onAdiantar={() => onAdiantarParcelas?.(item)}
+                onDelete={() => onDeleteItem?.(item)}
               />
             ))
           )}
-
-          {/* ✅ Modal dentro da aba “Gastos do mês” */}
-          <ModalParcelasAdiantamento
-            visivel={modalAdiantamentoVisivel}
-            aoFechar={fecharModalAdiantamento}
-            parcelasFuturas={parcelasParaAdiantar}
-            aoConfirmar={confirmarAdiantamento}
-          />
-
-          <AlertaModal
-            visible={alerta?.visivel}
-            onClose={() => setAlerta({ ...alerta, visivel: false })}
-            {...alerta}
-          />
-
-          <AlertaModal visible={alertaExclusao.visivel} onClose={fecharAlertaExclusao} {...alertaExclusao} />
-          <ModalEditorParcelas
-            visivel={editorExclusao.visivel}
-            aoFechar={fecharEditorExclusao}
-            aoConfirmar={confirmarEditorExclusao}
-            descricao={editorExclusao.descricao}
-            totalParcelas={editorExclusao.valoresIniciais.length}
-            valoresIniciais={editorExclusao.valoresIniciais}
-            bloqueadas={editorExclusao.bloqueadas}
-          />
         </ScrollView>
 
         {/* 🔹 Aba: Por Cartão */}
@@ -214,23 +151,11 @@ export default function CartoesScreen({ isEmbedded = false, onPressItem, onDelet
                 cartao={cartao}
                 gastos={gastos}
                 onPressItem={onPressItem}
+                onAdiantarParcelas={onAdiantarParcelas}
+                buscarParcelasDoCartao={buscarParcelasDoCartao}
               />
             ))
           )}
-
-          {/* ✅ Modal também dentro da aba “Por Cartão” */}
-          <ModalParcelasAdiantamento
-            visivel={modalAdiantamentoVisivel}
-            aoFechar={fecharModalAdiantamento}
-            parcelasFuturas={parcelasParaAdiantar}
-            aoConfirmar={confirmarAdiantamento}
-          />
-
-          <AlertaModal
-            visible={alerta?.visivel}
-            onClose={() => setAlerta({ ...alerta, visivel: false })}
-            {...alerta}
-          />
         </ScrollView>
       </ModernTabs>
     </View>

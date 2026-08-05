@@ -254,6 +254,7 @@ export default function SaidasScreen() {
     excluirGrupoInteiro: excluirGrupoInteiroEmprestimo,
     excluirParcelaComValoresPersonalizados: excluirParcelaComValoresPersonalizadosEmprestimo,
     buscarParcelasDaCompra: buscarParcelasDaCompraEmprestimo,
+    anteciparParcelasEmprestimo,
   } = useEmprestimos(selectedMonth, selectedYear);
 
   const {
@@ -271,7 +272,12 @@ export default function SaidasScreen() {
   iniciarAdiantamento,
   confirmarAdiantamento,
   fecharModalAdiantamento,
-} = useAdiantamento(abaAtiva === 'cartoes' ? 'cartoes' : 'emprestimos');
+  alerta: alertaAdiantamento,
+  setAlerta: setAlertaAdiantamento,
+} = useAdiantamento(abaAtiva === 'cartoes' ? 'cartoes' : 'emprestimos', {
+  anteciparParcelasCartao: anteciparParcelas,
+  anteciparParcelasEmprestimo,
+});
 
 
   const [modalCriacaoVisivel, setModalCriacaoVisivel] = useState(false);
@@ -292,6 +298,9 @@ export default function SaidasScreen() {
     excluirGrupoInteiro: excluirGrupoInteiroCartao,
     excluirParcelaComValoresPersonalizados: excluirParcelaComValoresPersonalizadosCartao,
     buscarParcelasDaCompra: buscarParcelasDaCompraCartao,
+    buscarParcelasDoCartao,
+    toggleCartaoStatus,
+    anteciparParcelas,
   } = useCartoes(selectedMonth, selectedYear);
 
 
@@ -485,6 +494,16 @@ const handleExcluir = () => {
     setModalEdicaoVisivel(true);
   };
 
+  // 🔹 Extraído para ser reaproveitado tanto pelo botão "Histórico" do
+  // ModalDetalhes quanto pelo ícone de histórico direto na linha de
+  // EmprestimosScreen — antes, EmprestimosScreen tinha sua própria cópia
+  // funcional deste modal (ver ARQUITETURA.md seção 19).
+  const handleAbrirHistorico = (item) => {
+    if (!item) return;
+    setItemHistorico(item);
+    setHistoricoModalVisivel(true);
+  };
+
   const handleGerarFixos = () =>
     handleGerarFixosUtil(gerarFixosDoMes, setAlerta, 'gasto');
 
@@ -554,10 +573,32 @@ const handleExcluir = () => {
         <EstatisticasComponent estatisticas={estatisticas} />
       </View>
 
-      {/* 🧭 Conteúdo das abas */}
-      <GastosScreen tabKey="gastos" isEmbedded onPressItem={handleAbrirDetalhes} />
-      <EmprestimosScreen tabKey="emprestimos" isEmbedded onPressItem={handleAbrirDetalhes} />
-      <CartoesScreen tabKey="cartoes" isEmbedded onPressItem={handleAbrirDetalhes} />
+      {/* 🧭 Conteúdo das abas — componentes de apresentação pura, sem hook
+          de dados próprio (ver ARQUITETURA.md seção 19): todos os dados e
+          ações vêm daqui, a única fonte de verdade quando navegando por
+          Saídas. */}
+      <GastosScreen
+        tabKey="gastos"
+        gastos={gastos}
+        onPressItem={handleAbrirDetalhes}
+        onToggleStatus={handleToggleStatus}
+      />
+      <EmprestimosScreen
+        tabKey="emprestimos"
+        emprestimos={emprestimos}
+        onPressItem={handleAbrirDetalhes}
+        onToggleStatus={handleToggleStatus}
+        onAdiantarParcelas={iniciarAdiantamento}
+        onHistoryPress={handleAbrirHistorico}
+      />
+      <CartoesScreen
+        tabKey="cartoes"
+        cartoes={cartoes}
+        onPressItem={handleAbrirDetalhes}
+        onToggleStatus={toggleCartaoStatus}
+        onAdiantarParcelas={iniciarAdiantamento}
+        buscarParcelasDoCartao={buscarParcelasDoCartao}
+      />
     </ModernTabs>
       </TelaPadrao>
       {/* --- Modais --- */}
@@ -595,12 +636,7 @@ tipo={
     ? 'emprestimo'
     : 'cartao'
 }
-  onHistoryPress={() => {
-    if (itemSelecionado) {
-      setItemHistorico(itemSelecionado);
-      setHistoricoModalVisivel(true);
-    }
-  }}
+  onHistoryPress={() => handleAbrirHistorico(itemSelecionado)}
 />
 
 <ModalEdicao
@@ -671,6 +707,16 @@ tipo={
         aoFechar={fecharModalAdiantamento}
         parcelasFuturas={parcelasParaAdiantar}
         aoConfirmar={confirmarAdiantamento}
+      />
+
+      {/* 🔹 Mensagem de sucesso/erro do useAdiantamento — antes vinha da
+          instância própria de EmprestimosScreen/CartoesScreen; agora que
+          existe uma única instância aqui, precisa do seu próprio AlertaModal
+          pra não perder o feedback ao usuário (ver ARQUITETURA.md seção 19). */}
+      <AlertaModal
+        visible={alertaAdiantamento.visivel}
+        onClose={() => setAlertaAdiantamento({ ...alertaAdiantamento, visivel: false })}
+        {...alertaAdiantamento}
       />
     </View>
   );

@@ -403,6 +403,12 @@ export default function ModalHistoricoParcelas({ visible, onClose, item }) {
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={globalStyles.modalOverlay}>
+        {/* 🔹 `height` fixo, não `maxHeight` (diferente de todo outro modal do
+            app) — `ModernTabs` precisa de um pai com altura CONCRETA pra seu
+            `flex:1` interno funcionar; com `maxHeight` (encolhe até caber o
+            conteúdo), o `flex:1` não tem espaço nenhum pra distribuir e a
+            aba fica com ~0px de altura (achado real, ver ARQUITETURA.md
+            seção 19.8). Não trocar de volta para `maxHeight`. */}
         <View style={[globalStyles.modalContainer, { height: '85%' }]}>
           <View style={globalStyles.modalHeader}>
             <Text style={globalStyles.modalTitle}>

@@ -19,7 +19,7 @@ src/
  ├─ config/      → inicialização do Firebase por ambiente
  ├─ contexts/    → Context API (filtro de data, visibilidade de valores)
  ├─ hooks/       → um hook por entidade financeira (listener Firestore + CRUD)
- ├─ navigation/  → BottomTabs (raiz) e SaidasTabs (não usado, ver seção 4)
+ ├─ navigation/  → MainStack + BottomTabs (raiz)
  ├─ screens/     → telas por módulo financeiro
  ├─ styles/      → cores e estilos globais (arquivo único)
  └─ utils/       → formatação de data/valor, geração de datas, path do Firestore
@@ -54,8 +54,7 @@ Esse arquivo contém, além da versão ativa, **duas versões anteriores inteira
 
 - **`BottomTabs.js`** (raiz pós-login): `Resumo` (`ResumoMensal`), `Entradas`, `Saídas` (`SaidasScreen`), `Investimentos`. Usa uma `tabBar` customizada (`CustomTabBar.js`) em vez do tab bar padrão do React Navigation.
 - Existem `Tab.Screen` **comentados** para `Cartão` (`CartoesScreen`), `Membros` (`MembrosScreen`) e `AlterarSenha` (`AlterarSenhaScreen`) — implementados mas não navegáveis hoje.
-- **`SaidasTabs.js`** (material-top-tabs) existe mas **não é importado por nenhum arquivo** — `SaidasScreen.js` implementa sua própria navegação por abas internamente, sem usar este arquivo. É código órfão.
-- Dentro de `SaidasScreen.js`, a navegação entre Gastos/Empréstimos/Cartões é feita por estado local + renderização condicional, não pelo React Navigation.
+- Dentro de `SaidasScreen.js`, a navegação entre Gastos/Empréstimos/Cartões é feita por estado local + renderização condicional (`ModernTabs`), não pelo React Navigation. `GastosScreen.js`/`EmprestimosScreen.js`/`CartoesScreen.js` não são rotas — são componentes de apresentação renderizados só por `SaidasScreen.js` (ver seção 19). Existia um `SaidasTabs.js` (material-top-tabs) que registraria os mesmos três como abas de verdade, nunca foi conectado a nada, e foi removido na Sprint de Saneamento (seção 19) por não fazer mais sentido depois da consolidação.
 
 ## 5. Hooks de dados (`src/hooks/`)
 
@@ -1067,9 +1066,10 @@ oferecia essa escolha e nunca recalculava `valorTotal` das parcelas restantes; e
 "Excluir" dentro de `ModalEdicao.js` (usado pela Agenda Financeira/Calendário e Central de
 Avisos) excluía **sem nenhuma confirmação**, para qualquer tipo de lançamento. As telas
 `GastosScreen.js`/`EmprestimosScreen.js`/`CartoesScreen.js` também tinham seu próprio
-`handleExcluir` duplicado — inerte hoje porque são sempre renderizadas com `isEmbedded=true`
-dentro de `SaidasScreen.js` (não existe rota própria para elas, achado já catalogado), mas uma
-armadilha latente caso `SaidasTabs.js` (também órfão) seja ligado no futuro.
+`handleExcluir` duplicado — inerte porque só eram exercitadas com `isEmbedded=true`
+dentro de `SaidasScreen.js` (não existe rota própria para elas). *Atualização: essa
+duplicação (e o próprio flag `isEmbedded`) foi eliminada na Sprint de Saneamento — ver
+seção 19.*
 
 ### 17.1 `reestruturarParcelamento` — único ponto que altera a estrutura de um parcelamento
 
@@ -1143,9 +1143,12 @@ agora também pedem confirmação simples.
   mudança) o `valorTotal` agregado que `useCartoes.js` tem — `valorContratado` é o valor
   original da contratação, nunca recalculado.
 - `GastosScreen.js`/`EmprestimosScreen.js`/`CartoesScreen.js` como telas standalone continuam
-  sem rota própria (`SaidasTabs.js` órfão) — não é um problema novo desta mudança, mas agora
-  que usam o mesmo mecanismo de exclusão de `SaidasScreen.js`, deixou de ser uma armadilha
-  latente: qualquer caminho de exclusão do app se comporta da mesma forma.
+  sem rota própria — não é um problema novo desta mudança, mas agora que usam o mesmo
+  mecanismo de exclusão de `SaidasScreen.js`, deixou de ser uma armadilha latente: qualquer
+  caminho de exclusão do app se comporta da mesma forma. *Atualização: a Sprint de Saneamento
+  (seção 19) resolveu isso de vez — essas três telas deixaram de ter capacidade standalone,
+  viraram apresentação pura, e `SaidasTabs.js` (o navegador que reativaria essa capacidade) foi
+  removido.*
 
 ## 18. Linha do Tempo (Histórico de Eventos) (✅ implementada em 2026-08-06 para Cartões e Empréstimos)
 
@@ -1356,3 +1359,272 @@ e `src/hooks/useEmprestimos.js` (todas as funções de mutação passam a chamar
 eventos nem têm `CAMPOS_RELEVANTES` próprios; quando entrarem, também precisam de
 `buscarEventosDoItem(entidadeId)` em `useLinhaDoTempo.js` (hoje só existe
 `buscarEventosDaCompra`, para entidades com `idCompra`).
+
+## 19. Sprint de Saneamento Arquitetural (✅ implementada em 2026-08-06)
+
+Escopo controlado, definido junto com o usuário depois de uma auditoria de navegação e
+composição de telas: resolver a duplicação de hooks/listeners entre `SaidasScreen.js` e as
+telas que ela embute (P1), eliminar o código morto/callbacks inalcançáveis resultantes (P3), e
+remover arquivos órfãos confirmados — **sem** redesenhar navegação, sem reescrever
+`TelaPadrao.js`, sem mudanças puramente estéticas.
+
+### Princípio arquitetural desta sprint — por que "um dono, vários apresentadores"
+
+A correção não foi só apagar chamadas de hook duplicadas — é a adoção de uma regra que deveria
+valer para qualquer tela composta por outras no futuro (Modo Família, Modo Empresa, Web):
+
+> **Quando uma tela renderiza outra como parte da sua própria interface (composição, não
+> navegação), só a tela de fora busca dados no Firestore. As telas de dentro recebem tudo por
+> prop — dados já buscados e funções já prontas — e nunca chamam `useX(...)` por conta
+> própria.**
+
+Por quê:
+
+- **Um hook com `onSnapshot` é uma assinatura, não uma leitura pontual.** Cada componente que
+  chama `useGastos`/`useEmprestimos`/`useCartoes` por conta própria abre seu **próprio**
+  listener contra o Firestore — se dois componentes fazem isso para os mesmos dados (um pai e
+  um filho que ele renderiza), o custo dobra sem nenhum ganho: os dois listeners trazem
+  exatamente a mesma coisa. Isso não aparece revisando um componente isolado — só aparece
+  quando alguém pergunta "quem mais, na árvore que está montada agora, já busca isso?".
+- **Duplicar o dono dos dados sempre acaba duplicando também a ação.** Foi exatamente o que
+  aconteceu aqui: como cada tela filha tinha sua própria instância de `useCartoes`/
+  `useEmprestimos`, cada uma também acabou ganhando sua própria cópia de `useAdiantamento`, de
+  `ModalHistoricoParcelas`, de `ModalParcelasAdiantamento` — não porque alguém decidiu
+  duplicar de propósito, mas porque, uma vez que o componente já "tem" os dados, é natural
+  também escrever a ação ali do lado. A causa raiz nunca foi "esqueceram de desligar um
+  modal" — foi "o dado já estava duplicado, então a ação em cima dele também ficou".
+- **Um dono só facilita responder "quem manda aqui?"** Quando existe exatamente um lugar que
+  busca os dados e decide as ações (editar, excluir, antecipar), qualquer comportamento novo
+  (ex.: uma regra de negócio que dependa do estado de mais de uma aba ao mesmo tempo) tem um
+  único lugar óbvio para entrar. Com dono espalhado, cada tela filha só enxerga o próprio
+  pedaço — e regras que precisem enxergar o todo (como o resumo/estatísticas que
+  `SaidasScreen.js` já calcula) exigiriam reimplementar a mesma lógica em cada filho.
+
+**Como reconhecer, no futuro, que essa regra está sendo violada**: se um componente que só
+existe para ser renderizado dentro de outro (não tem rota própria, não aparece em nenhum
+navegador) chama `useGastos`/`useEntradas`/`useCartoes`/`useEmprestimos`/`useInvestimentos`
+diretamente — ou qualquer hook que por baixo dos panos chame um desses (como
+`useAdiantamento` fazia) —, é sinal de que o dado está duplicado. A pergunta de revisão a se
+fazer sempre que um componente novo for criado para viver dentro de outro: *"quem já busca
+esse dado na árvore que vai renderizar este componente? Ele devia vir por prop, não por um
+hook novo aqui dentro."*
+
+### 19.0 Achado feito ao planejar, antes de qualquer código
+
+A auditoria original mapeou a duplicação em `SaidasScreen.js`/`GastosScreen.js`/
+`EmprestimosScreen.js`/`CartoesScreen.js`. Ao detalhar o plano de implementação, apareceu uma
+duplicação mais profunda que a auditoria não tinha capturado: `CartaoCard.js` (renderizado uma
+vez por cartão cadastrado na aba "Por Cartão") chamava `useCartoes()` e
+`useAdiantamento('cartoes')` por conta própria — e `useAdiantamento.js` **sempre** instanciava
+`useCartoes`+`useEmprestimos` internamente, não importa o `collectionName` passado. Ou seja, a
+causa raiz da duplicação não estava só nos 3 componentes embutidos, estava dentro do próprio
+`useAdiantamento.js` — corrigir só os componentes, sem tocar no hook, teria deixado a
+duplicação mais séria (múltiplos listeners por cartão cadastrado) intacta.
+
+### 19.0.1 Medição do ganho (antes vs. depois)
+
+Não foi uma medição em runtime (nenhum profiler, nenhuma contagem instrumentada) — é uma
+contagem estática, rastreando exatamente qual componente fica montado em cada aba (o
+`ModernTabs` só renderiza o filho da aba ativa — `GastosScreen`/`EmprestimosScreen`/
+`CartoesScreen` nunca coexistem) e quantas vezes cada hook é chamado dentro dessa árvore.
+Confiável porque hooks em React são determinísticos por render, mas vale registrar que é
+análise de código contra o commit anterior à sprint (`b456b11`), não medição empírica.
+Contagem só de instâncias com **listener ativo do Firestore** — a chamada `useCartoes()` sem
+argumentos dentro de `CartaoCard.js` não conta, porque sem mês/ano o próprio hook nunca chega
+a assinar (guarda já existente em `useCartoes.js`).
+
+| Cenário (aba ativa em `SaidasScreen`) | `useGastos` antes | `useEmprestimos` antes | `useCartoes` antes | Depois |
+|---|---|---|---|---|
+| Gastos | 2 | 2 | 2 | 1 / 1 / 1 |
+| Empréstimos | 1 | 4 | 3 | 1 / 1 / 1 |
+| Cartões → "Gastos do mês" | 1 | 3 | 4 | 1 / 1 / 1 |
+| Cartões → "Por Cartão" (N cartões cadastrados) | 1 | 3+N | 4+N | 1 / 1 / 1 |
+
+O pior caso era "Por Cartão": cada cartão cadastrado adicionava mais um par de listeners
+(`useCartoes`+`useEmprestimos`) via a própria instância de `useAdiantamento` dentro de
+`CartaoCard.js` — o custo crescia com o cadastro do usuário, não era um número fixo. Depois da
+sprint, é sempre exatamente 1 instância de cada hook, em qualquer aba/sub-aba, independente de
+quantos cartões o usuário tiver cadastrado.
+
+### 19.1 `useAdiantamento.js` — a correção na raiz
+
+Assinatura mudou de `useAdiantamento(collectionName, anteciparParcelasEmprestimoExternas)`
+para `useAdiantamento(collectionName, { anteciparParcelasCartao, anteciparParcelasEmprestimo })`
+— as duas funções de antecipação passam a ser recebidas prontas, em vez de o hook buscá-las
+chamando `useCartoes`/`useEmprestimos` por dentro. A busca de "parcelas futuras"
+(`iniciarAdiantamento`) continua igual — é uma leitura avulsa (`getDocs`), nunca foi parte do
+problema.
+
+### 19.2 `SaidasScreen.js` — único dono de dados e ações
+
+Passou a extrair de `useCartoes(...)`/`useEmprestimos(...)` (já chamados ali, só não eram
+totalmente aproveitados) também `anteciparParcelas`, `buscarParcelasDoCartao`,
+`toggleCartaoStatus` e `anteciparParcelasEmprestimo`, e a passar as duas primeiras funções de
+antecipação para o novo formato de `useAdiantamento`.
+
+`handleAbrirHistorico(item)` foi extraída do código que antes vivia inline dentro do
+`onHistoryPress` do `ModalDetalhes` — agora é reaproveitada tanto por ele quanto pelo ícone de
+histórico direto na linha de `EmprestimosScreen` (que antes abria uma cópia própria e
+independente do modal).
+
+**Achado só percebido ao reler o código com atenção**: `SaidasScreen.js` já tinha sua própria
+instância de `useAdiantamento`, mas ela era **morta** — nada dentro da árvore de
+`SaidasScreen.js` chamava `iniciarAdiantamento` (as linhas de gasto/empréstimo/cartão são
+renderizadas pelos componentes filhos, que tinham suas próprias instâncias vivas). Ao remover
+as instâncias dos filhos, se eu não também passasse `iniciarAdiantamento` para eles como prop —
+e não capturasse `alerta`/`setAlerta` dessa mesma instância para renderizar um `AlertaModal`
+correspondente — a funcionalidade de antecipar parcelas continuaria funcionando, mas a
+mensagem de sucesso/erro ("Parcelas Antecipadas!") teria simplesmente desaparecido, uma
+regressão silenciosa. `SaidasScreen.js` agora renderiza esse `AlertaModal` adicional.
+
+### 19.3 `GastosScreen.js`/`EmprestimosScreen.js`/`CartoesScreen.js` — apresentação pura
+
+As três telas deixaram de chamar `useGastos`/`useEmprestimos`/`useCartoes`/`useAdiantamento`/
+`useExclusaoParcelada` — passam a receber tudo por prop (`gastos`/`emprestimos`/`cartoes`,
+`onPressItem`, `onToggleStatus`, `onDeleteItem`, `onAdiantarParcelas`, e só em
+`EmprestimosScreen`, `onHistoryPress`). A prop `isEmbedded` foi removida por completo — essas
+telas nunca mais têm um modo "standalone"; tudo que só existia para esse modo (modais
+próprios de criação/edição, `handleExcluir`, `handleGerarFixos`, o `useMemo` de estatísticas de
+`GastosScreen` que nunca era renderizado, a prop `onEditItem` nunca usada por ninguém) foi
+removido, não apenas desligado.
+
+`CartoesScreen.js` continua chamando `useCarteira()` — não é uma duplicação (nenhum outro
+ponto da árvore usa esse hook), é uma necessidade própria e legítima do agrupamento "Por
+Cartão"; por decisão de escopo, não foi tocado.
+
+`onDeleteItem` continua existindo nas três, mas `SaidasScreen.js` continua sem passá-lo —
+mesmo comportamento de antes desta sprint (o ícone de excluir na linha, quando acessado via
+Saídas, não faz nada; a exclusão de verdade acontece via linha → Detalhes → Editar → Excluir).
+Corrigir isso mudaria comportamento, o que estava fora do escopo combinado.
+
+### 19.4 `CartaoCard.js` — a duplicação mais profunda
+
+Removidas as chamadas internas a `useCartoes()` e `useAdiantamento('cartoes')` — recebe agora
+`buscarParcelasDoCartao` e `onAdiantarParcelas` como props, repassadas por `CartoesScreen.js`.
+O modal de resumo do cartão (indicadores + lista de compras) continua 100% local — é um
+estado próprio e legítimo deste componente, não duplicava nada.
+
+### 19.5 Arquivos removidos
+
+- `src/navigation/SaidasTabs.js` — confirmado, por busca em todo o `src/`, que não era
+  importado por nenhum arquivo. Registraria os mesmos três componentes como abas de
+  navegação de verdade; depois da consolidação acima (eles viraram apresentação pura, sem
+  capacidade standalone), essa arquitetura concorrente deixou de ter qualquer sentido.
+- `src/screens/CartoesEmprestadosScreen.js` — já catalogado como código morto (arquivo
+  inteiro comentado, zero referências) antes desta sprint; removido agora que a limpeza de
+  arquivos órfãos já estava em andamento.
+
+### 19.6 Fora do escopo, por decisão explícita (registrado como dívida técnica)
+
+- **Ícone de excluir inerte nas linhas individuais** (ver seção 19.3) — comportamento
+  pré-existente, não corrigido para não mudar comportamento.
+- **`extractDate`/`extractDateFromItem`** — lógica pura duplicada (com pequenas variações)
+  entre `SaidasScreen.js`, `EmprestimosScreen.js` e `CartoesScreen.js`. Não é um problema de
+  listener nem de código morto, é uma duplicação de utilitário — fora do escopo desta sprint.
+- **Nomes de callback inconsistentes** (`onAdiantar` em `GastoCartaoCard`/`CartaoCard` vs
+  `onAdiantarParcelas` em `ListItemEmprestimo`, para o mesmo conceito) — mantidos como
+  estavam, para não misturar limpeza estrutural com renomeação estética.
+- **`GastosScreen.js`/`EmprestimosScreen.js`/`CartoesScreen.js` não são mais "Screens" de
+  fato** (não têm hook próprio nem são rotas) mas mantiveram nome e local atuais — renomear
+  (ex.: para `ListaGastos.js`) é uma mudança estética, fora do escopo.
+- **Responsabilidades do `TelaPadrao.js`** (casca visual + dono dos modais de CRUD) — fora do
+  escopo por pedido explícito do usuário. Detalhado como item estruturado na seção 19.7.
+
+### 19.7 Dívida técnica estruturada — achados do diagnóstico não resolvidos nesta sprint
+
+A auditoria de navegação/composição de telas que originou esta sprint (2026-08-06) levantou
+sete problemas (P1–P7); só P1, P3 e P4 (mais o achado extra de P2, resolvido como efeito
+colateral do fix de P1) foram tratados. Os três abaixo ficaram deliberadamente de fora — cada
+um registrado com problema, motivo da decisão, impacto atual e o gatilho certo pra revisitar,
+para que a decisão continue compreensível mesmo sem o contexto desta conversa.
+
+#### P5 — Convenção de callback inconsistente entre modais
+
+- **Problema observado**: não existe uma convenção única de nome para callbacks de
+  fechar/salvar. Dois estilos coexistem no projeto — verbo em português (`aoFechar`,
+  `aoSalvar`, `aoRenomear`, `aoSalvarAvatar`, `aoExcluir`, usados pela família
+  `ModalCriacao`/`ModalEdicao` e por alguns modais de edição de entidade) e verbo em inglês
+  (`onClose`, `onPress*`, usados por `AlertaModal`, `GerenciarModelosModal`,
+  `ModalHistoricoParcelas`, `DetalhesInvestimentoModal`, e pela convenção
+  `onPressItem`/`onEditItem`/`onDeleteItem` das listas). Mais grave: dois componentes
+  **misturam os dois estilos na mesma lista de props** — `EditarMembroModal` aceita `onFechar`
+  ao lado de `aoRenomear`/`aoSalvarAvatar`/`aoExcluir`; `AvatarEditor` aceita `onFechar` junto
+  com `aoSalvar`.
+- **Por que não foi resolvido nesta sprint**: renomear props é uma mudança de superfície ampla
+  (toca em toda a árvore de quem usa esses modais) sem nenhum ganho funcional — é puramente
+  estético/consistência, e o escopo combinado desta sprint excluiu explicitamente mudanças
+  estéticas.
+- **Impacto atual**: 🟢 Baixo. Não causa bug nem afeta o usuário final — o custo é cognitivo:
+  cada modal novo escolhe a convenção arbitrariamente, e a inconsistência tende a crescer, não
+  encolher, conforme o app ganha módulos novos.
+- **Quando revisitar**: ao criar um padrão de modal novo para um módulo grande (Modo Família,
+  Modo Empresa, Web) — esse é o momento natural de fixar uma convenção única. Se uma mudança
+  futura por outro motivo já for tocar em `EditarMembroModal.js`/`AvatarEditor.js`, aproveitar
+  para corrigir a mistura ali também. Não justifica, sozinho, abrir uma sprint dedicada.
+
+#### P6 — Famílias de composição de tela sem critério documentado
+
+- **Problema observado**: o app tem hoje 4 formas diferentes de montar uma tela, nenhuma
+  delas documentada como "a forma certa para este tipo de caso": (a) `TelaPadrao` pura
+  (Entradas, Investimentos); (b) `TelaPadrao` com `disableDefaultList` + componentes
+  embutidos de apresentação pura (Saídas, arquitetura desta sprint — seção 19); (c) tela fina
+  + `*Manager` compartilhado, sem `TelaPadrao` (Categorias, Cartões cadastrados); (d)
+  composição bespoke, sem nenhum dos padrões acima (Membros, Conta, Planejamento Financeiro).
+  Cada uma foi decidida organicamente, sprint a sprint, sem uma diretriz escrita de quando
+  usar qual.
+- **Por que não foi resolvido nesta sprint**: documentar critérios de quando usar cada padrão
+  é síntese/definição de convenção, não correção de bug — nenhuma das 4 famílias está quebrada
+  hoje; o risco é só para decisões futuras. O escopo combinado desta sprint priorizou ganho
+  mensurável agora (P1), não definição de convenção.
+- **Impacto atual**: 🟢 Baixo hoje, crescente com o tempo. O risco real é o *próximo* módulo
+  grande escolher uma 5ª abordagem em vez de reconhecer que uma das 4 já resolve o caso,
+  aumentando a fragmentação em vez de reduzi-la.
+- **Quando revisitar**: no início do Modo Família ou da versão Web (fases do `ROADMAP.md`) —
+  antes de criar a primeira tela nova dessas fases, documentar em `ARQUITETURA.md` um guia
+  curto "que padrão usar quando" (tela de transação → `TelaPadrao`; gerenciar uma entidade
+  simples → Manager compartilhado; tela que agrega várias sub-telas → padrão de
+  `SaidasScreen.js` desta sprint, seção 19).
+
+#### P7 — `TelaPadrao.js` acumulando responsabilidades demais
+
+- **Problema observado**: `TelaPadrao.js` (610 linhas) faz ao mesmo tempo: casca visual
+  (cabeçalho, menu do usuário, sino, calendário, seletor de mês, toggle de visibilidade), card
+  de total, lista padrão de itens, FAB, **e** é dono do estado e da renderização dos 3 modais
+  de CRUD (`ModalCriacao`/`ModalDetalhes`/`ModalEdicao`) para qualquer tela que o use — mesmo
+  quando a tela não precisa de um deles (Investimentos já exige uma exceção interna,
+  `tipo==='investimento'`, só para desligar o `ModalEdicao`). Tem ainda pelo menos duas props
+  aceitas e nunca processadas no corpo do componente (`renderCustomItem`, `refreshing`/
+  `setRefreshing`), e uma função inteira nunca chamada (`renderModalDetailsContent`, já
+  catalogada em `PROJECT_STATUS.md` seção 6).
+- **Por que não foi resolvido nesta sprint**: separar essas responsabilidades é reescrever um
+  componente usado por 4 telas simultaneamente (Entradas, Investimentos, Saídas, e
+  indiretamente Resumo) — risco alto de regressão visual/funcional para um ganho hoje só
+  arquitetural (nenhuma tela sofre por causa disso agora). O usuário pediu explicitamente para
+  não reescrever `TelaPadrao.js` nesta sprint.
+- **Impacto atual**: 🟡 Médio — diferente de P5/P6, este já tem custo real e recorrente:
+  qualquer mudança em `ModalCriacao`/`ModalEdicao` precisa ser raciocinada em conjunto com
+  `TelaPadrao.js`, mesmo quando a mudança pedida não parece ter nada a ver com layout, porque
+  é `TelaPadrao` quem decide QUANDO esses modais aparecem, não a tela que os usa.
+- **Quando revisitar**: na próxima vez que uma tela de transação precisar de um comportamento
+  de modal genuinamente diferente do que `TelaPadrao` força hoje — por exemplo, se o Modo
+  Empresa precisar de um fluxo de criação em múltiplas etapas, ou a versão Web quiser modais
+  como painéis laterais em vez de bottom sheets. Nesse momento, o padrão de "exceção pontual"
+  (como `tipo==='investimento'` já é hoje) deixa de ser sustentável e compensa separar casca
+  visual de posse dos modais.
+
+### 19.8 Armadilha registrada: `ModernTabs` exige altura concreta no pai, não `maxHeight`
+
+Achado ao corrigir um bug relatado pelo usuário (a aba "Linha do Tempo" de
+`ModalHistoricoParcelas.js` abria mostrando só ~1,5cm da tela — cabeçalho e início das abas,
+nada do conteúdo). Causa: `ModernTabs.js` usa `flex: 1` internamente para a área de conteúdo
+crescer e ocupar o espaço restante do seu pai — isso só funciona quando o pai tem uma altura
+**concreta** (`height`). Todo outro modal do projeto usa `maxHeight` (encolhe até caber o
+conteúdo, até um teto) — mas um container com `maxHeight` não define um tamanho para os
+filhos distribuírem via flex; sem altura concreta pra calcular contra, o `flex: 1` do
+`ModernTabs` resolve para ~0px.
+
+**Regra a seguir sempre que `ModernTabs` for usado dentro de um modal do tipo bottom-sheet**:
+o container do modal precisa de `height` fixo (ex.: `height: '85%'`), nunca só `maxHeight`.
+Aplicado em `ModalHistoricoParcelas.js` (comentário no próprio código apontando para esta
+seção). Trade-off aceito: o modal passa a ocupar sempre esse espaço, mesmo com pouco
+conteúdo — melhor que um modal que não abre.

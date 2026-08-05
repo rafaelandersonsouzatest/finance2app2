@@ -2,18 +2,22 @@
 import { useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { useDateFilter } from '../contexts/DateFilterContext';
 import { useAuth } from '../auth/useAuth';
 import { getBasePath } from '../utils/firestorePaths';
-import { useCartoes } from './useCartoes';
-import { useEmprestimos } from './useEmprestimos';
 
-export const useAdiantamento = (collectionName, anteciparParcelasEmprestimoExternas) => {
+// =========================================================
+// 🔹 Recebe as funções de antecipação já prontas (`anteciparParcelasCartao`/
+// `anteciparParcelasEmprestimo`), em vez de buscá-las chamando `useCartoes`/
+// `useEmprestimos` por conta própria — antes, cada tela que chamava este
+// hook ganhava de brinde mais um par de listeners do Firestore para as
+// mesmas coleções que a tela (ou seu pai) já assinava. Ver ARQUITETURA.md
+// seção 19 (Sprint de Saneamento).
+// =========================================================
+export const useAdiantamento = (collectionName, { anteciparParcelasCartao, anteciparParcelasEmprestimo } = {}) => {
   const [modalVisivel, setModalVisivel] = useState(false);
   const [parcelasFuturas, setParcelasFuturas] = useState([]);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
-  const { selectedMonth, selectedYear } = useDateFilter();
 
   const [alerta, setAlerta] = useState({
     visivel: false,
@@ -23,10 +27,6 @@ export const useAdiantamento = (collectionName, anteciparParcelasEmprestimoExter
     corIcone: '',
     botoes: [],
   });
-
-  // 🔹 Hooks separados, mas só usamos o que for necessário
-  const { anteciparParcelas: anteciparParcelasCartao } = useCartoes(selectedMonth, selectedYear);
-  const { anteciparParcelasEmprestimo } = useEmprestimos(selectedMonth, selectedYear);
 
   // 🔹 Buscar parcelas futuras para antecipação
   const iniciarAdiantamento = async (item) => {
@@ -86,11 +86,7 @@ export const useAdiantamento = (collectionName, anteciparParcelasEmprestimoExter
       if (collectionName === 'cartoes') {
         await anteciparParcelasCartao(idsSelecionados, dataPagamento, valorComDesconto);
       } else if (collectionName === 'emprestimos') {
-        const fn =
-          typeof anteciparParcelasEmprestimoExternas === 'function'
-            ? anteciparParcelasEmprestimoExternas
-            : anteciparParcelasEmprestimo;
-        await fn(idsSelecionados, dataPagamento, valorComDesconto);
+        await anteciparParcelasEmprestimo(idsSelecionados, dataPagamento, valorComDesconto);
       }
 
       setAlerta({

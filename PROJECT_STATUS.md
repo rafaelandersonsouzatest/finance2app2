@@ -29,7 +29,7 @@ O script **não** publica para `marina` — se um dia isso for necessário, é s
 - **Autenticação por e-mail/senha**: login, registro (com validação de CPF/CNPJ e verificação de duplicidade), recuperação de senha (`ForgotPasswordScreen`) e redefinição (`ResetPasswordScreen`).
 - **Resumo Mensal** (`ResumoMensal.js`): dashboard consolidado com totais previstos e realizados de entradas, gastos, empréstimos, cartões e investimentos.
 - **Entradas** (`EntradasScreen.js` + `useEntradas`): CRUD de receitas do mês, com geração automática de entradas fixas a partir de modelos.
-- **Saídas** (`SaidasScreen.js`): tela única que agrega Gastos, Empréstimos e Cartões em abas internas (não usa o arquivo `src/navigation/SaidasTabs.js`, que existe mas está órfão — ver seção 4).
+- **Saídas** (`SaidasScreen.js`): tela única que agrega Gastos, Empréstimos e Cartões em abas internas — única dona dos dados/hooks; `GastosScreen.js`/`EmprestimosScreen.js`/`CartoesScreen.js` são componentes de apresentação pura, sem hook próprio (ver `ARQUITETURA.md` seção 19).
   - **Gastos** (`useGastos`): CRUD de despesas fixas/variáveis, com geração automática via modelos e suporte a cálculo percentual sobre entradas selecionadas.
   - **Empréstimos** (`useEmprestimos`): controle de parcelas, com antecipação de parcelas e desconto.
   - **Cartões** (`useCartoes`): controle de compras e faturas por cartão.
@@ -68,9 +68,9 @@ Conforme `git status` no momento desta análise:
 
 ## 4. Código morto identificado (candidatos a remoção, não removidos nesta análise)
 
-- `src/navigation/SaidasTabs.js` — não é importado por nenhum outro arquivo.
-- `src/screens/CartoesEmprestadosScreen.js` — não é importado por nenhum outro arquivo.
-- Blocos grandes de código comentado em `App.js`, `src/components/MonthYearPicker.js` (duas versões antigas completas) e `src/screens/CartoesEmprestadosScreen.js`.
+- ~~`src/navigation/SaidasTabs.js`~~ ✅ Removido (Sprint de Saneamento, 2026-08-06, ver `ARQUITETURA.md` seção 19).
+- ~~`src/screens/CartoesEmprestadosScreen.js`~~ ✅ Removido (Sprint de Saneamento, 2026-08-06).
+- Blocos grandes de código comentado em `App.js` e `src/components/MonthYearPicker.js` (duas versões antigas completas).
 - ~~Dependências instaladas e nunca usadas~~ ✅ Removidas do `package.json` e `package-lock.json` (Sprint 1 / D1, 2026-07-24): `react-native-chart-kit`, `victory-native`, `@shopify/react-native-skia`, `d3-shape`, `react-native-vector-icons`, entrada corrompida `"undefined"`. `npm install` removeu 39 pacotes (diretos + transitivos). `npm audit` aponta 30 vulnerabilidades pré-existentes (1 baixa, 16 médias, 9 altas, 4 críticas) nas dependências restantes — não corrigidas nesta sprint (nenhuma ação de `npm audit fix` foi executada, para não trocar versões de dependência sem avaliação própria); candidato a item de segurança para revisar antes da publicação.
 - Entrada corrompida no `package.json`: `"undefined": "\\"`.
 
@@ -100,6 +100,7 @@ Conforme `git status` no momento desta análise:
 | ~~Race condition entre `register()` e o listener `onAuthStateChanged`~~ ✅ Corrigido (Sprint 1, 2026-07-24) | `useAuth.js` | — descoberto durante a revisão do fluxo de cadastro; perfil podia nascer com dados incompletos dependendo de qual dos dois "ganhasse" a corrida |
 | Bug de parse "vírgula sem tratar milhar" (`.replace(',','.')` sem `/g`) também presente em componentes de UI, não só nos hooks já corrigidos | `MovimentacaoInvestModal.js` (ativo hoje, campo não passa por `useCurrencyInput`), `ModalEdicao.js`, `GerenciarModelosModal.js`, `InvestimentosScreen.js` (latentes) | Alta em `MovimentacaoInvestModal.js`; Baixa nos demais |
 | `firestore.rules` escrito e cobrindo `users/{uid}` + `documentosCadastrados`, mas **ainda não publicado** | projeto inteiro | 🔴 Crítica até o deploy — previsto para o final da Sprint 1, mediante autorização explícita |
+| ~~Aba "Linha do Tempo" do Histórico da Compra abria mostrando só ~1,5cm de tela~~ ✅ Corrigido (2026-08-06) | `ModalHistoricoParcelas.js` | — `ModernTabs` precisa de um container pai com `height` concreto para seu `flex:1` funcionar; o container usava `maxHeight` (padrão de todo outro modal do app), que não define espaço pra distribuir. Ver `ARQUITETURA.md` seção 19.8 — armadilha registrada para não reintroduzir em outro modal que venha a usar `ModernTabs` |
 
 ## 6. Pendências técnicas (arquitetura/dívida)
 
@@ -130,6 +131,18 @@ Varredura completa do app em busca de parse/formatação/cálculo de dinheiro fo
 | 4 | Somas/percentuais financeiros recalculados de forma independente em 6+ telas/componentes (`ResumoMensal.js`, `EstatisticasComponent.js`, `SaidasScreen.js`, `SecaoEntradas.js`, `ModalDetalhes.js`, `ModalHistoricoParcelas.js`) | 🟡 Média |
 | 5 | `ResumoMensal.js` soma valores sem conversão numérica defensiva (`entrada.valor \|\| 0` sem `Number()`/`parseBRL`) | 🟡 Média |
 | 6 | 3 implementações independentes do mesmo cálculo de progresso de investimento (`SecaoInvestimentos.js`, `TelaPadrao.js`, `DetalhesInvestimentoModal.js`) | 🟢 Baixa |
+
+### Backlog — achados da auditoria de composição de telas não resolvidos (2026-08-06)
+
+Da auditoria que originou a Sprint de Saneamento (seção 17) — três achados registrados como
+dívida técnica estruturada (problema, motivo da decisão, impacto, gatilho de revisão) em
+`ARQUITETURA.md` seção 19.7, não apenas citados aqui:
+
+| # | Achado | Impacto | Revisitar quando |
+|---|---|---|---|
+| P5 | Convenção de callback inconsistente entre modais (`aoFechar`/`aoSalvar` vs `onClose`, misturados na mesma lista de props em `EditarMembroModal`/`AvatarEditor`) | 🟢 Baixo | Ao criar um padrão de modal novo (Modo Família, Empresa, Web) |
+| P6 | 4 famílias de composição de tela coexistindo sem critério documentado de quando usar qual | 🟢 Baixo, crescente | Antes da primeira tela nova do Modo Família ou da versão Web |
+| P7 | `TelaPadrao.js` acumulando casca visual + posse dos 3 modais de CRUD + props mortas (`renderCustomItem`, `refreshing`) | 🟡 Médio | Quando uma tela de transação precisar de um comportamento de modal genuinamente diferente do que `TelaPadrao` força hoje |
 
 ### Backlog — Sprint de Qualidade (futura, sem data definida)
 
@@ -641,3 +654,43 @@ criada, parcela paga, categoria alterada etc.) sem virar uma auditoria técnica 
   `src/hooks/useCartoes.js`, `src/hooks/useEmprestimos.js` (modificados).
 - **Pendente**: Gastos, Entradas e Investimentos ainda não emitem eventos — ver
   `ARQUITETURA.md` seção 18.8 para o que falta quando esses módulos entrarem.
+
+## 17. Sprint de Saneamento Arquitetural (✅ implementada em 2026-08-06)
+
+Escopo controlado (auditoria prévia de navegação/composição de telas → plano → aprovação):
+resolver a duplicação de hooks/listeners entre `SaidasScreen.js` e as telas que ela embute,
+eliminar o código morto resultante, e remover arquivos órfãos confirmados. **Princípio
+registrado para telas futuras** (ver `ARQUITETURA.md` seção 19, quadro "Princípio
+arquitetural"): quando uma tela renderiza outra como parte da própria interface, só a de fora
+busca dados — as de dentro recebem tudo por prop e nunca chamam `useX(...)` por conta própria.
+Ver `ARQUITETURA.md`
+seção 19 para o desenho técnico completo.
+
+- **Causa raiz corrigida**: `useAdiantamento.js` sempre instanciava `useCartoes`+`useEmprestimos`
+  por dentro, não importa quem chamasse — passou a receber essas funções prontas por
+  parâmetro. Achado só durante o planejamento: `CartaoCard.js` (um por cartão cadastrado na
+  aba "Por Cartão") chamava esse hook por conta própria, multiplicando listeners por cartão.
+- **Ganho medido** (contagem estática contra o código antes da sprint, ver `ARQUITETURA.md`
+  seção 19.0.1): dependendo da aba, existiam de 2 a 4 instâncias simultâneas do mesmo hook com
+  listener ativo (`useGastos`/`useEmprestimos`/`useCartoes`); na aba "Por Cartão" o número
+  ainda crescia com a quantidade de cartões cadastrados (3+N e 4+N). Depois da sprint, é sempre
+  exatamente 1 instância de cada hook, em qualquer aba, independente do cadastro do usuário.
+- **`SaidasScreen.js` é agora a única fonte de dados/ações** quando navegando por Saídas —
+  `GastosScreen.js`/`EmprestimosScreen.js`/`CartoesScreen.js`/`CartaoCard.js` deixaram de
+  chamar `useGastos`/`useEmprestimos`/`useCartoes`/`useAdiantamento`/`useExclusaoParcelada`
+  por conta própria; tudo vem por prop.
+- **Código morto real removido**: a prop `isEmbedded` e tudo que só existia pro modo
+  standalone dessas telas (nunca alcançável — sem rota própria) — modais de criação/edição
+  duplicados, `handleExcluir` inalcançável, estatísticas calculadas e nunca renderizadas,
+  prop `onEditItem` nunca usada.
+- **Arquivos removidos**: `src/navigation/SaidasTabs.js` (órfão, confirmado por busca em todo
+  o projeto) e `src/screens/CartoesEmprestadosScreen.js` (já catalogado como morto).
+- **Achado corrigido de passagem**: a instância de `useAdiantamento` que `SaidasScreen.js` já
+  tinha estava morta (nada a chamava) — ao consolidar, se `alerta`/`setAlerta` dessa instância
+  não fossem também capturados, a mensagem de sucesso/erro ao antecipar parcela teria
+  desaparecido silenciosamente. Corrigido antes de terminar a sprint.
+- **Fora do escopo, registrado como dívida técnica**: ícone de excluir inerte nas linhas
+  individuais (comportamento pré-existente, não é regressão), `extractDate` duplicada entre 3
+  arquivos, nomes de callback inconsistentes (`onAdiantar` vs `onAdiantarParcelas`), possível
+  rename futuro de `GastosScreen.js`/`EmprestimosScreen.js`/`CartoesScreen.js` (não são mais
+  "Screens" de fato), responsabilidades do `TelaPadrao.js`.

@@ -130,12 +130,26 @@ Antes de implementar qualquer alteração, avaliar se ela deve ser acompanhada p
 
 ## Armadilhas conhecidas neste código
 
-Ver `PROJECT_STATUS.md` para a lista completa. Resumo rápido:
-- Não existe `firestore.rules` versionado — não assumir que o banco está protegido.
+Ver `PROJECT_STATUS.md` para a lista completa e `ARQUITETURA.md` para o porquê de cada uma.
+Resumo rápido — regras práticas para não reintroduzir um bug já corrigido:
+- `firestore.rules` existe e está versionado (cobre `users/{uid}` + `documentosCadastrados`),
+  mas **ainda não foi publicado** no Firebase — não assumir que o banco está protegido em
+  produção até a publicação acontecer.
 - O "Modo Família" tem UI parcial mas está desconectado (`membroSelecionado` é lido de
   `useAuth()` mas nunca é exposto por ele) — não tratar como funcional.
-- Hooks de dados (`useGastos`, `useCartoes`, `useEmprestimos`) usam `parseFloat` cru em
-  vez do parser de moeda compartilhado — cuidado ao tocar em qualquer formulário que
-  alimente esses hooks.
 - `App.js` e alguns componentes têm blocos grandes de código comentado (versões
   antigas) — não copiar esse padrão em código novo.
+- Toda entrada/exibição de valor monetário deve usar `useCurrencyInput`/`parseBRL`
+  (`src/utils/formatarValor.js`) — nunca `parseFloat`/regex própria num campo novo.
+- `ModernTabs` dentro de um modal (bottom-sheet) precisa que o container pai tenha
+  `height` fixo, nunca só `maxHeight` — sem altura concreta, a área de conteúdo das abas
+  renderiza com ~0px (ver `ARQUITETURA.md` seção 19.8).
+- Nunca combine `where(campo, '==', valor)` com `orderBy(outroCampo)` numa query do
+  Firestore — exige índice composto criado manualmente em cada um dos 4 projetos Firebase.
+  Ordenar no cliente depois do `getDocs` (padrão já usado em `buscarParcelasDaCompra`/
+  `useLinhaDoTempo.js`).
+- Um componente que só existe para ser renderizado dentro de outro (sem rota própria) não
+  deve chamar `useGastos`/`useEntradas`/`useCartoes`/`useEmprestimos`/`useInvestimentos`
+  (nem hooks que os chamem por dentro, como `useAdiantamento`) por conta própria — os
+  dados devem vir por prop de quem já os busca (ver `ARQUITETURA.md` seção 19, princípio
+  "um dono, vários apresentadores").

@@ -1,14 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { View } from 'react-native';
-import { useDateFilter } from '../contexts/DateFilterContext';
-import { useEmprestimos } from '../hooks/useEmprestimos';
-import { useAdiantamento } from '../hooks/useAdiantamento';
 import ListItemEmprestimo from '../components/ListItemEmprestimo';
-import ModalHistoricoParcelas from '../components/ModalHistoricoParcelas';
-import ModalParcelasAdiantamento from '../components/ModalParcelasAdiantamento';
-import AlertaModal from '../components/AlertaModal';
-import ModalEditorParcelas from '../components/ModalEditorParcelas';
-import { useExclusaoParcelada } from '../hooks/useExclusaoParcelada';
 
 // 🧩 Função auxiliar para extrair data de forma segura
 const extractDate = (item) => {
@@ -28,43 +20,22 @@ const extractDate = (item) => {
   return new Date(8640000000000000);
 };
 
-export default function EmprestimosScreen({ isEmbedded = false, onPressItem, onDeleteItem }) {
-  const { selectedMonth, selectedYear } = useDateFilter();
-
-  // 🔹 Hook principal de empréstimos
-  const {
-    emprestimos,
-    updateEmprestimo,
-    excluirParcela,
-    excluirGrupoInteiro,
-    excluirParcelaComValoresPersonalizados,
-    buscarParcelasDaCompra,
-    anteciparParcelasEmprestimo, // ✅ pegamos a função daqui
-  } = useEmprestimos(selectedMonth, selectedYear);
-
-  const {
-    confirmarExclusao,
-    alertaExclusao,
-    fecharAlertaExclusao,
-    editorExclusao,
-    fecharEditorExclusao,
-    confirmarEditorExclusao,
-  } = useExclusaoParcelada();
-
-  // 🔹 Hook de adiantamento (agora recebe a função externa)
-  const {
-    modalAdiantamentoVisivel,
-    parcelasParaAdiantar,
-    iniciarAdiantamento,
-    confirmarAdiantamento,
-    fecharModalAdiantamento,
-    alerta,
-    setAlerta,
-  } = useAdiantamento('emprestimos', anteciparParcelasEmprestimo);
-
-  const [historicoModalVisivel, setHistoricoModalVisivel] = useState(false);
-  const [itemSelecionado, setItemSelecionado] = useState(null);
-
+// =========================================================
+// 🔹 Componente de apresentação pura — não busca dados nem é dono de nenhum
+// modal (histórico, antecipação, exclusão). Renderizado só por
+// SaidasScreen.js, que é hoje a única fonte de verdade de dados/ações (ver
+// ARQUITETURA.md seção 19, Sprint de Saneamento). `onDeleteItem` continua
+// aceito por compatibilidade de assinatura, mas nunca é chamado pelo pai —
+// mesmo comportamento de antes desta sprint.
+// =========================================================
+export default function EmprestimosScreen({
+  emprestimos = [],
+  onPressItem,
+  onToggleStatus,
+  onDeleteItem,
+  onAdiantarParcelas,
+  onHistoryPress,
+}) {
   // 🔹 Ordenar por data de vencimento e nome
   const sortedEmprestimos = useMemo(() => {
     return [...emprestimos].sort((a, b) => {
@@ -76,26 +47,6 @@ export default function EmprestimosScreen({ isEmbedded = false, onPressItem, onD
     });
   }, [emprestimos]);
 
-  // 🔹 Alternar status pago/pendente
-  const handleToggleStatus = async (id) => {
-    const item = emprestimos.find((e) => e.id === id);
-    if (item) await updateEmprestimo(id, { ...item, pago: !item.pago });
-  };
-
-  // 🔹 Excluir parcela ou empréstimo — mecanismo único, ver
-  // useExclusaoParcelada.js (ARQUITETURA.md seção 17).
-  const handleExcluir = (item) => {
-    confirmarExclusao({
-      item,
-      tipoLabel: 'Empréstimo',
-      suportaGrupo: true,
-      buscarParcelasDoGrupo: buscarParcelasDaCompra,
-      excluirParcela,
-      excluirGrupoInteiro,
-      excluirComValoresPersonalizados: excluirParcelaComValoresPersonalizados,
-    });
-  };
-
   return (
     <View style={{ flex: 1 }}>
       {sortedEmprestimos.map((item) => (
@@ -103,54 +54,12 @@ export default function EmprestimosScreen({ isEmbedded = false, onPressItem, onD
           key={item.id}
           item={item}
           onPressItem={() => onPressItem?.(item)}
-          onToggleStatus={() => handleToggleStatus(item.id)}
-          onAdiantarParcelas={iniciarAdiantamento}
-          onDelete={() =>
-            isEmbedded ? onDeleteItem?.(item) : handleExcluir(item)
-          }
-          onHistoryPress={() => {
-            setItemSelecionado(item);
-            setHistoricoModalVisivel(true);
-          }}
+          onToggleStatus={() => onToggleStatus?.(item.id)}
+          onAdiantarParcelas={onAdiantarParcelas}
+          onDelete={() => onDeleteItem?.(item)}
+          onHistoryPress={() => onHistoryPress?.(item)}
         />
       ))}
-
-        <>
-          {/* Histórico de parcelas */}
-            <ModalHistoricoParcelas
-              visible={historicoModalVisivel}
-              onClose={() => setHistoricoModalVisivel(false)}
-              item={{
-                idCompra: itemSelecionado?.idCompra ?? itemSelecionado?.id,
-                descricao: itemSelecionado?.descricao,
-                collectionName: 'emprestimos',
-              }}
-            />
-
-            <ModalParcelasAdiantamento
-              visivel={modalAdiantamentoVisivel}
-              aoFechar={fecharModalAdiantamento}
-              parcelasFuturas={parcelasParaAdiantar}
-              aoConfirmar={confirmarAdiantamento}
-            />
-
-            <AlertaModal
-              visible={alerta.visivel}
-              onClose={() => setAlerta({ ...alerta, visivel: false })}
-              {...alerta}
-            />
-
-            <AlertaModal visible={alertaExclusao.visivel} onClose={fecharAlertaExclusao} {...alertaExclusao} />
-            <ModalEditorParcelas
-              visivel={editorExclusao.visivel}
-              aoFechar={fecharEditorExclusao}
-              aoConfirmar={confirmarEditorExclusao}
-              descricao={editorExclusao.descricao}
-              totalParcelas={editorExclusao.valoresIniciais.length}
-              valoresIniciais={editorExclusao.valoresIniciais}
-              bloqueadas={editorExclusao.bloqueadas}
-            />
-          </>
     </View>
   );
 }

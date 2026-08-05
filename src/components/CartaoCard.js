@@ -14,11 +14,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import { vibrarLeve } from '../utils/haptics';
-import { useCartoes } from '../hooks/useCartoes';
-import { useAdiantamento } from '../hooks/useAdiantamento';
 import CartaoVisual from './CartaoVisual';
-import ModalParcelasAdiantamento from './ModalParcelasAdiantamento';
-import AlertaModal from './AlertaModal';
 
 function Indicador({ label, valor, cor }) {
   return (
@@ -83,24 +79,19 @@ function ItemCompraResumo({ item, onPress, onAdiantar }) {
   );
 }
 
-export default function CartaoCard({ cartao = {}, gastos = [], onPressItem }) {
+// =========================================================
+// 🔹 `buscarParcelasDoCartao` e `onAdiantarParcelas` vêm de SaidasScreen.js
+// (via CartoesScreen.js) — antes, este componente chamava `useCartoes()` e
+// `useAdiantamento('cartoes')` por conta própria, criando um par extra de
+// listeners do Firestore para CADA cartão cadastrado exibido na aba "Por
+// Cartão" (ver ARQUITETURA.md seção 19, Sprint de Saneamento). O modal de
+// resumo (indicadores + lista de compras) abaixo continua 100% local — não
+// duplica nada, é uma necessidade própria deste componente.
+// =========================================================
+export default function CartaoCard({ cartao = {}, gastos = [], onPressItem, onAdiantarParcelas, buscarParcelasDoCartao }) {
   const [modalVisivel, setModalVisivel] = useState(false);
   const [carregando, setCarregando] = useState(false);
   const [historicoCompleto, setHistoricoCompleto] = useState(null);
-  const { buscarParcelasDoCartao } = useCartoes();
-
-  // 🔹 Mesmo hook já usado em GastoCartaoCard.js/CartoesScreen.js — o modal
-  // antigo (antes da Sprint 6) já tinha essa ação aqui dentro; o resumo novo
-  // preserva, só reorganiza onde o botão aparece (ver ItemCompraResumo).
-  const {
-    modalAdiantamentoVisivel,
-    parcelasParaAdiantar,
-    iniciarAdiantamento,
-    confirmarAdiantamento,
-    fecharModalAdiantamento,
-    alerta,
-    setAlerta,
-  } = useAdiantamento('cartoes');
 
   const handlePress = async () => {
     vibrarLeve();
@@ -242,7 +233,7 @@ export default function CartaoCard({ cartao = {}, gastos = [], onPressItem }) {
                         key={item.idCompra || item.id}
                         item={item}
                         onPress={() => onPressItem?.(item)}
-                        onAdiantar={iniciarAdiantamento}
+                        onAdiantar={onAdiantarParcelas}
                       />
                     ))
                   ) : (
@@ -256,19 +247,6 @@ export default function CartaoCard({ cartao = {}, gastos = [], onPressItem }) {
           </View>
         </View>
       </Modal>
-
-      <ModalParcelasAdiantamento
-        visivel={modalAdiantamentoVisivel}
-        aoFechar={fecharModalAdiantamento}
-        parcelasFuturas={parcelasParaAdiantar}
-        aoConfirmar={confirmarAdiantamento}
-      />
-
-      <AlertaModal
-        visible={alerta?.visivel}
-        onClose={() => setAlerta({ ...alerta, visivel: false })}
-        {...alerta}
-      />
     </>
   );
 }
