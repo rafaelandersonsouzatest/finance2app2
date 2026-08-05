@@ -1,6 +1,6 @@
 # Status do Projeto
 
-> Última atualização: 2026-07-30
+> Última atualização: 2026-08-06
 > Este documento reflete o estado real do código no momento da análise, não intenções ou memória de conversas anteriores. Atualize-o sempre que o estado mudar de forma relevante.
 
 ## 0. Releases publicadas (EAS Update / OTA)
@@ -27,6 +27,7 @@ O script **não** publica para `marina` — se um dia isso for necessário, é s
 ## 1. Funcionalidades prontas (em uso, acessíveis pela navegação)
 
 - **Autenticação por e-mail/senha**: login, registro (com validação de CPF/CNPJ e verificação de duplicidade), recuperação de senha (`ForgotPasswordScreen`) e redefinição (`ResetPasswordScreen`).
+- **Login com Google** (`loginWithGoogle` em `useAuth.js`, via `expo-auth-session`): botão exposto e conectado em `LoginScreen.js` (`handleLoginGoogle` → `loginWithGoogle()`). Verificado em 2026-08-06 — não é scaffolding desconectado. O que não foi testado é o fluxo OAuth ponta a ponta (depende de configuração externa no provedor Google).
 - **Resumo Mensal** (`ResumoMensal.js`): dashboard consolidado com totais previstos e realizados de entradas, gastos, empréstimos, cartões e investimentos.
 - **Entradas** (`EntradasScreen.js` + `useEntradas`): CRUD de receitas do mês, com geração automática de entradas fixas a partir de modelos.
 - **Saídas** (`SaidasScreen.js`): tela única que agrega Gastos, Empréstimos e Cartões em abas internas — única dona dos dados/hooks; `GastosScreen.js`/`EmprestimosScreen.js`/`CartoesScreen.js` são componentes de apresentação pura, sem hook próprio (ver `ARQUITETURA.md` seção 19).
@@ -62,7 +63,6 @@ Conforme `git status` no momento desta análise:
   - **Achado novo (2026-07-27, investigando o Menu do Usuário):** `MembrosScreen.js` usa uma coleção **global** `membros` (sem escopo de usuário!), diferente de `MembroSelect.js`/`GerenciarMembrosModal.js`, que usam corretamente `users/{uid}/membros`. Ou seja, existem **três** implementações de membros, não duas, e uma delas tem um bug de dados real (vazaria membros entre contas diferentes se fosse reativada como está). Não reaproveitar `MembrosScreen.js` sem reescrever — ver plano da Sprint 2 (seção 8) e `ARQUITETURA.md` seção 11.6.
   - **Conclusão**: o Modo Família tem UI parcial, mas nenhuma trilha de dados funcional até hoje.
 - **Alterar Senha** (`AlterarSenhaScreen.js`): implementada, mas fora da navegação ativa (comentada em `BottomTabs.js`).
-- **Login com Google** (`loginWithGoogle` em `useAuth.js`): implementado via `expo-auth-session` com fluxo manual de `authUrl`, mas não foi verificado nesta análise se o botão está exposto/funcional nas telas de login atuais.
 - **Linha do Tempo (Histórico de Eventos) — Gastos, Entradas e Investimentos**: implementada
   para Cartões e Empréstimos (ver seção 16); esses três módulos ainda não emitem eventos.
 
@@ -88,17 +88,17 @@ Conforme `git status` no momento desta análise:
 | ~~Campo de valor em movimentações de investimento sem máscara monetária~~ ✅ Corrigido (2026-07-25) | `MovimentacaoInvestModal.js` | — era `TextInput` puro; agora usa `useCurrencyInput` |
 | ~~Membro do modelo não copiado para a entrada gerada~~ ✅ Corrigido (2026-07-25) | `useEntradas.js` (`gerarFixosDoMes`) | — o objeto da entrada gerada nunca incluía o campo `membro` do modelo; `useGastos.js` não tem esse problema (gastos não usam o conceito de membro) |
 | ~~FAB da tela de Investimentos não flutuava (ficava preso no fluxo do layout)~~ ✅ Corrigido (2026-07-25) | `TelaPadrao.js` | — `globalStyles.fabPrimary` não declara `position`/`right`/`bottom` (o `FabMenu`, usado pelas outras telas, fornece isso via seu próprio wrapper); o botão simples (usado só quando não há `fabActions`, caso de Investimentos) esquecia de declarar `position: 'absolute'` |
-| Divisão de parcelas sem arredondamento de centavos | `useEmprestimos.js`, e também `ModalCriacao.js`/`GastoCartaoCard.js`/`TelaPadrao.js` (achado ampliado na varredura de 2026-07-24, ver seção 6). No cartão, o sintoma mais grave (`valorTotal` podendo ficar diferente da soma das parcelas) foi corrigido na Sprint de Parcelas Personalizadas (ver seção 13) — a divergência residual de poucos centavos no split automático em si (ex.: R$100 ÷ 3) continua existindo, mas hoje só nesse ponto, não mais se propagando para o total exibido | Média → Baixa (só cartão) |
+| ~~Divisão de parcelas sem arredondamento de centavos~~ ✅ Corrigido (2026-08-06) | `src/utils/parcelamento.js` (`dividirValorIgualmente`) | — dividia em reais fracionados e arredondava cada parcela de forma independente (R$100 ÷ 3 = 3× R$33,33 = R$99,99, um centavo a menos que o total). Agora divide em centavos inteiros e distribui o resto da divisão nas últimas parcelas — a soma bate exatamente com o total em qualquer divisão. Corrige de uma vez a criação automática, o editor de parcelas personalizadas e a redistribuição por exclusão, que reaproveitam a mesma função — ver `ARQUITETURA.md` seção 20 |
 | ~~`Math.max(0, ...)` mascarava saldo negativo real de investimento~~ ✅ Corrigido (Sprint 1 / A4, 2026-07-24) | `useInvestimentos.js` | — regra de negócio: saldo nunca fica negativo, validada em `addTransaction`/`updateTransaction`/`deleteTransaction`/`updateInvestment` (rejeitam a operação em vez de só clampar o valor exibido); `Math.max(0)` virou só rede de segurança visual para dados legados |
-| Movimentações de investimento reescritas como array inteiro sem transação atômica | `useInvestimentos.js` | Média — risco de condição de corrida entre dispositivos |
-| `idCompra` gerado sem sanitização (colisão possível) | `useCartoes.js` | Baixa/Média |
+| ~~Movimentações de investimento reescritas como array inteiro sem transação atômica~~ ✅ Corrigido (2026-08-06) | `useInvestimentos.js` (`addTransaction`/`updateTransaction`/`deleteTransaction`/`updateInvestment`) | — trocado `getDoc`+`updateDoc` por `runTransaction`: se dois dispositivos editarem o mesmo investimento ao mesmo tempo, o Firestore reexecuta a função automaticamente com os dados mais recentes em vez de um sobrescrever o outro |
+| ~~`idCompra` gerado sem sanitização (colisão possível)~~ ✅ Corrigido (2026-08-06) | `useCartoes.js` (`addCartao`) | — duas compras com a mesma descrição na mesma data (comum: mesma loja, mesmo dia, sem cartão cadastrado) geravam o mesmo `idCompra` e misturavam as parcelas das duas compras no mesmo grupo. Acrescentado sufixo de timestamp, mesmo critério já usado em `useEmprestimos.js`. Só afeta compras novas — sem migração |
 | ~~"Fechamento estimado" de fatura hardcoded (`diaVencimento - 7`)~~ ✅ Resolvido para cartões cadastrados (2026-08-05, Sprint 6) | `useCartoes.js` | — `diaFechamento` real vem do cadastro do cartão (`useCarteira.js`) quando o lançamento referencia um; a estimativa continua só para cartão informal/lançamento antigo, sem cadastro — ver seção 14 |
-| Reverter antecipação de parcela do cartão não restaura a data original | `useCartoes.js` (`updateCartao`, branch "Reverter antecipação?") | Baixa — achado em 2026-08-03 investigando a consistência de `valorTotal`: `anteciparParcelas` nunca gravou `mesOriginal`/`anoOriginal` (só `useEmprestimos.js` grava esses campos), então a reversão sempre cai no fallback `atual.mes`/`atual.ano` em vez do mês/ano de vencimento originais. O valor (`valorOriginal`) foi corrigido junto (ver seção 13); a data ficou de fora por ser um problema separado, não coberto pelo pedido |
+| ~~Reverter antecipação de parcela do cartão não restaura a data original~~ ✅ Corrigido (2026-08-06) | `useCartoes.js` (`anteciparParcelas`) | — `anteciparParcelas` nunca gravava `mesOriginal`/`anoOriginal` (só `useEmprestimos.js` gravava), então reverter sempre caía no fallback `atual.mes`/`atual.ano` (o mês da antecipação, não o original). Agora grava os dois campos, mesmo critério de `useEmprestimos.js` — a branch de reversão em `updateCartao` já sabia usá-los, só faltava alguém gravar |
 | ~~`typeof x === 'object'` sem excluir `null` produzia `membro`/`categoria: undefined` (Firestore rejeita em qualquer escrita futura)~~ ✅ Corrigido (2026-08-04) | Varredura completa em todos os hooks/listeners — `useCartoes.js`, `useEntradas.js` (os 2 com o padrão em si), e o mesmo risco de campo sem fallback também em `useGastos.js`/`useEmprestimos.js` (`gerarFixosDoMes`/`addEmprestimo`) | — ver seção 13 para o detalhe completo; `useInvestimentos.js`/`useMembros.js`/`useCategorias.js`/`useModelos.js` auditados e já estavam seguros |
 | ~~Validação de força de senha é só visual, não era exigida no submit~~ ✅ Corrigido (Sprint 1 / B2, 2026-07-24) | `RegisterScreen.js` | — `validarSenha()` existia mas nunca era chamada em `handleRegister` (achado durante a correção); agora é chamada, com regra rigorosa em produção e simplificada (`__DEV__`) em desenvolvimento |
 | ~~Checagem de CPF/e-mail duplicado é só client-side, sem garantia atômica~~ ✅ Corrigido (Sprint 1, 2026-07-24) | `useAuth.js` register | — checagem de CPF agora via reserva `documentosCadastrados`, e-mail delegado ao Firebase Auth nativo, escrita em `writeBatch` |
 | ~~Race condition entre `register()` e o listener `onAuthStateChanged`~~ ✅ Corrigido (Sprint 1, 2026-07-24) | `useAuth.js` | — descoberto durante a revisão do fluxo de cadastro; perfil podia nascer com dados incompletos dependendo de qual dos dois "ganhasse" a corrida |
-| Bug de parse "vírgula sem tratar milhar" (`.replace(',','.')` sem `/g`) também presente em componentes de UI, não só nos hooks já corrigidos | `MovimentacaoInvestModal.js` (ativo hoje, campo não passa por `useCurrencyInput`), `ModalEdicao.js`, `GerenciarModelosModal.js`, `InvestimentosScreen.js` (latentes) | Alta em `MovimentacaoInvestModal.js`; Baixa nos demais |
+| ~~Bug de parse "vírgula sem tratar milhar" também presente em componentes de UI, não só nos hooks~~ ✅ Reverificado em 2026-08-06 — já não existe | `MovimentacaoInvestModal.js`, `ModalEdicao.js`, `GerenciarModelosModal.js`, `InvestimentosScreen.js` | — os quatro arquivos hoje passam o campo de valor por `CampoMonetario`/`useCurrencyInput`, que sempre entrega um número já limpo (nunca uma string com vírgula) para quem consome o valor. `ModalEdicao.js`/`InvestimentosScreen.js` ainda têm uma linha de fallback `.replace(',','.')` para o caso de o valor chegar como string — código morto hoje (nunca mais é exercitado), não removido por não fazer parte do pedido, mas não representa mais um risco |
 | `firestore.rules` escrito e cobrindo `users/{uid}` + `documentosCadastrados`, mas **ainda não publicado** | projeto inteiro | 🔴 Crítica até o deploy — previsto para o final da Sprint 1, mediante autorização explícita |
 | ~~Aba "Linha do Tempo" do Histórico da Compra abria mostrando só ~1,5cm de tela~~ ✅ Corrigido (2026-08-06) | `ModalHistoricoParcelas.js` | — `ModernTabs` precisa de um container pai com `height` concreto para seu `flex:1` funcionar; o container usava `maxHeight` (padrão de todo outro modal do app), que não define espaço pra distribuir. Ver `ARQUITETURA.md` seção 19.8 — armadilha registrada para não reintroduzir em outro modal que venha a usar `ModernTabs` |
 
@@ -125,12 +125,12 @@ Varredura completa do app em busca de parse/formatação/cálculo de dinheiro fo
 | # | Achado | Prioridade |
 |---|---|---|
 | 1 | ~~5 implementações paralelas de parse/formatação de moeda~~ — a de `GerenciarModelosModal.js` (`formatarMoeda`/`desformatarMoeda`, usada na *edição* do campo "Valor") foi eliminada em 2026-08-05 (ver seção 13, `CampoMonetario.js`). Seguem de pé, fora do escopo dessa correção (formatação de *exibição*, não de edição): `formatarValor.js`, `EstatisticasComponent.js`, `SaidasScreen.js`, `VisibilityContext.js` (esta última a mais usada no app) | 🟠 Alta → Média |
-| 2 | Bug "vírgula sem tratar milhar" ativo em `MovimentacaoInvestModal.js` (campo não passa por `useCurrencyInput`) | 🔴 Alta |
-| 3 | Divisão de parcelas sem arredondamento (`ModalCriacao.js`) + reconstituição inversa em 3 lugares (`GastoCartaoCard.js`, `TelaPadrao.js`) — risco de "drift" de centavos visível ao usuário | 🟠 Alta |
-| 2b | Mesmo bug de vírgula, mas em código hoje inativo (`ModalEdicao.js`, `GerenciarModelosModal.js`, `InvestimentosScreen.js`) | 🟡 Média |
+| 2 | ~~Bug "vírgula sem tratar milhar" ativo em `MovimentacaoInvestModal.js`~~ ✅ Já estava corrigido desde 2026-07-25 (ver seção 5) — esta linha só não tinha sido riscada quando o fix aconteceu | — |
+| 3 | ~~Divisão de parcelas sem arredondamento (`dividirValorIgualmente`)~~ ✅ Corrigido (2026-08-06, ver seção 5 e `ARQUITETURA.md` seção 20). Segue de pé, à parte, um caso bem mais restrito: `GastoCartaoCard.js`/`TelaPadrao.js` reconstroem o total como `valor × totalParcelas` só quando `valorTotal` não existe no documento (dado legado, de antes desse campo existir) — aproximação, não afeta nenhuma compra criada com o código atual | 🟢 Baixa (só dado legado) |
+| 2b | ~~Mesmo bug de vírgula, em código hoje inativo~~ ✅ Reverificado em 2026-08-06 — `GerenciarModelosModal.js` migrou por completo para `CampoMonetario` (nenhum resquício); `ModalEdicao.js`/`InvestimentosScreen.js` ainda têm a linha de fallback, mas confirmada código morto (ver seção 5) | — |
 | 4 | Somas/percentuais financeiros recalculados de forma independente em 6+ telas/componentes (`ResumoMensal.js`, `EstatisticasComponent.js`, `SaidasScreen.js`, `SecaoEntradas.js`, `ModalDetalhes.js`, `ModalHistoricoParcelas.js`) | 🟡 Média |
 | 5 | `ResumoMensal.js` soma valores sem conversão numérica defensiva (`entrada.valor \|\| 0` sem `Number()`/`parseBRL`) | 🟡 Média |
-| 6 | 3 implementações independentes do mesmo cálculo de progresso de investimento (`SecaoInvestimentos.js`, `TelaPadrao.js`, `DetalhesInvestimentoModal.js`) | 🟢 Baixa |
+| 6 | ~~3 implementações independentes do mesmo cálculo de progresso de investimento~~ ✅ Já estava corrigido desde a Sprint 4 (`src/utils/metas.js`, `calcularProgressoMeta`/`corProgressoMeta`) — reverificado em 2026-08-06: `SecaoInvestimentos.js`, `TelaPadrao.js` e `DetalhesInvestimentoModal.js` já importam a mesma função; esta linha só nunca tinha sido riscada | — |
 
 ### Backlog — achados da auditoria de composição de telas não resolvidos (2026-08-06)
 
@@ -689,8 +689,10 @@ seção 19 para o desenho técnico completo.
   tinha estava morta (nada a chamava) — ao consolidar, se `alerta`/`setAlerta` dessa instância
   não fossem também capturados, a mensagem de sucesso/erro ao antecipar parcela teria
   desaparecido silenciosamente. Corrigido antes de terminar a sprint.
-- **Fora do escopo, registrado como dívida técnica**: ícone de excluir inerte nas linhas
-  individuais (comportamento pré-existente, não é regressão), `extractDate` duplicada entre 3
+- ~~**Ícone de excluir inerte nas linhas individuais**~~ ✅ Corrigido (2026-08-06, ver seção 20)
+  — deixou de ser dívida técnica, agora aciona o mesmo mecanismo único de exclusão do
+  `ModalEdicao`.
+- **Fora do escopo, registrado como dívida técnica**: `extractDate` duplicada entre 3
   arquivos, nomes de callback inconsistentes (`onAdiantar` vs `onAdiantarParcelas`), possível
   rename futuro de `GastosScreen.js`/`EmprestimosScreen.js`/`CartoesScreen.js` (não são mais
   "Screens" de fato), responsabilidades do `TelaPadrao.js`.

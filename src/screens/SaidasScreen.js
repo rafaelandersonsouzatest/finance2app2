@@ -404,8 +404,12 @@ const handleEditar = async (itemEditado) => {
 // useExclusaoParcelada.js (ARQUITETURA.md seção 17). Fecha o modal de
 // detalhes e limpa a seleção assim que a exclusão de fato é confirmada e
 // executada — cancelar em qualquer etapa do fluxo não fecha nada.
-const handleExcluir = () => {
-  const item = itemSelecionado;
+// 🔹 Aceita um item explícito (usado pelo ícone de excluir direto na linha,
+// via onDeleteItem — antes não fazia nada, ver ARQUITETURA.md seção 20) além
+// do uso padrão via ModalEdicao, que continua sem passar argumento nenhum
+// (força o fallback para itemSelecionado, nunca usa um rascunho não salvo).
+const handleExcluir = (itemParam) => {
+  const item = itemParam || itemSelecionado;
   if (!item) return;
 
   const fecharSelecao = () => {
@@ -582,6 +586,7 @@ const handleExcluir = () => {
         gastos={gastos}
         onPressItem={handleAbrirDetalhes}
         onToggleStatus={handleToggleStatus}
+        onDeleteItem={handleExcluir}
       />
       <EmprestimosScreen
         tabKey="emprestimos"
@@ -590,6 +595,7 @@ const handleExcluir = () => {
         onToggleStatus={handleToggleStatus}
         onAdiantarParcelas={iniciarAdiantamento}
         onHistoryPress={handleAbrirHistorico}
+        onDeleteItem={handleExcluir}
       />
       <CartoesScreen
         tabKey="cartoes"
@@ -598,6 +604,7 @@ const handleExcluir = () => {
         onToggleStatus={toggleCartaoStatus}
         onAdiantarParcelas={iniciarAdiantamento}
         buscarParcelasDoCartao={buscarParcelasDoCartao}
+        onDeleteItem={handleExcluir}
       />
     </ModernTabs>
       </TelaPadrao>
@@ -643,7 +650,7 @@ tipo={
   visivel={modalEdicaoVisivel}
   aoFechar={() => setModalEdicaoVisivel(false)}
   aoSalvar={handleEditar}
-  aoExcluir={handleExcluir}
+  aoExcluir={() => handleExcluir()}
   item={itemSelecionado}
 tipo={
   abaAtiva === 'gastos'

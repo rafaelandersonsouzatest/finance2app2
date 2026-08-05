@@ -177,7 +177,13 @@ export const useCartoes = (month, year) => {
       const corDoCartao = cartaoCadastrado?.cor || getCorDoCartao(nomeCartao);
       const dataBaseISO = normalizarParaISO(dataCompra);
       const dataBase = new Date(dataBaseISO + 'T00:00:00');
-      const idCompra = `${descricao.replace(/\s+/g, '-')}-${dataBaseISO}`;
+      // 🔹 Sufixo de timestamp evita colisão entre duas compras com a mesma
+      // descrição e data (ex.: "Mercado" comprado duas vezes no mesmo dia,
+      // ambas sem cartão cadastrado) — sem isso, as parcelas das duas
+      // compras se misturariam no mesmo grupo. Mesmo critério já usado em
+      // useEmprestimos.js. Compras antigas mantêm seu idCompra atual, sem
+      // migração — isso só afeta compras criadas a partir de agora.
+      const idCompra = `${descricao.replace(/\s+/g, '-')}-${dataBaseISO}-${Date.now()}`;
       const diaVencimento =
         cartaoCadastrado?.diaVencimento ||
         vencimentoCartaoPorNome[nomeCartao] ||
@@ -741,6 +747,12 @@ export const useCartoes = (month, year) => {
           pago: true,
           adiantada: true,
           dataPagamento,
+          // 🔹 Sem isso, reverter a antecipação (branch "Reverter
+          // antecipação?" em updateCartao) sempre caía no fallback
+          // atual.mes/atual.ano (o mês da antecipação, não o original) — só
+          // useEmprestimos.js gravava esses campos até agora, mesmo critério.
+          mesOriginal: atual.mes,
+          anoOriginal: atual.ano,
           mes: mesPagamento,
           ano: anoPagamento,
           valor: valorFinal,

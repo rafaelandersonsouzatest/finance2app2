@@ -1492,10 +1492,11 @@ removido, não apenas desligado.
 ponto da árvore usa esse hook), é uma necessidade própria e legítima do agrupamento "Por
 Cartão"; por decisão de escopo, não foi tocado.
 
-`onDeleteItem` continua existindo nas três, mas `SaidasScreen.js` continua sem passá-lo —
-mesmo comportamento de antes desta sprint (o ícone de excluir na linha, quando acessado via
-Saídas, não faz nada; a exclusão de verdade acontece via linha → Detalhes → Editar → Excluir).
-Corrigir isso mudaria comportamento, o que estava fora do escopo combinado.
+`onDeleteItem` existia nas três desde esta sprint, mas `SaidasScreen.js` não o passava — o
+ícone de excluir na linha, ao navegar por Saídas, não fazia nada (a exclusão só funcionava via
+linha → Detalhes → Editar → Excluir). Corrigido depois, na sprint de correções funcionais
+(2026-08-06, ver seção 20) — na época, corrigir isso teria mudado comportamento, fora do
+escopo combinado desta sprint especificamente.
 
 ### 19.4 `CartaoCard.js` — a duplicação mais profunda
 
@@ -1516,8 +1517,8 @@ estado próprio e legítimo deste componente, não duplicava nada.
 
 ### 19.6 Fora do escopo, por decisão explícita (registrado como dívida técnica)
 
-- **Ícone de excluir inerte nas linhas individuais** (ver seção 19.3) — comportamento
-  pré-existente, não corrigido para não mudar comportamento.
+- ~~**Ícone de excluir inerte nas linhas individuais**~~ ✅ Corrigido em 2026-08-06 (fora desta
+  sprint especificamente, numa rodada seguinte de correções funcionais — ver seção 20).
 - **`extractDate`/`extractDateFromItem`** — lógica pura duplicada (com pequenas variações)
   entre `SaidasScreen.js`, `EmprestimosScreen.js` e `CartoesScreen.js`. Não é um problema de
   listener nem de código morto, é uma duplicação de utilitário — fora do escopo desta sprint.
@@ -1628,3 +1629,93 @@ o container do modal precisa de `height` fixo (ex.: `height: '85%'`), nunca só 
 Aplicado em `ModalHistoricoParcelas.js` (comentário no próprio código apontando para esta
 seção). Trade-off aceito: o modal passa a ocupar sempre esse espaço, mesmo com pouco
 conteúdo — melhor que um modal que não abre.
+
+## 20. Correções funcionais priorizadas (✅ implementadas em 2026-08-06)
+
+Levantamento de bugs/inconsistências/melhorias pendentes (funcionais, não arquiteturais),
+priorizado por impacto no usuário — ver `PROJECT_STATUS.md` seção 5 para o registro completo.
+Seis itens implementados nesta rodada; `firestore.rules` não publicado ficou de fora por
+decisão explícita do usuário (é uma tarefa operacional de deploy, não uma correção de código,
+e o app ainda está em fase de testes).
+
+### 20.1 Colisão de `idCompra` em compras de cartão
+
+**Problema**: `idCompra = descricao + dataCompra`, sem nenhum componente único
+(`useCartoes.js`, `addCartao`). Duas compras com a mesma descrição na mesma data (comum: mesma
+loja, mesmo dia, sem cartão cadastrado) geravam o mesmo `idCompra` — as parcelas das duas
+compras se misturavam no mesmo grupo, corrompendo total, exclusão e redistribuição.
+`useEmprestimos.js` já não tinha esse problema (usa `Date.now()` no id).
+
+**Correção**: acrescentado um sufixo de timestamp ao `idCompra` do cartão, mesmo critério já
+usado em `useEmprestimos.js`. Só afeta compras criadas a partir de agora — compras antigas
+mantêm o `idCompra` que já tinham, sem migração (é só uma chave de agrupamento interna, nunca
+exibida ao usuário).
+
+### 20.2 Ícone de excluir inerte nas linhas de Saídas
+
+**Problema**: desde a Sprint de Saneamento (seção 19), `GastosScreen.js`/`EmprestimosScreen.js`/
+`CartoesScreen.js` aceitam uma prop `onDeleteItem`, mas `SaidasScreen.js` nunca a passava — o
+ícone de excluir em cada linha, ao navegar por Saídas, não fazia nada.
+
+**Correção**: `handleExcluir` (já existente, usado por `ModalEdicao`) passou a aceitar um item
+explícito por parâmetro, com `itemSelecionado` como fallback quando nenhum é passado — o
+caminho já existente via `ModalEdicao` continua chamando `handleExcluir()` sem argumento (força
+o fallback, nunca usa um rascunho de edição não salvo), evitando qualquer mudança de
+comportamento nesse caminho. `SaidasScreen.js` passa `onDeleteItem={handleExcluir}` para as três
+telas embutidas — o ícone da linha aciona agora o mesmo mecanismo único de confirmação
+(`useExclusaoParcelada`, seção 17) que o caminho via Detalhes/Editar já usava.
+
+### 20.3 Reverter antecipação de parcela de cartão não restaura a data original
+
+**Problema**: `anteciparParcelas` (`useCartoes.js`) nunca gravava `mesOriginal`/`anoOriginal` —
+só `useEmprestimos.js` gravava esses campos. A branch de reversão em `updateCartao` já sabia
+preferir `atual.mesOriginal || atual.mes`, mas como o campo nunca existia, sempre caía no
+fallback (`atual.mes`, o mês da antecipação, não o original).
+
+**Correção**: `anteciparParcelas` passou a gravar `mesOriginal: atual.mes` e
+`anoOriginal: atual.ano` antes de sobrescrever `mes`/`ano` com a data de antecipação — mesmo
+padrão exato de `useEmprestimos.js`. A lógica de reversão não precisou mudar, só passou a
+receber o dado que já esperava.
+
+### 20.4 Movimentações de investimento sem transação atômica
+
+**Problema**: `addTransaction`/`updateTransaction`/`deleteTransaction`/`updateInvestment`
+(`useInvestimentos.js`) liam o documento inteiro (`getDoc`), calculavam o novo array de
+`movimentacoes` em JS, e gravavam de volta (`updateDoc`) — um clássico read-modify-write. Duas
+edições simultâneas em dois dispositivos (ex.: duas retiradas ao mesmo tempo) podiam fazer uma
+sobrescrever a outra silenciosamente, cada uma vendo o saldo sem a alteração da outra.
+
+**Correção**: as quatro funções passaram a usar `runTransaction` do Firestore — a leitura e a
+escrita acontecem dentro da mesma transação; se o documento mudar entre a leitura e o commit
+(por causa de outro dispositivo), o Firestore reexecuta a função automaticamente com os dados
+mais atuais, em vez de um simplesmente sobrescrever o outro. Nenhuma mudança de comportamento
+visível — as mesmas validações de saldo negativo continuam, só a favor de execução mudou.
+
+### 20.5 Arredondamento residual na divisão automática de parcelas
+
+**Problema**: `dividirValorIgualmente` (`src/utils/parcelamento.js`) dividia o valor em reais
+fracionados e arredondava cada parcela de forma independente — R$100 ÷ 3 virava 3× R$33,33 =
+R$99,99, um centavo a menos que o total original. Usada pela criação automática de parcelas,
+pelo editor de parcelas personalizadas ("Restaurar parcelas iguais") e pela redistribuição por
+exclusão (seção 17) — o mesmo desvio se propagava para os três fluxos.
+
+**Correção**: a função passou a dividir em **centavos inteiros** (não em reais), distribuindo o
+resto da divisão inteira nas **últimas parcelas** (1 centavo a mais cada) — prática comum em
+parcelamento de compras no varejo. A soma das parcelas retornadas agora bate exatamente com o
+total em qualquer divisão. Como é uma função pura compartilhada, corrigir aqui corrige os três
+fluxos de uma vez, sem tocar em nenhum deles individualmente.
+
+Achado à parte, não corrigido por ser um caso bem mais restrito: `GastoCartaoCard.js`/
+`TelaPadrao.js` reconstroem o total como `valor × totalParcelas` só quando o documento não tem
+`valorTotal` (dado legado, de antes desse campo existir) — uma aproximação que só afeta dado
+antigo, não qualquer compra criada com o código atual.
+
+### 20.6 Três cálculos de progresso de investimento — já estava corrigido
+
+**Verificado, não precisou de código**: `SecaoInvestimentos.js`, `TelaPadrao.js` e
+`DetalhesInvestimentoModal.js` já importam a mesma função compartilhada
+(`calcularProgressoMeta`/`corProgressoMeta`, `src/utils/metas.js`) — a consolidação já tinha
+sido feita na Sprint 4 (ver comentário no próprio `utils/metas.js`, referenciando
+`SPRINT4_DISCOVERY.md`). O achado na auditoria de bugs (seção 5, `PROJECT_STATUS.md`) descrevia
+um problema que já não existia — a linha na tabela de bugs nunca tinha sido riscada quando o
+fix aconteceu. Só documentação foi corrigida, nenhum código.

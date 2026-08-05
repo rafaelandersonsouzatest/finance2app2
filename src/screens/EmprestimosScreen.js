@@ -24,9 +24,9 @@ const extractDate = (item) => {
 // 🔹 Componente de apresentação pura — não busca dados nem é dono de nenhum
 // modal (histórico, antecipação, exclusão). Renderizado só por
 // SaidasScreen.js, que é hoje a única fonte de verdade de dados/ações (ver
-// ARQUITETURA.md seção 19, Sprint de Saneamento). `onDeleteItem` continua
-// aceito por compatibilidade de assinatura, mas nunca é chamado pelo pai —
-// mesmo comportamento de antes desta sprint.
+// ARQUITETURA.md seção 19, Sprint de Saneamento). `onDeleteItem` aciona o
+// mesmo mecanismo único de exclusão usado por ModalEdicao (ver
+// ARQUITETURA.md seção 20) — o ícone de excluir na linha agora funciona.
 // =========================================================
 export default function EmprestimosScreen({
   emprestimos = [],

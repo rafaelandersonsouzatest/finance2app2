@@ -33,9 +33,9 @@ const extractDate = (item) => {
 // ARQUITETURA.md seção 19, Sprint de Saneamento). `useCarteira()` continua
 // chamado aqui: é uma necessidade própria e única desta tela (metadados dos
 // cartões cadastrados para o agrupamento "Por Cartão"), não uma duplicação —
-// nenhum outro lugar da árvore usa esse hook. `onDeleteItem` continua aceito
-// por compatibilidade de assinatura, mas nunca é chamado pelo pai — mesmo
-// comportamento de antes desta sprint.
+// nenhum outro lugar da árvore usa esse hook. `onDeleteItem` aciona o mesmo
+// mecanismo único de exclusão usado por ModalEdicao (ver ARQUITETURA.md
+// seção 20) — o ícone de excluir na linha agora funciona.
 // =========================================================
 export default function CartoesScreen({
   cartoes: cartoesData = [],

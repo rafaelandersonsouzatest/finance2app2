@@ -3,13 +3,12 @@ import {
   collection,
   addDoc,
   doc,
-  getDoc,
-  updateDoc,
   deleteDoc,
   onSnapshot,
   serverTimestamp,
   orderBy,
   query,
+  runTransaction,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../auth/useAuth';
@@ -135,33 +134,39 @@ export const useInvestimentos = () => {
     try {
       const basePath = getBasePath(user);
       const investmentRef = doc(db, `${basePath}/investimentos`, id);
-      const snap = await getDoc(investmentRef);
-      if (!snap.exists()) throw new Error('Investimento não encontrado.');
 
-      const atual = snap.data();
-      const movs = atual.movimentacoes || [];
-      const novoValorInicial = parseNumber(
-        dadosAtualizados.valorInicial ?? atual.valorInicial ?? 0
-      );
+      // 🔹 `runTransaction` em vez de getDoc+updateDoc: se dois dispositivos
+      // editarem o mesmo investimento ao mesmo tempo, o Firestore reexecuta
+      // esta função automaticamente com os dados mais recentes em vez de um
+      // simplesmente sobrescrever o outro (ver ARQUITETURA.md seção 20).
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(investmentRef);
+        if (!snap.exists()) throw new Error('Investimento não encontrado.');
 
-      const saldoReal = calcSaldoReal(novoValorInicial, movs);
-      if (saldoReal < 0) {
-        throw new Error(
-          'Esse valor inicial deixaria o saldo do investimento negativo, considerando as movimentações já registradas.'
+        const atual = snap.data();
+        const movs = atual.movimentacoes || [];
+        const novoValorInicial = parseNumber(
+          dadosAtualizados.valorInicial ?? atual.valorInicial ?? 0
         );
-      }
-      const novoValorAtual = saldoReal;
 
-      await updateDoc(investmentRef, {
-        nome: dadosAtualizados.nome || atual.nome || 'Sem nome',
-        instituicao:
-          dadosAtualizados.instituicao ||
-          atual.instituicao ||
-          'Não Informado',
-        valorInicial: novoValorInicial,
-        valorAtual: novoValorAtual,
-        meta: parseNumber(dadosAtualizados.meta ?? atual.meta ?? 0),
-        atualizadoEm: serverTimestamp(),
+        const saldoReal = calcSaldoReal(novoValorInicial, movs);
+        if (saldoReal < 0) {
+          throw new Error(
+            'Esse valor inicial deixaria o saldo do investimento negativo, considerando as movimentações já registradas.'
+          );
+        }
+
+        tx.update(investmentRef, {
+          nome: dadosAtualizados.nome || atual.nome || 'Sem nome',
+          instituicao:
+            dadosAtualizados.instituicao ||
+            atual.instituicao ||
+            'Não Informado',
+          valorInicial: novoValorInicial,
+          valorAtual: saldoReal,
+          meta: parseNumber(dadosAtualizados.meta ?? atual.meta ?? 0),
+          atualizadoEm: serverTimestamp(),
+        });
       });
     } catch (err) {
       console.error('Erro ao atualizar investimento:', err);
@@ -193,29 +198,36 @@ export const useInvestimentos = () => {
     try {
       const basePath = getBasePath(user);
       const investmentRef = doc(db, `${basePath}/investimentos`, investmentId);
-      const docSnap = await getDoc(investmentRef);
-      if (!docSnap.exists()) throw new Error('Investimento não encontrado.');
-      const data = docSnap.data();
-      const movs = data.movimentacoes || [];
 
-      const novaMov = {
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        tipo: transaction.tipo || 'Aporte',
-        descricao: transaction.descricao || '',
-        valor: parseNumber(transaction.valor ?? 0),
-        data: transaction.data || new Date().toISOString(),
-      };
+      // 🔹 `runTransaction` — ver comentário em updateInvestment. Aqui
+      // importa ainda mais: duas retiradas simultâneas em dispositivos
+      // diferentes, cada uma vendo o saldo sem a outra, poderiam aprovar as
+      // duas mesmo sem saldo suficiente para as duas juntas.
+      await runTransaction(db, async (tx) => {
+        const docSnap = await tx.get(investmentRef);
+        if (!docSnap.exists()) throw new Error('Investimento não encontrado.');
+        const data = docSnap.data();
+        const movs = data.movimentacoes || [];
 
-      const novasMovs = [...movs, novaMov];
-      const saldoReal = calcSaldoReal(data.valorInicial, novasMovs);
-      if (saldoReal < 0) {
-        throw new Error('Saldo insuficiente para essa retirada.');
-      }
+        const novaMov = {
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          tipo: transaction.tipo || 'Aporte',
+          descricao: transaction.descricao || '',
+          valor: parseNumber(transaction.valor ?? 0),
+          data: transaction.data || new Date().toISOString(),
+        };
 
-      await updateDoc(investmentRef, {
-        movimentacoes: novasMovs,
-        valorAtual: saldoReal,
-        atualizadoEm: serverTimestamp(),
+        const novasMovs = [...movs, novaMov];
+        const saldoReal = calcSaldoReal(data.valorInicial, novasMovs);
+        if (saldoReal < 0) {
+          throw new Error('Saldo insuficiente para essa retirada.');
+        }
+
+        tx.update(investmentRef, {
+          movimentacoes: novasMovs,
+          valorAtual: saldoReal,
+          atualizadoEm: serverTimestamp(),
+        });
       });
     } catch (err) {
       console.error('Erro ao adicionar movimentação:', err);
@@ -236,32 +248,36 @@ export const useInvestimentos = () => {
     try {
       const basePath = getBasePath(user);
       const investmentRef = doc(db, `${basePath}/investimentos`, investmentId);
-      const docSnap = await getDoc(investmentRef);
-      if (!docSnap.exists()) throw new Error('Investimento não encontrado.');
-      const data = docSnap.data();
-      const movs = data.movimentacoes || [];
 
-      const novasMovs = movs.map((mov) =>
-        mov.id === transactionId
-          ? {
-              ...mov,
-              ...updatedTransaction,
-              valor: parseNumber(updatedTransaction.valor ?? mov.valor ?? 0),
-            }
-          : mov
-      );
+      // 🔹 `runTransaction` — ver comentário em updateInvestment.
+      await runTransaction(db, async (tx) => {
+        const docSnap = await tx.get(investmentRef);
+        if (!docSnap.exists()) throw new Error('Investimento não encontrado.');
+        const data = docSnap.data();
+        const movs = data.movimentacoes || [];
 
-      const saldoReal = calcSaldoReal(data.valorInicial, novasMovs);
-      if (saldoReal < 0) {
-        throw new Error(
-          'Essa alteração deixaria o saldo do investimento negativo.'
+        const novasMovs = movs.map((mov) =>
+          mov.id === transactionId
+            ? {
+                ...mov,
+                ...updatedTransaction,
+                valor: parseNumber(updatedTransaction.valor ?? mov.valor ?? 0),
+              }
+            : mov
         );
-      }
 
-      await updateDoc(investmentRef, {
-        movimentacoes: novasMovs,
-        valorAtual: saldoReal,
-        atualizadoEm: serverTimestamp(),
+        const saldoReal = calcSaldoReal(data.valorInicial, novasMovs);
+        if (saldoReal < 0) {
+          throw new Error(
+            'Essa alteração deixaria o saldo do investimento negativo.'
+          );
+        }
+
+        tx.update(investmentRef, {
+          movimentacoes: novasMovs,
+          valorAtual: saldoReal,
+          atualizadoEm: serverTimestamp(),
+        });
       });
     } catch (err) {
       console.error('Erro ao editar movimentação:', err);
@@ -278,24 +294,28 @@ export const useInvestimentos = () => {
     try {
       const basePath = getBasePath(user);
       const investmentRef = doc(db, `${basePath}/investimentos`, investmentId);
-      const docSnap = await getDoc(investmentRef);
-      if (!docSnap.exists()) throw new Error('Investimento não encontrado.');
-      const data = docSnap.data();
-      const movs = data.movimentacoes || [];
 
-      const novasMovs = movs.filter((mov) => mov.id !== transactionId);
+      // 🔹 `runTransaction` — ver comentário em updateInvestment.
+      await runTransaction(db, async (tx) => {
+        const docSnap = await tx.get(investmentRef);
+        if (!docSnap.exists()) throw new Error('Investimento não encontrado.');
+        const data = docSnap.data();
+        const movs = data.movimentacoes || [];
 
-      const saldoReal = calcSaldoReal(data.valorInicial, novasMovs);
-      if (saldoReal < 0) {
-        throw new Error(
-          'Não é possível excluir: essa movimentação deixaria o saldo do investimento negativo (provavelmente há uma retirada registrada que depende dela).'
-        );
-      }
+        const novasMovs = movs.filter((mov) => mov.id !== transactionId);
 
-      await updateDoc(investmentRef, {
-        movimentacoes: novasMovs,
-        valorAtual: saldoReal,
-        atualizadoEm: serverTimestamp(),
+        const saldoReal = calcSaldoReal(data.valorInicial, novasMovs);
+        if (saldoReal < 0) {
+          throw new Error(
+            'Não é possível excluir: essa movimentação deixaria o saldo do investimento negativo (provavelmente há uma retirada registrada que depende dela).'
+          );
+        }
+
+        tx.update(investmentRef, {
+          movimentacoes: novasMovs,
+          valorAtual: saldoReal,
+          atualizadoEm: serverTimestamp(),
+        });
       });
     } catch (err) {
       console.error('Erro ao deletar movimentação:', err);
