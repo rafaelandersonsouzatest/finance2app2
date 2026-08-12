@@ -5,6 +5,7 @@ import { useDateFilter } from '../contexts/DateFilterContext';
 import { useCartoes } from '../hooks/useCartoes';
 import { useEmprestimos } from '../hooks/useEmprestimos';
 import { useGastos } from '../hooks/useGastos';
+import { useEntradas } from '../hooks/useEntradas';
 import { useVisibility } from '../contexts/VisibilityContext';
 import TelaPadrao from '../components/TelaPadrao';
 import ModalCriacao from '../components/ModalCriacao';
@@ -244,6 +245,15 @@ export default function SaidasScreen() {
     deleteGasto,
     gerarFixosDoMes,
   } = useGastos(selectedMonth, selectedYear);
+
+  // 🔹 Só para alimentar o modo "porcentagem" de GerenciarModelosModal (base
+  // de cálculo de um modelo de gasto) — SaidasScreen não usa entradas para
+  // mais nada. Sem isso, o modal precisaria buscar por conta própria (ver
+  // ARQUITETURA.md seção 19, princípio "um dono, vários apresentadores").
+  const { entradas, carregando: loadingEntradas } = useEntradas(
+    selectedMonth,
+    selectedYear
+  );
 
   const {
     emprestimos,
@@ -666,12 +676,15 @@ tipo={
       ? 'Empréstimo'
       : 'Compra'
   }`}
+  buscarParcelasDaCompra={buscarParcelasDaCompraCartao}
 />
 
       <GerenciarModelosModal
         visible={modalModelosVisivel}
         onClose={() => setModalModelosVisivel(false)}
         tipo="gasto"
+        entradas={entradas}
+        loadingEntradas={loadingEntradas}
       />
 
       <AlertaModal
@@ -698,7 +711,14 @@ tipo={
           setItemHistorico(null);
         }}
         item={{
-          idCompra: itemHistorico?.idCompra ?? itemHistorico?.id,
+          idCompra: itemHistorico?.idCompra,
+          entidadeId: itemHistorico?.id,
+          entidade:
+            abaAtiva === 'cartoes'
+              ? 'cartao'
+              : abaAtiva === 'emprestimos'
+              ? 'emprestimo'
+              : 'gasto',
           descricao: itemHistorico?.descricao,
           collectionName:
             abaAtiva === 'cartoes'

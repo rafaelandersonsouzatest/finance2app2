@@ -104,6 +104,110 @@ Na prática, **`compartilhado` nunca é passado como `true`** em nenhuma chamada
 
 **Publicação de atualizações OTA:** `publish-all.ps1` (raiz do projeto) é o script padrão para publicar uma release nos 3 apps de uma vez (`meu-app`, `rafael`, `christian`), sempre na branch `main` — ver `PROJECT_STATUS.md` para como usá-lo e o histórico de releases.
 
+### 7.1 Persistência offline — estado atual (verificado em 2026-08-07)
+
+Registrado a pedido do usuário, como base factual para o discovery de Colaboração/Modo
+Família (`COLABORACAO_DISCOVERY.md`, que analisa como isso interage com os dois modelos).
+Isto é **descrição do que já existe hoje**, não uma proposta — nada foi alterado.
+
+- **`src/config/firebase.js` chama `getFirestore(app)` puro** — sem `initializeFirestore`
+  com `localCache: persistentLocalCache(...)`. Isso significa que o Firestore usa o cache
+  padrão da SDK (`MemoryLocalCache`), não um cache persistente em disco.
+- **O que isso já garante hoje, sem nenhuma configuração extra** (comportamento nativo da
+  SDK, sempre ligado): dentro de uma mesma sessão do app (processo vivo), o Firestore já é
+  "offline-first" — leituras servidas do cache em memória, escritas enfileiradas localmente
+  quando a rede cai e sincronizadas automaticamente quando ela volta, `onSnapshot` atualiza a
+  UI imediatamente com o dado local antes de confirmar com o servidor. Uma queda de conexão
+  breve durante o uso normal do app já é transparente para o usuário.
+- **O que isso NÃO garante**: nada desse cache sobrevive o processo do app ser encerrado.
+  Se o usuário fechar o app (ou o sistema operacional matar o processo) enquanto estiver
+  offline e reabrir ainda offline, não há dado em cache disponível — a tela ficaria vazia/
+  travada até a rede voltar.
+- **Achado ao investigar como habilitar cache persistente**: o pacote `firebase/firestore`
+  instalado (v12, build específico para React Native confirmado em
+  `node_modules/@firebase/firestore/dist/index.rn.js`) expõe `persistentLocalCache()`, mas a
+  implementação desse recurso ainda depende internamente de `indexedDB` (confirmado por
+  inspeção do bundle da SDK) — uma API de navegador que não existe no motor JS do React
+  Native (Hermes/JSC) sem um polyfill. Ou seja, **ativar `persistentLocalCache()` como está
+  hoje provavelmente não funciona neste stack**, diferente do que aconteceria numa versão
+  Web do produto (Fase 3 do `ROADMAP.md`), onde o mesmo código funcionaria de verdade.
+- **Caminho real para cache persistente sobrevivendo reinício do app**: normalmente significa
+  trocar `firebase` (SDK JS, a mesma API usada tanto na Web quanto aqui) por
+  `@react-native-firebase/firestore` (módulo nativo, que embrulha as SDKs nativas de
+  iOS/Android — essas sim com cache persistente real). Isso não é uma configuração pequena:
+  muda o padrão de inicialização (arquivos nativos `google-services.json`/
+  `GoogleService-Info.plist` por ambiente, em vez do objeto de config JS usado hoje nos 4
+  ambientes) e é incompatível com Web (`react-native-web`, já cogitado na Fase 3) — os dois
+  SDKs não coexistem no mesmo código-fonte sem uma camada de abstração própria.
+- **Auth**: `src/config/firebase.js` chama `getAuth(app)` puro. Existe um bloco inteiro
+  comentado no mesmo arquivo tentando `initializeAuth(app, { persistence:
+  getReactNativePersistence(AsyncStorage) })` — um padrão de versões antigas da SDK.
+  Confirmado por inspeção: `getReactNativePersistence` **não existe mais** como exportação na
+  versão instalada (v12), então esse bloco comentado nem funcionaria se descomentado como
+  está — é código obsoleto, não um TODO válido. Versões recentes da SDK dizem detectar
+  automaticamente `@react-native-async-storage/async-storage` (já uma dependência do
+  projeto) e persistir a sessão sem configuração explícita, mas **isso não foi verificado
+  neste app por teste real** (ex.: forçar o fechamento do app offline e reabrir). ⚠️
+  Recomenda-se um teste manual dedicado antes de assumir qualquer comportamento aqui.
+
+### 7.2 Auditoria de `firestore.rules` vs. código atual (2026-08-10, checkpoint pré-Colaboração)
+
+Comparação linha a linha das regras (`firestore.rules`, na raiz) contra todo `collection(db,
+...)`/`doc(db, ...)` de `src/` — não uma releitura do arquivo, uma varredura de todo ponto de
+acesso ao Firestore do app hoje.
+
+**O que as regras permitem:**
+- `users/{userId}` e **qualquer subcoleção em qualquer profundidade** (`match
+  /{document=**}` aninhado dentro de `users/{userId}`), só para `request.auth.uid == userId`.
+- `documentosCadastrados/{docId}`: `get` liberado para qualquer um (mesmo sem login); `create`
+  para qualquer usuário autenticado; `update`/`delete` sempre negados.
+
+**O que bloqueiam:** todo o resto, por um catch-all final (`match /{document=**} { allow
+read, write: if false; }`) — inclui `tenants/{tenantId}` (correto, é o caminho reservado e
+ainda não usado do Modo Família) e qualquer coleção futura não prevista aqui.
+
+**Quais funcionalidades dependem delas:** literalmente todas — `gastos`, `entradas`,
+`emprestimos`, `cartoes`, `investimentos`, `modelosDeGasto`, `modelosDeEntrada`, `membros`,
+`categorias`, `carteira`, `linhaDoTempo` são todas subcoleções de `users/{uid}`, cobertas pelo
+mesmo `match` recursivo. Nenhuma vive fora dessa árvore hoje.
+
+**Publicar exatamente como está quebraria alguma funcionalidade?** Não identificado. Toda
+chamada `collection(db, ...)`/`doc(db, ...)` encontrada no código usa `getBasePath(user)`
+(sempre `users/{uid}`) ou os caminhos explícitos `users/...`/`documentosCadastrados` usados em
+`useAuth.js` — nenhum caminho fora dessas duas árvores foi encontrado.
+
+**Lacuna de segurança encontrada**: `documentosCadastrados` permite `create` para qualquer
+usuário autenticado, sem validar que o `docId` (CPF/CNPJ) corresponde ao cadastro de quem está
+criando. Um usuário autenticado poderia, deliberadamente, criar reservas para CPFs/CNPJs de
+terceiros antes deles se cadastrarem — não expõe nenhum dado (a regra de `get` já era pública
+e só devolve existência, não conteúdo), mas bloquearia essas pessoas de criar conta depois
+("reservado": true permanece, e `update`/`delete` são sempre negados, então nem o próprio
+usuário nem ninguém consegue desfazer). Impacto avaliado como baixo hoje (exige um usuário
+autenticado agindo deliberadamente contra terceiros, sem ganho óbvio para o atacante) — mas é
+uma lacuna real, não uma hipótese. Não corrigida nesta auditoria (só diagnóstico, por pedido
+explícito do usuário).
+
+**Achado à parte, relevante para o design de Fase 2/Colaboração**: o campo `tenantId` no
+perfil do usuário (`users/{uid}.tenantId`) é hoje um campo comum, sem nenhuma proteção
+especial — qualquer usuário autenticado poderia, tecnicamente, sobrescrever o próprio
+`tenantId` via `atualizarPerfil()` (que não filtra campos). Sem consequência hoje porque nada
+lê esse campo para conceder acesso a nada. **Vira crítico no dia em que `tenants/{tenantId}`
+ganhar regras de acesso baseadas nesse campo** — se a regra do tenant checar
+`get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId ==
+tenantId`, um usuário poderia se auto-atribuir a `tenantId` de outra família só editando o
+próprio perfil. Nesse momento, `tenantId`/papéis de acesso precisam vir de um lugar que o
+usuário não controla diretamente (custom claims do Firebase Auth, escritos só por uma Cloud
+Function, nunca um campo comum do Firestore) — ver seção 18.7 (spike de Cloud Functions) da
+seção sobre Colaboração em `COLABORACAO_DISCOVERY.md` para o raciocínio equivalente aplicado
+ao fluxo de convite/aceite.
+
+**Limitação deste diagnóstico**: feito por leitura e comparação de código, sem um teste real
+contra o emulador do Firestore (`firebase emulators:start`) — o ambiente usado nesta análise
+não tem Java instalado, pré-requisito do emulador. Recomenda-se, antes da publicação real,
+rodar `firebase emulators:start --only firestore` com `@firebase/rules-unit-testing` (ou ao
+menos testar manualmente em um app de homologação) para confirmar na prática, não só por
+leitura, que nenhum fluxo real quebra.
+
 ## 8. Principais regras de negócio implementadas
 
 - **Lançamentos fixos via modelos**: `gerarFixosDoMes()` (presente em `useGastos` e `useEntradas`) verifica se já existem lançamentos com `origemModelo: true` no mês; se não, lê os modelos ativos (`modelosDeGasto`/`modelosDeEntrada`) e gera lançamentos em lote (`writeBatch`). Suporta modo de cálculo `valor` (fixo) ou `porcentagem` (calculado sobre entradas selecionadas).
@@ -1150,11 +1254,10 @@ agora também pedem confirmação simples.
   viraram apresentação pura, e `SaidasTabs.js` (o navegador que reativaria essa capacidade) foi
   removido.*
 
-## 18. Linha do Tempo (Histórico de Eventos) (✅ implementada em 2026-08-06 para Cartões e Empréstimos)
+## 18. Linha do Tempo (Histórico de Eventos) (✅ implementada em 2026-08-06 para Cartões e Empréstimos; ✅ estendida em 2026-08-07 para Gastos, Entradas e Investimentos)
 
-> **Status: implementada para Cartões e Empréstimos, conforme a ordem sugerida na seção 18.6.**
-> Gastos, Entradas e Investimentos ainda não emitem eventos — ver `PROJECT_STATUS.md` seção 16
-> para o registro do que falta.
+> **Status: implementada para os cinco módulos** (Cartões, Empréstimos, Gastos, Entradas,
+> Investimentos) — ver `PROJECT_STATUS.md` seção 16 para o registro funcional completo.
 
 ### 18.0 Motivação e análise do que já existe
 
@@ -1294,6 +1397,12 @@ Um único componente de apresentação (lista cronológica, mesma linguagem visu
 eventos já buscados e só renderiza; quem decide o filtro é sempre quem chama, nunca o
 componente. Evita dois mecanismos de UI diferentes quando a visão global existir.
 
+**Cor do ícone por ação (2026-08-07)**: só `pago` (`colors.balance`, verde) e `reaberto`
+(`colors.pending`, laranja) têm cor própria em `LinhaDoTempoEventos.js` — mesmas cores que o
+resto do app já usa para os mesmos status (`ParcelaItem`/`ModalDetalhes.js`). Qualquer outra
+ação fica com `colors.primary` (azul), para não competir visualmente com os dois status mais
+importantes de bater o olho na lista.
+
 ### 18.4 Performance
 
 - Sem `onSnapshot` — histórico é append-only e consultado sob demanda (abrir um modal/tela),
@@ -1313,10 +1422,12 @@ auditoria separada e mais pesada (snapshots completos), os mesmos pontos de cham
 adicionar uma segunda chamada (`registrarAuditoria`) sem misturar com `linhaDoTempo` — os dois
 propósitos continuam desacoplados desde o início.
 
-### 18.6 Ordem de implementação — Cartões e Empréstimos (2026-08-06)
+### 18.6 Ordem de implementação — Cartões e Empréstimos (2026-08-06), depois Gastos/Entradas/Investimentos (2026-08-07)
 
-Implementado conforme a ordem sugerida: Cartões e Empréstimos primeiro. Gastos, Entradas e
-Investimentos ficam para uma próxima rodada, seguindo o mesmo padrão (ver seção 18.8).
+Implementado conforme a ordem sugerida: Cartões e Empréstimos primeiro (2026-08-06); Gastos,
+Entradas e Investimentos numa rodada seguinte (2026-08-07), reaproveitando a mesma
+infraestrutura (`registrarEvento`, `detectarAlteracoes`, `LinhaDoTempoEventos`) sem alterar seu
+funcionamento para cartão/empréstimo.
 
 ### 18.7 Decisões tomadas durante a implementação
 
@@ -1332,12 +1443,17 @@ Investimentos ficam para uma próxima rodada, seguindo o mesmo padrão (ver seç
   `modo: 'igual'` ou exclusão com valores manuais → `acao: 'redistribuido'` (as duas variantes de
   "excluir com redistribuição" da seção 17 caem na mesma ação — o que importa pro usuário é que
   o valor foi redistribuído, não qual dos dois métodos escolheu).
-- **`pago` como ação própria, não `editado`**: em `updateCartao`/`updateEmprestimo`, uma
-  transição de `pago` para `true` sempre emite `acao: 'pago'` (com `alteracoes` de outros
-  campos que tenham mudado na mesma chamada, se houver); desmarcar como pago não gera evento.
-  `toggleCartaoStatus` (`useCartoes.js`) é um caminho de mutação **separado** de `updateCartao`
-  (usado pelo toggle direto em `CartoesScreen.js` — aba "Gastos do mês") e precisou do próprio
-  `registrarEvento`, mesma regra do "só marcar como pago gera evento".
+- **`pago`/`reaberto` como ações próprias, não `editado`**: em `updateCartao`/
+  `updateEmprestimo`/`updateGasto`/`atualizarEntrada`, uma transição de `pago` para `true`
+  emite `acao: 'pago'`; de `true` para `false` emite `acao: 'reaberto'` (ambas com
+  `alteracoes` de outros campos que tenham mudado na mesma chamada, se houver).
+  **Decisão revista em 2026-08-07**: a v1 desta feature (seção 18.6/18.7 originais) só
+  registrava a marcação como pago, não a reversão — feedback de uso real (desmarcar uma conta
+  como paga desaparecia da Linha do Tempo, dando a impressão de que ela nunca tinha sido
+  desmarcada) mostrou que isso deixava o histórico incompleto. `toggleCartaoStatus`
+  (`useCartoes.js`) é um caminho de mutação **separado** de `updateCartao` (usado pelo toggle
+  direto em `CartoesScreen.js` — aba "Gastos do mês") e também precisou do próprio
+  `registrarEvento`, com a mesma regra `pago`/`reaberto`.
 - **`alteracoesCampos` sempre calculado antes de qualquer mutação do objeto de entrada** — a
   propagação de campos da compra (seção 16.12) remove chaves de `dadosAtualizados`/`dados`
   depois de as propagar; `detectarAlteracoes` precisa rodar antes disso, contra o objeto
@@ -1347,18 +1463,53 @@ Investimentos ficam para uma próxima rodada, seguindo o mesmo padrão (ver seç
   `useEffect` próprio (independente da aba ativa, para não recarregar ao alternar), e
   renderiza via `LinhaDoTempoEventos.js` (componente único de apresentação, ver seção 18.3).
 
+**Decisões da extensão para Gastos/Entradas/Investimentos (2026-08-07):**
+
+- **`buscarEventosDoItem(entidadeId)` em `useLinhaDoTempo.js`**: mesma forma de
+  `buscarEventosDaCompra`, mas filtra por `entidadeId` em vez de `idCompra` — cobre entidades
+  avulsas (gasto/entrada/investimento), que nunca têm `idCompra`.
+- **`ModalHistoricoParcelas.js` distingue os dois modos por um único sinal**: `!!item.idCompra`
+  (`ehAgrupado`). Não foi criada uma flag explícita separada — cartão/empréstimo sempre têm
+  `idCompra` de verdade nos seus documentos, gasto/entrada/investimento nunca têm, então o
+  próprio dado já diferencia os dois casos. Quando `ehAgrupado` é falso, a aba "Parcelas" nem
+  aparece (não faz sentido para um item avulso) e a Linha do Tempo é o conteúdo único do modal.
+- **`registrarEvento` chamado fora da `runTransaction`, nunca dentro** (`useInvestimentos.js`,
+  `updateInvestment`): uma transação do Firestore pode ser reexecutada em caso de conflito de
+  concorrência; `registrarEvento` (um `addDoc` comum) não é uma operação de transação
+  (`tx.get`/`tx.set`/`tx.update`/`tx.delete`) e duplicaria o evento a cada nova tentativa se
+  estivesse dentro. `alteracoesCampos` é calculado dentro do callback (onde `atual` está
+  disponível) e guardado numa variável de escopo externo; `registrarEvento` só roda depois que
+  `runTransaction` resolve com sucesso.
+- **`linhaDoTempoRender.js` precisou de ajuste, não só de novas entradas em `CAMPOS_RELEVANTES`**:
+  os textos de `montarDescricaoEvento` para `acao: 'excluido'`/`'pago'` assumiam entidades
+  agrupadas ("Parcela excluída", "Parcela paga"), o que ficaria errado para um gasto/entrada
+  avulso excluído ou pago. Criada a lista `ENTIDADES_AGRUPADAS = ['cartao', 'emprestimo']`: só
+  elas caem no texto de parcela; as demais usam o nome cheio da entidade
+  (`NOME_ENTIDADE[entidade].excluido`/`.pago`).
+- **Pontos de entrada de UI**: `ModalDetalhes.js` ganhou o mesmo botão "Histórico" (`InfoRow` +
+  `TouchableOpacity`) já usado por cartão/empréstimo, agora também nos casos `gasto` e
+  `entrada` — sem duplicar código, o `onHistoryPress` já vinha como prop em ambos os casos.
+  `EntradasScreen.js` precisou ganhar o próprio estado (`historicoModalVisivel`/
+  `itemHistorico`) e instância de `ModalHistoricoParcelas`, já que (diferente de
+  `SaidasScreen.js`) não tinha nenhum antes. `DetalhesInvestimentoModal.js` não usa
+  `ModalDetalhes.js` (tem seu próprio modal de detalhes) — ganhou um ícone de histórico
+  separado no cabeçalho, distinto do "Histórico de Movimentações" que já existia ali (esse é
+  sobre aportes/resgates, não sobre edições do investimento).
+
 ### 18.8 Arquivos
 
-`src/utils/linhaDoTempoConfig.js` (`CAMPOS_RELEVANTES`, `detectarAlteracoes`),
-`src/utils/registrarEvento.js`, `src/utils/linhaDoTempoRender.js` (frase e ícone por evento),
-`src/hooks/useLinhaDoTempo.js` (`buscarEventosDaCompra`), `src/components/LinhaDoTempoEventos.js`
-(apresentação), `src/components/ModalHistoricoParcelas.js` (aba nova), `src/hooks/useCartoes.js`
-e `src/hooks/useEmprestimos.js` (todas as funções de mutação passam a chamar `registrarEvento`).
-
-**Pendente para uma próxima rodada**: Gastos, Entradas e Investimentos ainda não emitem
-eventos nem têm `CAMPOS_RELEVANTES` próprios; quando entrarem, também precisam de
-`buscarEventosDoItem(entidadeId)` em `useLinhaDoTempo.js` (hoje só existe
-`buscarEventosDaCompra`, para entidades com `idCompra`).
+`src/utils/linhaDoTempoConfig.js` (`CAMPOS_RELEVANTES`, `detectarAlteracoes` — cobre cartão,
+empréstimo, gasto, entrada, investimento), `src/utils/registrarEvento.js`,
+`src/utils/linhaDoTempoRender.js` (frase e ícone por evento, com `NOME_ENTIDADE` por entidade),
+`src/hooks/useLinhaDoTempo.js` (`buscarEventosDaCompra` + `buscarEventosDoItem`),
+`src/components/LinhaDoTempoEventos.js` (apresentação, sem mudanças desde a v1);
+`src/components/ModalHistoricoParcelas.js` (aba condicional), `src/components/ModalDetalhes.js`
+(botão "Histórico" em `gasto`/`entrada`), `src/components/DetalhesInvestimentoModal.js` (ícone
+de histórico novo); `src/hooks/useCartoes.js`, `src/hooks/useEmprestimos.js`,
+`src/hooks/useGastos.js`, `src/hooks/useEntradas.js`, `src/hooks/useInvestimentos.js` (todas as
+funções de mutação chamam `registrarEvento`); `src/screens/SaidasScreen.js` (ajuste no `item`
+passado a `ModalHistoricoParcelas` para não fingir `idCompra` num gasto), `src/screens/EntradasScreen.js`
+(estado e modal de histórico novos, antes inexistentes).
 
 ## 19. Sprint de Saneamento Arquitetural (✅ implementada em 2026-08-06)
 
@@ -1629,6 +1780,86 @@ o container do modal precisa de `height` fixo (ex.: `height: '85%'`), nunca só 
 Aplicado em `ModalHistoricoParcelas.js` (comentário no próprio código apontando para esta
 seção). Trade-off aceito: o modal passa a ocupar sempre esse espaço, mesmo com pouco
 conteúdo — melhor que um modal que não abre.
+
+### 19.9 Listeners duplicados remanescentes, corrigidos (✅ 2026-08-10)
+
+A checkpoint arquitetural pré-Colaboração (2026-08-10) encontrou dois componentes que
+escaparam da varredura original da Sprint de Saneamento (seção 19): `ModalEdicao.js` chamava
+`useCartoes()` inteiro só para obter `buscarParcelasDaCompra`, e `GerenciarModelosModal.js`
+(dentro de `FormularioModelo`) chamava `useEntradas()` diretamente — os dois sem rota própria,
+renderizados dentro de telas que já buscam os mesmos dados.
+
+- **`ModalEdicao.js`**: passou a receber `buscarParcelasDaCompra` por prop, com guard
+  (`!buscarParcelasDaCompra`) no `useEffect` que já existia. `SaidasScreen.js` (única tela que
+  edita `tipo==='cartao'`) passa sua própria instância (`buscarParcelasDaCompraCartao`).
+  `TelaPadrao.js`/`DetalhesInvestimentoModal.js` não precisam passar nada — nunca editam
+  cartão, o guard já cobria isso mesmo antes da mudança de fonte do dado.
+  ⚠️ **Trade-off aceito, não resolvido nesta rodada**: `ItemEventoFinanceiro.js` (cards da
+  Agenda Financeira/Central de Avisos) também renderiza `ModalEdicao`, e pode editar um
+  `tipo==='cartao'` com múltiplas parcelas — mas encadear `buscarParcelasDaCompra` até lá
+  passaria por mais 3 arquivos (`useEventosFinanceiros.js` → `CentralAvisosScreen.js`/
+  `CalendarioFinanceiro.js`/`LinhaDoTempoFinanceira.js` → `ItemEventoFinanceiro.js`), fora do
+  escopo pedido ("nenhuma refatoração adicional"). Consequência: editar uma compra
+  personalizada de cartão a partir da Agenda Financeira não pré-preenche mais o editor de
+  parcelas (mesmo comportamento de uma compra de parcela única) — não quebra, só perde
+  refinamento num caminho secundário. Revisitar se isso incomodar no uso real.
+- **`GerenciarModelosModal.js`**: `FormularioModelo` passou a receber `entradas`/
+  `loadingEntradas` por prop. `EntradasScreen.js` (tipo="entrada") repassa o que já busca —
+  elimina a duplicata de verdade. `SaidasScreen.js` (tipo="gasto") não tinha `useEntradas()`
+  próprio (só usa entradas para a base de cálculo "porcentagem" de um modelo de gasto) —
+  ganhou um `useEntradas()` novo, que é a fonte única e correta a partir de agora, não uma
+  segunda instância.
+
+### 19.10 Login com Google corrigido (✅ código, 2026-08-10) — conclusão da configuração pausada por decisão do usuário
+
+> **Diagnóstico feito em 2026-08-10 (mesmo dia), testando `meu-app` via Expo Go**: o erro
+> `400: invalid_request` do Google não é falta de Client ID — é incompatibilidade estrutural.
+> O client OAuth "Web application" configurado hoje (`235824014044-...`, redirect autorizado
+> `https://fincanceapp-rafael.firebaseapp.com/__/auth/handler`) foi pensado para o fluxo do
+> Firebase Auth Web SDK, nunca usado por este app. `expo-auth-session` no Expo Go gera um
+> `redirectUri` dinâmico (`exp://...`, via `Linking.createURL`), que nunca bate com nenhum
+> redirect fixo `https://`. Resolver de verdade exige: (1) cadastrar um app Android/iOS de
+> verdade no Firebase Console de cada ambiente (gera o tipo certo de OAuth client, com
+> `package name`/SHA-1); (2) gerar um **development build** (`eas build --profile
+> development` ou `expo run:android`/`ios`) — Expo Go não serve para testar este fluxo
+> especificamente, porque o proxy que permitia isso (`auth.expo.io`) foi descontinuado; (3) um
+> ajuste pequeno de código, passando `androidClientId`/`iosClientId` (do tipo certo) em vez de
+> um único `clientId` "Web".
+>
+> **Pausado por decisão explícita do usuário (2026-08-10)**: o projeto ainda está em fase de
+> testes via Expo Go: não vale interromper o ritmo de correções/melhorias para gerar um
+> development build só por causa do Google Login agora. O código já fica num estado seguro
+> para esperar — `meu-app` tenta e falha do mesmo jeito que falharia de qualquer forma;
+> `rafael`/`marina`/`christian` mostram um aviso amigável em vez de travar. **Retomar quando
+> houver necessidade real de um development build** (nesse momento, os 3 passos acima resolvem
+> de uma vez, não é preciso revisitar este diagnóstico).
+
+`loginWithGoogle()` (`useAuth.js`) usava `AuthSession.startAsync()` — removido do
+`expo-auth-session` instalado (v7, Expo SDK 54) — e `makeRedirectUri({ useProxy: true })`, uma
+opção que também não existe mais (o serviço de proxy do Expo foi descontinuado). O botão real
+em `LoginScreen.js` lançava uma exceção em runtime a cada tentativa.
+
+- **Mudança estrutural necessária, não cosmética**: a API atual (`Google.useIdTokenAuthRequest`,
+  de `expo-auth-session/providers/google`) é um **hook React**, não uma função que se possa
+  `await` de qualquer lugar — só pode ser usado dentro de um componente. Por isso o fluxo OAuth
+  em si (abrir o navegador, obter o `id_token`) migrou de `useAuth.js` para `LoginScreen.js`;
+  `useAuth.js` manteve só a parte que já era puramente Firebase — trocar um `id_token` por uma
+  sessão (`signInWithGoogleCredential`, substituindo `loginWithGoogle` no contexto).
+- **Client ID por ambiente**: o Client ID OAuth "Web application" do Google é gerado por
+  projeto Firebase ao ativar o provedor Google (um por ambiente, ver seção 7) — não é o mesmo
+  valor em todo lugar. Adicionado `googleWebClientId` em `app.config.js`, mesmo padrão dos
+  outros valores que já variam por `APP_ENV`. `meu-app` manteve o valor real que já existia
+  (hardcoded antes); `rafael`/`marina`/`christian` ficam com `""` (nunca `null` — evita
+  ambiguidade de serialização entre o valor bruto do config e o que `expo config` expõe) até
+  o usuário ativar o provedor Google no Firebase Console de cada projeto. `LoginScreen.js`
+  trata esse caso mostrando um aviso claro em vez de tentar (e falhar) o fluxo OAuth.
+- **Limitação desta correção**: só corrigida a chamada de API quebrada e a estrutura de
+  configuração por ambiente. A configuração de verdade no Firebase/Google Cloud Console
+  (ativar o provedor, gerar Client IDs para iOS/Android quando houver build nativo, registrar
+  SHA-1 do Android) não foi feita nem verificada aqui — só é possível concluir isso de dentro
+  do Firebase Console, não por código. `meu-app` deveria funcionar assim que o provedor Google
+  estiver ativado nesse projeto (o Client ID Web já era real); os outros três ambientes
+  precisam da configuração completa antes de terem qualquer chance de funcionar.
 
 ## 20. Correções funcionais priorizadas (✅ implementadas em 2026-08-06)
 

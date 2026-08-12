@@ -9,12 +9,20 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Google from "expo-auth-session/providers/google";
+import Constants from "expo-constants";
 import { useAuth } from "./useAuth";
 import { colors } from "../styles/colors";
 import { globalStyles } from "../styles/globalStyles";
 
+// 🔹 Um Client ID por ambiente (ver app.config.js) — cada projeto Firebase
+// (meu-app/rafael/marina/christian) tem o seu próprio, gerado ao ativar o
+// provedor Google em Authentication → Sign-in method. `null` significa que
+// esse ambiente ainda não foi configurado no Firebase Console.
+const GOOGLE_WEB_CLIENT_ID = Constants.expoConfig?.extra?.googleWebClientId || null;
+
 export default function LoginScreen({ navigation }) {
-  const { login, loginWithGoogle } = useAuth();
+  const { login, signInWithGoogleCredential } = useAuth();
 
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -26,6 +34,13 @@ export default function LoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
+  // 🔹 `request` só fica pronto (não-nulo) depois de carregado; `response`
+  // é preenchido quando o usuário volta do navegador (sucesso, erro ou
+  // cancelamento). `promptAsync` é o que abre o fluxo — ver handleLoginGoogle.
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    clientId: GOOGLE_WEB_CLIENT_ID,
+  });
+
   const validarEmail = (txt) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(txt);
 
   // Carrega último e-mail usado
@@ -35,6 +50,46 @@ export default function LoginScreen({ navigation }) {
       if (salvo) setEmail(salvo);
     })();
   }, []);
+
+  // 🔹 Reage ao retorno do navegador — o próprio `promptAsync` não devolve
+  // o resultado diretamente (é assíncrono via deep link), então a troca do
+  // id_token pela sessão do Firebase acontece aqui, não em handleLoginGoogle.
+  useEffect(() => {
+    if (!response) return;
+
+    if (response.type === "success") {
+      const { id_token } = response.params;
+      (async () => {
+        try {
+          await signInWithGoogleCredential(id_token);
+          global.alertaGlobal({
+            titulo: "Sucesso",
+            mensagem: "Login com Google realizado!",
+            tipo: "success",
+          });
+        } catch (e) {
+          global.alertaGlobal({
+            titulo: "Erro",
+            mensagem: e?.message || "Falha ao autenticar com Google.",
+            tipo: "error",
+          });
+        } finally {
+          setGoogleLoading(false);
+        }
+      })();
+    } else if (response.type === "error") {
+      global.alertaGlobal({
+        titulo: "Erro",
+        mensagem: "Falha ao autenticar com Google.",
+        tipo: "error",
+      });
+      setGoogleLoading(false);
+    } else {
+      // "cancel"/"dismiss" — usuário fechou o navegador sem concluir.
+      setGoogleLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [response]);
 
   const handleLogin = async () => {
     if (!email || !senha)
@@ -71,22 +126,24 @@ export default function LoginScreen({ navigation }) {
     };
 
   const handleLoginGoogle = async () => {
-    try {
-      setGoogleLoading(true);
-      await loginWithGoogle();
+    if (!GOOGLE_WEB_CLIENT_ID) {
+      global.alertaGlobal({
+        titulo: "Indisponível",
+        mensagem:
+          "Login com Google ainda não foi configurado para este ambiente.",
+        tipo: "alert",
+      });
+      return;
+    }
 
-      global.alertaGlobal({
-        titulo: "Sucesso",
-        mensagem: "Login com Google realizado!",
-        tipo: "success",
-      });
-    } catch {
-      global.alertaGlobal({
-        titulo: "Erro",
-        mensagem: "Falha ao autenticar com Google.",
-        tipo: "error",
-      });
-    } finally {
+    if (!request) return; // ainda carregando a configuração do OAuth
+
+    setGoogleLoading(true);
+    const resultado = await promptAsync();
+    // 🔹 Cancelamento/erro sem "success" não passa pelo useEffect de
+    // `response` acima em alguns casos (ex.: usuário fecha o navegador antes
+    // do redirect completar) — garante que o spinner não fique preso.
+    if (resultado?.type !== "success") {
       setGoogleLoading(false);
     }
   };

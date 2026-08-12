@@ -13,6 +13,8 @@ import {
 import { db } from '../config/firebase';
 import { useAuth } from '../auth/useAuth';
 import { getBasePath } from '../utils/firestorePaths';
+import { registrarEvento } from '../utils/registrarEvento';
+import { detectarAlteracoes } from '../utils/linhaDoTempoConfig';
 
 // ================================
 // 🔹 Funções utilitárias
@@ -118,7 +120,15 @@ export const useInvestimentos = () => {
         movimentacoes: [],
         criadoEm: serverTimestamp(),
       };
-      await addDoc(collection(db, `${basePath}/investimentos`), novo);
+      const docRef = await addDoc(collection(db, `${basePath}/investimentos`), novo);
+
+      await registrarEvento(basePath, {
+        acao: 'criado',
+        entidade: 'investimento',
+        entidadeId: docRef.id,
+        origem: { agente: 'usuario', canal: 'criacao' },
+        usuarioId: user.uid,
+      });
     } catch (err) {
       console.error('Erro ao adicionar investimento:', err);
       setError(err.message);
@@ -135,6 +145,14 @@ export const useInvestimentos = () => {
       const basePath = getBasePath(user);
       const investmentRef = doc(db, `${basePath}/investimentos`, id);
 
+      // 🔹 Calculado dentro da transação (só lá temos o `atual` correto),
+      // mas o evento só é registrado depois dela terminar — uma transação
+      // pode ser reexecutada pelo Firestore em caso de conflito, e
+      // `registrarEvento` não é uma operação de transação (tx.get/tx.set/
+      // tx.update/tx.delete), então não pode entrar ali dentro sem risco de
+      // duplicar em cada nova tentativa.
+      let alteracoesCampos = {};
+
       // 🔹 `runTransaction` em vez de getDoc+updateDoc: se dois dispositivos
       // editarem o mesmo investimento ao mesmo tempo, o Firestore reexecuta
       // esta função automaticamente com os dados mais recentes em vez de um
@@ -144,6 +162,8 @@ export const useInvestimentos = () => {
         if (!snap.exists()) throw new Error('Investimento não encontrado.');
 
         const atual = snap.data();
+        alteracoesCampos = detectarAlteracoes('investimento', atual, dadosAtualizados);
+
         const movs = atual.movimentacoes || [];
         const novoValorInicial = parseNumber(
           dadosAtualizados.valorInicial ?? atual.valorInicial ?? 0
@@ -168,6 +188,17 @@ export const useInvestimentos = () => {
           atualizadoEm: serverTimestamp(),
         });
       });
+
+      if (Object.keys(alteracoesCampos).length > 0) {
+        await registrarEvento(basePath, {
+          acao: 'editado',
+          entidade: 'investimento',
+          entidadeId: id,
+          alteracoes: alteracoesCampos,
+          origem: { agente: 'usuario', canal: 'edicao' },
+          usuarioId: user.uid,
+        });
+      }
     } catch (err) {
       console.error('Erro ao atualizar investimento:', err);
       setError(err.message);
@@ -183,6 +214,13 @@ export const useInvestimentos = () => {
     try {
       const basePath = getBasePath(user);
       await deleteDoc(doc(db, `${basePath}/investimentos`, id));
+      await registrarEvento(basePath, {
+        acao: 'excluido',
+        entidade: 'investimento',
+        entidadeId: id,
+        origem: { agente: 'usuario', canal: 'exclusao' },
+        usuarioId: user.uid,
+      });
     } catch (err) {
       console.error('Erro ao deletar investimento:', err);
       setError(err.message);

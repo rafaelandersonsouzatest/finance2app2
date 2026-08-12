@@ -18,11 +18,9 @@ import { getBasePath } from '../utils/firestorePaths';
 // criada fora do código, sem custo de desempenho real (poucos eventos por
 // compra).
 //
-// `buscarEventosDaCompra` cobre a visão contextual (cartão/empréstimo, que
-// sempre têm `idCompra`). Gasto/entrada/investimento avulsos (sem
-// `idCompra`) ficam para quando esses módulos forem ligados à Linha do
-// Tempo — nesse momento este hook ganha um `buscarEventosDoItem(entidadeId)`
-// irmão, filtrando por `entidadeId` em vez de `idCompra`.
+// `buscarEventosDaCompra` cobre a visão contextual de cartão/empréstimo (que
+// sempre têm `idCompra`). `buscarEventosDoItem` cobre gasto/entrada/
+// investimento avulsos (sem `idCompra`) — filtra por `entidadeId` em vez.
 // =========================================================
 export const useLinhaDoTempo = () => {
   const { user } = useAuth();
@@ -37,5 +35,15 @@ export const useLinhaDoTempo = () => {
       .sort((a, b) => (a.criadoEm?.toMillis?.() || 0) - (b.criadoEm?.toMillis?.() || 0));
   };
 
-  return { buscarEventosDaCompra };
+  const buscarEventosDoItem = async (entidadeId) => {
+    if (!user || !entidadeId) return [];
+    const basePath = getBasePath(user);
+    const q = query(collection(db, `${basePath}/linhaDoTempo`), where('entidadeId', '==', entidadeId));
+    const snapshot = await getDocs(q);
+    return snapshot.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.criadoEm?.toMillis?.() || 0) - (b.criadoEm?.toMillis?.() || 0));
+  };
+
+  return { buscarEventosDaCompra, buscarEventosDoItem };
 };

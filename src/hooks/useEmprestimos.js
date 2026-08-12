@@ -303,15 +303,25 @@ export const useEmprestimos = (mes, ano) => {
       // na criação (valorContratado) ou numa antecipação/reversão real
       // (economiaTotal, via recalcularEconomiaTotal).
 
-      // 🔹 "Pago" tem sua própria ação (mais reconhecível pro usuário do que
-      // um "editado" genérico) — só quando de fato transiciona para true;
-      // desmarcar não gera evento (ver ARQUITETURA.md seção 18). Fora isso,
-      // um evento "editado" cobre qualquer campo relevante que mudou nesta
-      // mesma chamada.
+      // 🔹 "Pago"/"Reaberto" têm ação própria (mais reconhecível pro usuário
+      // do que um "editado" genérico) — só quando de fato transiciona de um
+      // estado pro outro. Fora isso, um evento "editado" cobre qualquer
+      // campo relevante que mudou nesta mesma chamada.
       const marcouComoPago = dadosAtualizados.pago === true && atual?.pago !== true;
+      const desmarcouComoPago = dadosAtualizados.pago === false && atual?.pago === true;
       if (marcouComoPago) {
         await registrarEvento(basePath, {
           acao: "pago",
+          entidade: "emprestimo",
+          entidadeId: id,
+          idCompra: atual?.idCompra || null,
+          alteracoes: Object.keys(alteracoesCampos).length > 0 ? alteracoesCampos : null,
+          origem: { agente: "usuario", canal: "edicao" },
+          usuarioId: user.uid,
+        });
+      } else if (desmarcouComoPago) {
+        await registrarEvento(basePath, {
+          acao: "reaberto",
           entidade: "emprestimo",
           entidadeId: id,
           idCompra: atual?.idCompra || null,

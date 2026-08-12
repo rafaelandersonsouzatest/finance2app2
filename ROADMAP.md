@@ -54,6 +54,8 @@
 
 **Risco de arquitetura a evitar:** implementar Modo Família como "mais um `if` espalhado pelos hooks atuais" em vez de um hook genérico de acesso a dados que abstraia o caminho `users/` vs `tenants/` — o `if` que já tinha começado a aparecer em `useModelos.js` foi removido na Sprint 5 justamente por não ser essa abordagem. Resolver a duplicação de hooks (ver `ARQUITETURA.md`, seção de dívida técnica) **antes** desta fase reduz muito o retrabalho aqui.
 
+**Não confundir com Colaboração entre Usuários** (discovery registrado em 2026-08-07, ver `COLABORACAO_DISCOVERY.md` e `DISCOVERY_COLABORACAO_VS_FAMILIA.md`; proposta de arquitetura concreta da V1 em `COLABORACAO_ARQUITETURA_V1.md`, 2026-08-10, ainda não implementada): são dois modelos diferentes, não dois níveis do mesmo recurso. Modo Família = fonte única de dados compartilhada (`tenants/{tenantId}`, esta fase). Colaboração = cópias independentes de lançamentos trocadas entre contas separadas (amigos, viagens, divisão pontual) — ainda **sem fase própria neste roadmap**, recomendada nos discoveries como possivelmente anterior a esta fase, mas essa recomendação não foi consolidada em decisão de roadmap.
+
 ---
 
 ## Fase 3 — Versão Web

@@ -8,6 +8,8 @@ import { normalizarParaISO } from '../utils/formatarData';
 import { useAuth } from "../auth/useAuth";
 import { getBasePath } from "../utils/firestorePaths";
 import { removerIndefinidos } from "../utils/firestoreSanitize";
+import { registrarEvento } from "../utils/registrarEvento";
+import { detectarAlteracoes } from "../utils/linhaDoTempoConfig";
 
 
 // =========================================================
@@ -155,6 +157,14 @@ export const useEntradas = (mes, ano) => {
         })
       );
 
+      await registrarEvento(basePath, {
+        acao: "criado",
+        entidade: "entrada",
+        entidadeId: docRef.id,
+        origem: { agente: "usuario", canal: "criacao" },
+        usuarioId: user.uid,
+      });
+
       return { ...entrada, id: docRef.id };
     } catch (err) {
       setErro(err.message);
@@ -169,7 +179,14 @@ export const useEntradas = (mes, ano) => {
     if (!user?.uid) throw new Error("Usuário não autenticado.");
 
     try {
-      const ref = doc(db, `${getBasePath(user)}/entradas`, id);
+      const basePath = getBasePath(user);
+      const ref = doc(db, `${basePath}/entradas`, id);
+      const docSnap = await getDoc(ref);
+      const atual = docSnap.data();
+
+      // 🔹 Calculado antes de qualquer mutação — ver ARQUITETURA.md seção 18.
+      const alteracoesCampos = detectarAlteracoes("entrada", atual, entrada);
+
       const dadosAtualizados = { ...entrada };
 
       if (dadosAtualizados.pago === true && !dadosAtualizados.dataPagamento) {
@@ -189,6 +206,37 @@ export const useEntradas = (mes, ano) => {
           atualizadoEm: serverTimestamp(),
         })
       );
+
+      const marcouComoPago = dadosAtualizados.pago === true && atual?.pago !== true;
+      const desmarcouComoPago = dadosAtualizados.pago === false && atual?.pago === true;
+      if (marcouComoPago) {
+        await registrarEvento(basePath, {
+          acao: "pago",
+          entidade: "entrada",
+          entidadeId: id,
+          alteracoes: Object.keys(alteracoesCampos).length > 0 ? alteracoesCampos : null,
+          origem: { agente: "usuario", canal: "edicao" },
+          usuarioId: user.uid,
+        });
+      } else if (desmarcouComoPago) {
+        await registrarEvento(basePath, {
+          acao: "reaberto",
+          entidade: "entrada",
+          entidadeId: id,
+          alteracoes: Object.keys(alteracoesCampos).length > 0 ? alteracoesCampos : null,
+          origem: { agente: "usuario", canal: "edicao" },
+          usuarioId: user.uid,
+        });
+      } else if (Object.keys(alteracoesCampos).length > 0) {
+        await registrarEvento(basePath, {
+          acao: "editado",
+          entidade: "entrada",
+          entidadeId: id,
+          alteracoes: alteracoesCampos,
+          origem: { agente: "usuario", canal: "edicao" },
+          usuarioId: user.uid,
+        });
+      }
     } catch (err) {
       setErro(err.message);
       throw err;
@@ -201,7 +249,15 @@ export const useEntradas = (mes, ano) => {
   const excluirEntrada = async (id) => {
     if (!user?.uid) throw new Error("Usuário não autenticado.");
     try {
-      await deleteDoc(doc(db, `${getBasePath(user)}/entradas`, id));
+      const basePath = getBasePath(user);
+      await deleteDoc(doc(db, `${basePath}/entradas`, id));
+      await registrarEvento(basePath, {
+        acao: "excluido",
+        entidade: "entrada",
+        entidadeId: id,
+        origem: { agente: "usuario", canal: "exclusao" },
+        usuarioId: user.uid,
+      });
     } catch (err) {
       setErro(err.message);
       throw err;

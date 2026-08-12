@@ -27,7 +27,6 @@ import { CartaoSelect } from '../components/CartaoSelect';
 import { useCategorias } from '../hooks/useCategorias';
 import { useMembros } from '../hooks/useMembros';
 import { useCarteira } from '../hooks/useCarteira';
-import { useCartoes } from '../hooks/useCartoes';
 import OpcaoPersonalizarParcelas from './OpcaoPersonalizarParcelas';
 
 
@@ -240,12 +239,11 @@ const CamposModal = memo(({ tipo, valores, atualizarCampo, marcarComoPago, parce
 // ==========================================================
 // 🔹 COMPONENTE PRINCIPAL DO MODAL
 // ==========================================================
-export default function ModalEdicao({ visivel, aoFechar, aoSalvar, aoExcluir, item, tipo, titulo }) {
+export default function ModalEdicao({ visivel, aoFechar, aoSalvar, aoExcluir, item, tipo, titulo, buscarParcelasDaCompra }) {
   const [valores, setValores] = useState({});
   const { categorias } = useCategorias();
   const { membros } = useMembros();
   const { cartoesCadastrados } = useCarteira();
-  const { buscarParcelasDaCompra } = useCartoes();
   const [parcelasExistentes, setParcelasExistentes] = useState(null);
   const [parcelasBloqueadas, setParcelasBloqueadas] = useState(null);
 
@@ -256,8 +254,21 @@ export default function ModalEdicao({ visivel, aoFechar, aoSalvar, aoExcluir, it
   // reais, não recalculados. Também marca quais parcelas já estão pagas ou
   // antecipadas — essas nunca podem ter o valor alterado (ver ARQUITETURA.md
   // seção 15.9: risco de inconsistência financeira retroativa).
+  //
+  // 🔹 `buscarParcelasDaCompra` chega por prop, não de `useCartoes()` aqui
+  // dentro — este componente não tem rota própria, é reaproveitado por
+  // várias telas que já têm sua própria instância de `useCartoes()` (ver
+  // ARQUITETURA.md seção 19, princípio "um dono, vários apresentadores").
+  // Quem não usa cartão (Entradas, Investimentos) simplesmente não passa a
+  // prop — o guard abaixo já cobre esse caso.
   useEffect(() => {
-    if (tipo !== 'cartao' || !visivel || !item?.idCompra || (item?.totalParcelas || 1) <= 1) {
+    if (
+      tipo !== 'cartao' ||
+      !visivel ||
+      !item?.idCompra ||
+      (item?.totalParcelas || 1) <= 1 ||
+      !buscarParcelasDaCompra
+    ) {
       setParcelasExistentes(null);
       setParcelasBloqueadas(null);
       return;

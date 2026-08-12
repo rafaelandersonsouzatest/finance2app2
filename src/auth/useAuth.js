@@ -19,7 +19,6 @@ import {
 } from "firebase/firestore";
 
 import * as WebBrowser from "expo-web-browser";
-import * as AuthSession from "expo-auth-session";
 import { gerarAvatarPadrao } from "../utils/avatar";
 WebBrowser.maybeCompleteAuthSession();
 
@@ -329,35 +328,25 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ===================================================
-  // 🔥 Login Google
+  // 🔥 Login Google — recebe o id_token já obtido pelo fluxo OAuth
   // ===================================================
-  const loginWithGoogle = async () => {
+  // 🔹 `AuthSession.startAsync` (usado antes) não existe mais no
+  // `expo-auth-session` instalado (v7, Expo SDK 54) — a API atual exige um
+  // hook (`Google.useIdTokenAuthRequest`), que só pode ser chamado dentro de
+  // um componente React, nunca daqui de dentro do `AuthProvider`. Por isso
+  // o fluxo OAuth em si (abrir o navegador, obter o `id_token`) vive em
+  // `LoginScreen.js`; esta função só cuida da parte que já era puramente
+  // Firebase — trocar o `id_token` por uma sessão autenticada.
+  const signInWithGoogleCredential = async (idToken) => {
     try {
-      const redirectUri = AuthSession.makeRedirectUri({
-        scheme: "meuapp",
-        useProxy: true,
-      });
-
-      const CLIENT_ID =
-        "235824014044-5jri4robn2smlpaf6q46g4hin7bv8rlq.apps.googleusercontent.com";
-
-      const authUrl =
-        "https://accounts.google.com/o/oauth2/v2/auth" +
-        "?response_type=token" +
-        `&client_id=${CLIENT_ID}` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        "&scope=profile%20email";
-
-      const result = await AuthSession.startAsync({ authUrl });
-
-      if (result.type === "success") {
-        const credential = GoogleAuthProvider.credential(null, result.params.access_token);
-        const cred = await signInWithCredential(auth, credential);
-        await criarUserProfileSeNaoExistir(cred.user);
-        await carregarPerfil(cred.user.uid);
-      }
+      const credential = GoogleAuthProvider.credential(idToken);
+      const cred = await signInWithCredential(auth, credential);
+      await criarUserProfileSeNaoExistir(cred.user);
+      await carregarPerfil(cred.user.uid);
+      return { success: true, user: cred.user };
     } catch (error) {
-      console.error("Erro Google:", error);
+      console.error("Erro no login com Google:", error);
+      throw new Error(error?.message || "Falha ao autenticar com Google.");
     }
   };
 
@@ -371,7 +360,7 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
-        loginWithGoogle,
+        signInWithGoogleCredential,
         carregarPerfil, // 🔥 agora está no contexto
         atualizarPerfil,
       }}

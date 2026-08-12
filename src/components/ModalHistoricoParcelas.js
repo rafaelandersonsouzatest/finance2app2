@@ -235,12 +235,27 @@ const ResumoFinanceiro = ({
   );
 };
 
+// 🔹 Título por entidade avulsa (sem parcelas/idCompra) — gasto, entrada e
+// investimento reaproveitam este mesmo modal só para a aba de Linha do
+// Tempo (ver comentário em `ehAgrupado` abaixo).
+const TITULO_POR_ENTIDADE_AVULSA = {
+  gasto: 'Histórico do Gasto',
+  entrada: 'Histórico da Entrada',
+  investimento: 'Histórico do Investimento',
+};
+
 // ==========================================================
 // 📦 MODAL PRINCIPAL COM RESUMO E HISTÓRICO
 // ==========================================================
 export default function ModalHistoricoParcelas({ visible, onClose, item }) {
   const { user } = useAuth();
-  const { buscarEventosDaCompra } = useLinhaDoTempo();
+  const { buscarEventosDaCompra, buscarEventosDoItem } = useLinhaDoTempo();
+  // 🔹 Cartão/empréstimo são compras agrupadas (várias parcelas com o mesmo
+  // `idCompra`) — só esses têm a aba "Parcelas" e a consulta por idCompra.
+  // Gasto/entrada/investimento são itens avulsos: `item.idCompra` nunca
+  // existe para eles, então caem automaticamente no modo avulso abaixo, sem
+  // precisar de uma flag separada.
+  const ehAgrupado = !!item?.idCompra;
   const [parcelas, setParcelas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -355,10 +370,12 @@ export default function ModalHistoricoParcelas({ visible, onClose, item }) {
   // real). Independente da aba ativa, para não recarregar ao alternar.
   useEffect(() => {
     const fetchEventos = async () => {
-      if (!visible || !item?.idCompra) return;
+      if (!visible || (!item?.idCompra && !item?.entidadeId)) return;
       setCarregandoEventos(true);
       try {
-        const dados = await buscarEventosDaCompra(item.idCompra);
+        const dados = ehAgrupado
+          ? await buscarEventosDaCompra(item.idCompra)
+          : await buscarEventosDoItem(item.entidadeId);
         setEventos(dados);
       } catch (err) {
         console.error('❌ Erro ao carregar linha do tempo:', err);
@@ -412,9 +429,11 @@ export default function ModalHistoricoParcelas({ visible, onClose, item }) {
         <View style={[globalStyles.modalContainer, { height: '85%' }]}>
           <View style={globalStyles.modalHeader}>
             <Text style={globalStyles.modalTitle}>
-              {item?.collectionName === 'emprestimos'
-                ? 'Histórico do Empréstimo'
-                : 'Histórico da Compra'}
+              {ehAgrupado
+                ? item?.collectionName === 'emprestimos'
+                  ? 'Histórico do Empréstimo'
+                  : 'Histórico da Compra'
+                : TITULO_POR_ENTIDADE_AVULSA[item?.entidade] || 'Histórico'}
             </Text>
             <TouchableOpacity onPress={onClose}>
               <MaterialCommunityIcons
@@ -434,21 +453,31 @@ export default function ModalHistoricoParcelas({ visible, onClose, item }) {
             {item?.descricao || ''}
           </Text>
 
-          <ModernTabs
-            tabs={[
-              { key: 'parcelas', label: 'Parcelas', icon: 'format-list-bulleted' },
-              { key: 'linhaDoTempo', label: 'Linha do Tempo', icon: 'timeline-clock-outline' },
-            ]}
-            activeTab={abaAtiva}
-            setActiveTab={setAbaAtiva}
-          >
-            <View tabKey="parcelas" style={{ flex: 1 }}>
-              {renderContent()}
-            </View>
-            <ScrollView tabKey="linhaDoTempo" showsVerticalScrollIndicator={false}>
+          {ehAgrupado ? (
+            <ModernTabs
+              tabs={[
+                { key: 'parcelas', label: 'Parcelas', icon: 'format-list-bulleted' },
+                { key: 'linhaDoTempo', label: 'Linha do Tempo', icon: 'timeline-clock-outline' },
+              ]}
+              activeTab={abaAtiva}
+              setActiveTab={setAbaAtiva}
+            >
+              <View tabKey="parcelas" style={{ flex: 1 }}>
+                {renderContent()}
+              </View>
+              <ScrollView tabKey="linhaDoTempo" showsVerticalScrollIndicator={false}>
+                <LinhaDoTempoEventos eventos={eventos} carregando={carregandoEventos} />
+              </ScrollView>
+            </ModernTabs>
+          ) : (
+            // 🔹 Gasto/entrada/investimento não têm parcelas — só a Linha do
+            // Tempo faz sentido, então nem entram no ModernTabs (que exige
+            // altura fixa do pai, ver ARQUITETURA.md seção 19.8, sem
+            // necessidade aqui já que é conteúdo único).
+            <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
               <LinhaDoTempoEventos eventos={eventos} carregando={carregandoEventos} />
             </ScrollView>
-          </ModernTabs>
+          )}
         </View>
       </View>
     </Modal>

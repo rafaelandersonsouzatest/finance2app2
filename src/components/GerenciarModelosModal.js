@@ -19,16 +19,15 @@ import AlertaModal from "./AlertaModal";
 import CategoriaSelect from "./CategoriaSelect";
 import { useCategorias } from "../hooks/useCategorias";
 import { useModelos } from "../hooks/useModelos";
-import { useEntradas } from "../hooks/useEntradas";
 import { useMembros } from "../hooks/useMembros";
 import { useDateFilter } from "../contexts/DateFilterContext";
 
-const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
+// 🔹 `entradas`/`loadingEntradas` chegam por prop, não de `useEntradas()`
+// aqui dentro — este componente não tem rota própria, é sempre renderizado
+// dentro de uma tela que já busca essa mesma lista (ver ARQUITETURA.md seção
+// 19, princípio "um dono, vários apresentadores").
+const FormularioModelo = ({ tipo, onSave, initialData, onCancel, entradas = [], loadingEntradas = false }) => {
   const { selectedMonth, selectedYear } = useDateFilter();
-  const { entradas, loading: loadingEntradas } = useEntradas(
-    selectedMonth,
-    selectedYear
-  );
   const { categorias } = useCategorias();
   const { membros } = useMembros();
 
@@ -613,6 +612,8 @@ export default function GerenciarModelosModal({
   visible,
   onClose,
   tipo = "gasto",
+  entradas,
+  loadingEntradas,
 }) {
   const { modelos, loading, addModelo, updateModelo, deleteModelo } =
     useModelos(tipo);
@@ -776,6 +777,8 @@ export default function GerenciarModelosModal({
                 setEditingItem(null);
                 setAbaAtiva("modelos");
               }}
+              entradas={entradas}
+              loadingEntradas={loadingEntradas}
             />
           )}
         </View>

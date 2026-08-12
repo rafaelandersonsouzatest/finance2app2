@@ -135,8 +135,12 @@ Resumo rápido — regras práticas para não reintroduzir um bug já corrigido:
 - `firestore.rules` existe e está versionado (cobre `users/{uid}` + `documentosCadastrados`),
   mas **ainda não foi publicado** no Firebase — não assumir que o banco está protegido em
   produção até a publicação acontecer.
-- O "Modo Família" tem UI parcial mas está desconectado (`membroSelecionado` é lido de
-  `useAuth()` mas nunca é exposto por ele) — não tratar como funcional.
+- O "Modo Família" (`tenants/{tenantId}`) não está conectado a nenhuma tela — não tratar como
+  funcional. A infraestrutura de Membros (`useMembros.js` e as telas que a usam) é diferente:
+  está funcional hoje, com escopo correto por usuário (não é o mesmo scaffolding morto do
+  Modo Família). Ver `COLABORACAO_DISCOVERY.md`/`DISCOVERY_COLABORACAO_VS_FAMILIA.md` antes de
+  propor algo em Colaboração entre Usuários ou Modo Família — são dois modelos diferentes, não
+  tratar como o mesmo recurso em graus diferentes.
 - `App.js` e alguns componentes têm blocos grandes de código comentado (versões
   antigas) — não copiar esse padrão em código novo.
 - Toda entrada/exibição de valor monetário deve usar `useCurrencyInput`/`parseBRL`

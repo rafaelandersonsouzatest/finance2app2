@@ -323,6 +323,15 @@ export default function ModalDetalhes({
               value={item.pago ? 'Recebido' : 'Pendente'}
               color={item.pago ? colors.balance : colors.pending}
             />
+
+            <TouchableOpacity onPress={onHistoryPress}>
+              <InfoRow
+                icon="history"
+                label="Histórico"
+                value="Ver linha do tempo"
+                color={colors.primary}
+              />
+            </TouchableOpacity>
           </>
         );
 
@@ -368,6 +377,15 @@ export default function ModalDetalhes({
               value={item.pago ? 'Pago' : 'Pendente'}
               color={item.pago ? colors.balance : colors.pending}
             />
+
+            <TouchableOpacity onPress={onHistoryPress}>
+              <InfoRow
+                icon="history"
+                label="Histórico"
+                value="Ver linha do tempo"
+                color={colors.primary}
+              />
+            </TouchableOpacity>
           </>
         );
 

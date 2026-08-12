@@ -11,11 +11,23 @@ const ROTULOS_CAMPO = {
   cartao: 'Cartão',
   pessoa: 'Comprador',
   credor: 'Credor',
+  membro: 'Membro',
+  nome: 'Nome',
+  instituicao: 'Instituição',
+  meta: 'Meta',
 };
+
+// 🔹 Cartão/empréstimo são "agrupados" (várias parcelas com o mesmo
+// idCompra) — só eles distinguem "grupo inteiro excluído" de "uma parcela
+// excluída". Gasto/entrada/investimento são avulsos, sem esse conceito.
+const ENTIDADES_AGRUPADAS = ['cartao', 'emprestimo'];
 
 const NOME_ENTIDADE = {
   cartao: { artigo: 'a compra', criado: 'Compra criada', excluido: 'Compra excluída' },
   emprestimo: { artigo: 'o empréstimo', criado: 'Empréstimo criado', excluido: 'Empréstimo excluído' },
+  gasto: { artigo: 'o gasto', criado: 'Gasto criado', excluido: 'Gasto excluído', pago: 'Gasto pago' },
+  entrada: { artigo: 'a entrada', criado: 'Entrada criada', excluido: 'Entrada excluída', pago: 'Entrada recebida' },
+  investimento: { artigo: 'o investimento', criado: 'Investimento criado', excluido: 'Investimento excluído' },
 };
 
 const formatarValorExibicao = (valor) =>
@@ -26,6 +38,7 @@ export const ICONE_POR_ACAO = {
   editado: 'pencil-outline',
   excluido: 'trash-can-outline',
   pago: 'check-circle-outline',
+  reaberto: 'restore',
   antecipado: 'clock-fast',
   revertido: 'history',
   redistribuido: 'swap-horizontal',
@@ -34,16 +47,24 @@ export const ICONE_POR_ACAO = {
 
 export const montarDescricaoEvento = (evento) => {
   const { acao, entidade, alteracoes, idCompra, entidadeId } = evento;
-  const nomes = NOME_ENTIDADE[entidade] || { artigo: 'o item', criado: 'Item criado', excluido: 'Item excluído' };
-  const ehGrupoInteiro = acao === 'excluido' && entidadeId === idCompra;
+  const nomes = NOME_ENTIDADE[entidade] || {
+    artigo: 'o item',
+    criado: 'Item criado',
+    excluido: 'Item excluído',
+    pago: 'Marcado como pago',
+  };
+  const ehAgrupada = ENTIDADES_AGRUPADAS.includes(entidade);
+  const ehGrupoInteiro = ehAgrupada && acao === 'excluido' && entidadeId === idCompra;
 
   switch (acao) {
     case 'criado':
       return nomes.criado;
     case 'excluido':
-      return ehGrupoInteiro ? nomes.excluido : 'Parcela excluída';
+      return !ehAgrupada || ehGrupoInteiro ? nomes.excluido : 'Parcela excluída';
     case 'pago':
-      return 'Parcela paga';
+      return ehAgrupada ? 'Parcela paga' : nomes.pago || 'Marcado como pago';
+    case 'reaberto':
+      return ehAgrupada ? 'Parcela marcada como pendente novamente' : 'Marcado como pendente novamente';
     case 'antecipado':
       return 'Parcela antecipada';
     case 'revertido':

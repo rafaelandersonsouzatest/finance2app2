@@ -14,6 +14,7 @@ import MovimentacaoInvestModal from './MovimentacaoInvestModal';
 import AlertaModal from './AlertaModal';
 import { vibrarMedio } from '../utils/haptics';
 import ModalEdicao from './ModalEdicao';
+import ModalHistoricoParcelas from './ModalHistoricoParcelas';
 import { calcularProgressoMeta } from '../utils/metas';
 
 // `progress` aqui já vem em escala 0–100 (calcularProgressoMeta) — antes esta
@@ -43,6 +44,7 @@ export default function DetalhesInvestimentoModal({
   const [modalMovVisible, setModalMovVisible] = useState(false);
   const [movimentoEmEdicao, setMovimentoEmEdicao] = useState(null);
   const [modalEdicaoVisible, setModalEdicaoVisible] = useState(false);
+  const [historicoVisible, setHistoricoVisible] = useState(false);
 
   const [alerta, setAlerta] = useState({
     visible: false,
@@ -151,6 +153,19 @@ export default function DetalhesInvestimentoModal({
             <View style={globalStyles.modalHeader}>
               <Text style={globalStyles.modalTitle}>{nome}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {/* 🕘 Botão para abrir a Linha do Tempo do investimento (ver
+                    ARQUITETURA.md seção 18) — diferente do "Histórico de
+                    Movimentações" abaixo, que é sobre aportes/resgates. */}
+                <TouchableOpacity
+                  onPress={() => setHistoricoVisible(true)}
+                  style={{ marginRight: 15 }}
+                >
+                  <MaterialCommunityIcons
+                    name="history"
+                    size={30}
+                    color={colors.textTertiary}
+                  />
+                </TouchableOpacity>
                 {/* ✏️ Botão para abrir ModalEdicao do investimento */}
                 <TouchableOpacity
                   onPress={() => setModalEdicaoVisible(true)}
@@ -327,6 +342,17 @@ export default function DetalhesInvestimentoModal({
   tipo="investimento"
   titulo="Editar Investimento"
 />
+
+      <ModalHistoricoParcelas
+        visible={historicoVisible}
+        onClose={() => setHistoricoVisible(false)}
+        item={{
+          entidadeId: id,
+          entidade: 'investimento',
+          descricao: nome,
+          collectionName: 'investimentos',
+        }}
+      />
     </>
   );
 }

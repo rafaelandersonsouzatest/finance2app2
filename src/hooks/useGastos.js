@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { doc,getDocs, collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch, where,} from "firebase/firestore";
+import { doc, getDoc, getDocs, collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch, where,} from "firebase/firestore";
 import { db } from "../config/firebase";
 import { datasPadraoPorDescricao } from "../utils/datasPadrao";
 import { gerarDataComDia } from "../utils/gerarDataComDia";
@@ -8,6 +8,8 @@ import { useAuth } from "../auth/useAuth";
 import { getBasePath } from "../utils/firestorePaths";
 import { parseBRL } from "../utils/formatarValor";
 import { removerIndefinidos } from "../utils/firestoreSanitize";
+import { registrarEvento } from "../utils/registrarEvento";
+import { detectarAlteracoes } from "../utils/linhaDoTempoConfig";
 
 // =========================================================
 // 🔹 HOOK: useGastos — preparado para multiusuário e modo família
@@ -178,7 +180,7 @@ export const useGastos = (mes, ano) => {
         gasto.dataVencimento ||
         gerarDataComDia(diaPadrao, gasto.mes || mes, gasto.ano || ano);
 
-      await addDoc(
+      const docRef = await addDoc(
         collection(db, `${basePath}/gastos`),
         removerIndefinidos({
           ...gasto,
@@ -188,6 +190,14 @@ export const useGastos = (mes, ano) => {
           criadoEm: serverTimestamp(),
         })
       );
+
+      await registrarEvento(basePath, {
+        acao: "criado",
+        entidade: "gasto",
+        entidadeId: docRef.id,
+        origem: { agente: "usuario", canal: "criacao" },
+        usuarioId: user.uid,
+      });
     } catch (err) {
       console.error("Erro ao adicionar gasto:", err);
       setError(err.message);
@@ -199,6 +209,13 @@ export const useGastos = (mes, ano) => {
     if (!user?.uid) return;
     try {
       const basePath = getBasePath(user);
+      const ref = doc(db, `${basePath}/gastos`, id);
+      const docSnap = await getDoc(ref);
+      const atual = docSnap.data();
+
+      // 🔹 Calculado antes de qualquer mutação — ver ARQUITETURA.md seção 18.
+      const alteracoesCampos = detectarAlteracoes("gasto", atual, gasto);
+
       const dadosAtualizados = { ...gasto };
 
       if (dadosAtualizados.pago === true && !dadosAtualizados.dataPagamento)
@@ -208,13 +225,47 @@ export const useGastos = (mes, ano) => {
         dadosAtualizados.dataPagamento = null;
 
       await updateDoc(
-        doc(db, `${basePath}/gastos`, id),
+        ref,
         removerIndefinidos({
           ...dadosAtualizados,
           valor: parseBRL(dadosAtualizados.valor),
           atualizadoEm: serverTimestamp(),
         })
       );
+
+      // 🔹 "Pago"/"Reaberto" têm ação própria; fora isso, "editado" cobre
+      // qualquer campo relevante alterado na mesma chamada — mesmo critério
+      // de useCartoes.js/useEmprestimos.js.
+      const marcouComoPago = dadosAtualizados.pago === true && atual?.pago !== true;
+      const desmarcouComoPago = dadosAtualizados.pago === false && atual?.pago === true;
+      if (marcouComoPago) {
+        await registrarEvento(basePath, {
+          acao: "pago",
+          entidade: "gasto",
+          entidadeId: id,
+          alteracoes: Object.keys(alteracoesCampos).length > 0 ? alteracoesCampos : null,
+          origem: { agente: "usuario", canal: "edicao" },
+          usuarioId: user.uid,
+        });
+      } else if (desmarcouComoPago) {
+        await registrarEvento(basePath, {
+          acao: "reaberto",
+          entidade: "gasto",
+          entidadeId: id,
+          alteracoes: Object.keys(alteracoesCampos).length > 0 ? alteracoesCampos : null,
+          origem: { agente: "usuario", canal: "edicao" },
+          usuarioId: user.uid,
+        });
+      } else if (Object.keys(alteracoesCampos).length > 0) {
+        await registrarEvento(basePath, {
+          acao: "editado",
+          entidade: "gasto",
+          entidadeId: id,
+          alteracoes: alteracoesCampos,
+          origem: { agente: "usuario", canal: "edicao" },
+          usuarioId: user.uid,
+        });
+      }
     } catch (err) {
       console.error("Erro ao atualizar gasto:", err);
       setError(err.message);
@@ -227,6 +278,13 @@ export const useGastos = (mes, ano) => {
     try {
       const basePath = getBasePath(user);
       await deleteDoc(doc(db, `${basePath}/gastos`, id));
+      await registrarEvento(basePath, {
+        acao: "excluido",
+        entidade: "gasto",
+        entidadeId: id,
+        origem: { agente: "usuario", canal: "exclusao" },
+        usuarioId: user.uid,
+      });
     } catch (err) {
       console.error("Erro ao deletar gasto:", err);
       setError(err.message);

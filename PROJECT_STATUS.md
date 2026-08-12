@@ -60,11 +60,9 @@ Conforme `git status` no momento desta análise:
   - `MembrosScreen` está **fora da navegação ativa** (`Tab.Screen` comentado em `BottomTabs.js`).
   - **Arquitetura oficial decidida na Sprint 5** (ver `SPRINT5_DISCOVERY.md`): quando o Modo Família for implementado de verdade, o dado compartilhado vive em `tenants/{tenantId}` (via `getBasePath(user, compartilhado)`), não em `users/{outroUid}`. A arquitetura concorrente que existia antes — `useModelos.js` e `ModalHistoricoParcelas.js` lendo `membroSelecionado` de `useAuth()` (campo nunca exposto pelo `AuthProvider`, logo sempre código morto) e o campo `compartilhadoCom` (nunca gravado em lugar nenhum) — foi **removida** nesta sprint, para não deixar duas arquiteturas concorrentes no código.
   - `getBasePath(user, compartilhado)` nunca é chamado com `compartilhado=true` em nenhum lugar do app.
-  - **Achado novo (2026-07-27, investigando o Menu do Usuário):** `MembrosScreen.js` usa uma coleção **global** `membros` (sem escopo de usuário!), diferente de `MembroSelect.js`/`GerenciarMembrosModal.js`, que usam corretamente `users/{uid}/membros`. Ou seja, existem **três** implementações de membros, não duas, e uma delas tem um bug de dados real (vazaria membros entre contas diferentes se fosse reativada como está). Não reaproveitar `MembrosScreen.js` sem reescrever — ver plano da Sprint 2 (seção 8) e `ARQUITETURA.md` seção 11.6.
-  - **Conclusão**: o Modo Família tem UI parcial, mas nenhuma trilha de dados funcional até hoje.
+  - **✅ Corrigido — achado de 2026-07-27 estava desatualizado**: `MembrosScreen.js` foi reescrita em 2026-07-27 e hoje usa `useMembros()`, exatamente como `MembroSelect.js`/`GerenciarMembrosModal.js` (todos em `users/{uid}/membros`, com escopo por usuário). Não existe mais coleção global nem risco de vazamento entre contas — as três telas convergem para a mesma fonte de dados. Reverificado nesta rodada (2026-08-07) lendo o arquivo atual, não apenas esta documentação.
+  - **Conclusão**: o Modo Família tem UI parcial (sem `tenantId`/compartilhamento), mas a infraestrutura de Membros por usuário (`useMembros.js` + as três telas) está funcional e é uma base reaproveitável quando o modo família for implementado de verdade — não é código morto.
 - **Alterar Senha** (`AlterarSenhaScreen.js`): implementada, mas fora da navegação ativa (comentada em `BottomTabs.js`).
-- **Linha do Tempo (Histórico de Eventos) — Gastos, Entradas e Investimentos**: implementada
-  para Cartões e Empréstimos (ver seção 16); esses três módulos ainda não emitem eventos.
 
 ## 4. Código morto identificado (candidatos a remoção, não removidos nesta análise)
 
@@ -99,7 +97,7 @@ Conforme `git status` no momento desta análise:
 | ~~Checagem de CPF/e-mail duplicado é só client-side, sem garantia atômica~~ ✅ Corrigido (Sprint 1, 2026-07-24) | `useAuth.js` register | — checagem de CPF agora via reserva `documentosCadastrados`, e-mail delegado ao Firebase Auth nativo, escrita em `writeBatch` |
 | ~~Race condition entre `register()` e o listener `onAuthStateChanged`~~ ✅ Corrigido (Sprint 1, 2026-07-24) | `useAuth.js` | — descoberto durante a revisão do fluxo de cadastro; perfil podia nascer com dados incompletos dependendo de qual dos dois "ganhasse" a corrida |
 | ~~Bug de parse "vírgula sem tratar milhar" também presente em componentes de UI, não só nos hooks~~ ✅ Reverificado em 2026-08-06 — já não existe | `MovimentacaoInvestModal.js`, `ModalEdicao.js`, `GerenciarModelosModal.js`, `InvestimentosScreen.js` | — os quatro arquivos hoje passam o campo de valor por `CampoMonetario`/`useCurrencyInput`, que sempre entrega um número já limpo (nunca uma string com vírgula) para quem consome o valor. `ModalEdicao.js`/`InvestimentosScreen.js` ainda têm uma linha de fallback `.replace(',','.')` para o caso de o valor chegar como string — código morto hoje (nunca mais é exercitado), não removido por não fazer parte do pedido, mas não representa mais um risco |
-| `firestore.rules` escrito e cobrindo `users/{uid}` + `documentosCadastrados`, mas **ainda não publicado** | projeto inteiro | 🔴 Crítica até o deploy — previsto para o final da Sprint 1, mediante autorização explícita |
+| `firestore.rules` escrito e cobrindo `users/{uid}` + `documentosCadastrados`, mas **ainda não publicado** | projeto inteiro | 🔴 Crítica até o deploy — segue sem publicar desde a Sprint 1. **Auditoria confirmada em 2026-08-10** (checkpoint pré-Colaboração): comparado contra todo `collection(db, ...)`/`doc(db, ...)` do código atual — toda leitura/escrita do app hoje vive sob `users/{uid}/**` ou `documentosCadastrados`, ambos já cobertos; publicar exatamente como está **não deveria quebrar nenhuma funcionalidade existente**. Uma lacuna real encontrada: `documentosCadastrados` permite `create` para qualquer usuário autenticado, sem checar se o `docId` corresponde ao próprio cadastro dele — um usuário autenticado poderia, em teoria, "reservar" o CPF/CNPJ de outra pessoa antes dela se cadastrar (bloqueio malicioso, não vazamento de dado). Impacto baixo hoje (poucos usuários, sem motivação de ataque conhecida), mas vale decidir corrigir antes ou logo depois da publicação — ver `ARQUITETURA.md` seção 7.2 para o detalhe completo do diagnóstico. |
 | ~~Aba "Linha do Tempo" do Histórico da Compra abria mostrando só ~1,5cm de tela~~ ✅ Corrigido (2026-08-06) | `ModalHistoricoParcelas.js` | — `ModernTabs` precisa de um container pai com `height` concreto para seu `flex:1` funcionar; o container usava `maxHeight` (padrão de todo outro modal do app), que não define espaço pra distribuir. Ver `ARQUITETURA.md` seção 19.8 — armadilha registrada para não reintroduzir em outro modal que venha a usar `ModernTabs` |
 
 ## 6. Pendências técnicas (arquitetura/dívida)
@@ -628,32 +626,50 @@ técnico completo.
   `SaidasScreen.js`, `GastosScreen.js`, `EmprestimosScreen.js`, `CartoesScreen.js`,
   `LinhaDoTempoFinanceira.js`, `CalendarioFinanceiro.js`, `CentralAvisosScreen.js`.
 
-## 16. Linha do Tempo (Histórico de Eventos) (✅ implementada em 2026-08-06 para Cartões e Empréstimos)
+## 16. Linha do Tempo (Histórico de Eventos) (✅ implementada em 2026-08-06 para Cartões e Empréstimos; ✅ estendida em 2026-08-07 para Gastos, Entradas e Investimentos)
 
-Arquitetura fechada previamente (ver `ARQUITETURA.md` seção 18) e implementada nesta rodada
-para os dois módulos sugeridos primeiro. Motivação: registrar eventos relevantes (compra
-criada, parcela paga, categoria alterada etc.) sem virar uma auditoria técnica completa.
+Arquitetura fechada previamente (ver `ARQUITETURA.md` seção 18). Motivação: registrar eventos
+relevantes (compra criada, parcela paga, categoria alterada etc.) sem virar uma auditoria
+técnica completa.
 
 - **Coleção nova** `users/{uid}/linhaDoTempo` — um documento por ação do usuário (nunca por
   documento alterado internamente por propagação automática ou recálculo).
-- **Todas as funções de mutação de `useCartoes.js`/`useEmprestimos.js`** (criar, editar,
-  marcar como pago, antecipar, reverter antecipação, excluir parcela/grupo, redistribuir,
-  personalizar valores) passam a registrar um evento, incluindo `toggleCartaoStatus` — um
-  caminho de mutação separado de `updateCartao` que também precisava do próprio registro.
+- **Todas as funções de mutação de `useCartoes.js`/`useEmprestimos.js`/`useGastos.js`/
+  `useEntradas.js`/`useInvestimentos.js`** (criar, editar, marcar como pago/recebido,
+  **desmarcar como pago/recebido**, antecipar, reverter antecipação, excluir parcela/
+  grupo/item, redistribuir, personalizar valores) passam a registrar um evento, incluindo
+  `toggleCartaoStatus` — um caminho de mutação separado de `updateCartao` que também
+  precisava do próprio registro.
+- **Ajuste feito após feedback de uso (2026-08-07)**: a primeira versão só registrava marcar
+  como pago; desmarcar não deixava rastro na Linha do Tempo, dando a impressão de que o item
+  nunca tinha sido desfeito. Agora desmarcar gera `acao: 'reaberto'`, nos cinco módulos.
 - **Nova aba "Linha do Tempo"** dentro de `ModalHistoricoParcelas.js`, ao lado da aba
   "Parcelas" já existente (que não mudou nada) — mesmo `ModernTabs.js` usado em
-  `CartoesScreen.js`/`SaidasScreen.js`.
-- **Achado corrigido durante a implementação**: a consulta inicial usava `orderBy('criadoEm')`
-  do Firestore junto com o filtro por `idCompra` — isso exige um índice composto configurado
-  manualmente no console do Firebase, em cada um dos 4 projetos do app. Corrigido para ordenar
-  no cliente (mesmo critério já usado em `buscarParcelasDaCompra`), evitando uma dependência de
-  infraestrutura fora do código.
+  `CartoesScreen.js`/`SaidasScreen.js`. Gasto/entrada/investimento não têm parcelas, então o
+  modal detecta isso (ausência de `idCompra`) e mostra só a Linha do Tempo, sem as abas.
+- **Novos pontos de entrada para Gasto/Entrada/Investimento**: botão "Histórico" dentro de
+  `ModalDetalhes.js` (casos `gasto`/`entrada`, mesmo padrão do cartão/empréstimo) e ícone de
+  histórico no cabeçalho de `DetalhesInvestimentoModal.js` (diferente do "Histórico de
+  Movimentações" já existente ali, que é sobre aportes/resgates, não sobre edições do
+  investimento em si). `EntradasScreen.js` ganhou o mesmo estado/modal que `SaidasScreen.js`
+  já tinha para gasto/empréstimo/cartão.
+- **Achado corrigido durante a implementação (2026-08-06)**: a consulta inicial usava
+  `orderBy('criadoEm')` do Firestore junto com o filtro por `idCompra` — isso exige um índice
+  composto configurado manualmente no console do Firebase, em cada um dos 4 projetos do app.
+  Corrigido para ordenar no cliente (mesmo critério já usado em `buscarParcelasDaCompra`),
+  evitando uma dependência de infraestrutura fora do código.
+- **Achado corrigido durante a extensão (2026-08-07)**: `linhaDoTempoRender.js` tinha textos
+  fixos ("Parcela excluída", "Parcela paga") que fariam sentido só para cartão/empréstimo —
+  sem ajuste, excluir um gasto teria mostrado "Parcela excluída" na Linha do Tempo. Corrigido
+  para usar o texto certo por entidade (`NOME_ENTIDADE`), distinguindo entidades agrupadas
+  (cartão/empréstimo, com conceito de parcela) das avulsas (gasto/entrada/investimento).
 - **Arquivos**: `src/utils/linhaDoTempoConfig.js`, `src/utils/registrarEvento.js`,
   `src/utils/linhaDoTempoRender.js`, `src/hooks/useLinhaDoTempo.js`,
   `src/components/LinhaDoTempoEventos.js` (novos); `src/components/ModalHistoricoParcelas.js`,
-  `src/hooks/useCartoes.js`, `src/hooks/useEmprestimos.js` (modificados).
-- **Pendente**: Gastos, Entradas e Investimentos ainda não emitem eventos — ver
-  `ARQUITETURA.md` seção 18.8 para o que falta quando esses módulos entrarem.
+  `src/components/ModalDetalhes.js`, `src/components/DetalhesInvestimentoModal.js`,
+  `src/hooks/useCartoes.js`, `src/hooks/useEmprestimos.js`, `src/hooks/useGastos.js`,
+  `src/hooks/useEntradas.js`, `src/hooks/useInvestimentos.js`, `src/screens/SaidasScreen.js`,
+  `src/screens/EntradasScreen.js` (modificados).
 
 ## 17. Sprint de Saneamento Arquitetural (✅ implementada em 2026-08-06)
 

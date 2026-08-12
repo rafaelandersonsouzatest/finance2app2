@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import TelaPadrao from '../components/TelaPadrao';
 import ModalCriacao from '../components/ModalCriacao';
 import GerenciarModelosModal from '../components/GerenciarModelosModal';
+import ModalHistoricoParcelas from '../components/ModalHistoricoParcelas';
 import AlertaModal from '../components/AlertaModal';
 import { useDateFilter } from '../contexts/DateFilterContext';
 import { useEntradas } from "../hooks/useEntradas";
@@ -27,6 +28,8 @@ export default function EntradasScreen() {
   // Modais
   const [modalCriacaoVisivel, setModalCriacaoVisivel] = useState(false);
   const [modalModelosVisivel, setModalModelosVisivel] = useState(false);
+  const [historicoModalVisivel, setHistoricoModalVisivel] = useState(false);
+  const [itemHistorico, setItemHistorico] = useState(null);
 
   const entradasFiltradas = useMemo(() => entradas || [], [entradas]);
 
@@ -91,6 +94,12 @@ export default function EntradasScreen() {
     }
   };
 
+  const handleAbrirHistorico = (item) => {
+    if (!item) return;
+    setItemHistorico(item);
+    setHistoricoModalVisivel(true);
+  };
+
   const handleGerarFixos = () =>
     handleGerarFixosUtil(gerarFixosDoMes, setAlerta, 'entrada');
   const getIconePorCategoria = (categoria) => {
@@ -142,6 +151,21 @@ export default function EntradasScreen() {
         refreshing={loading}
         loading={loading}
         fabActions={fabActions}
+        onHistoryPress={handleAbrirHistorico}
+      />
+
+      <ModalHistoricoParcelas
+        visible={historicoModalVisivel}
+        onClose={() => {
+          setHistoricoModalVisivel(false);
+          setItemHistorico(null);
+        }}
+        item={{
+          entidadeId: itemHistorico?.id,
+          entidade: 'entrada',
+          descricao: itemHistorico?.descricao,
+          collectionName: 'entradas',
+        }}
       />
 
       <ModalCriacao
@@ -158,6 +182,8 @@ export default function EntradasScreen() {
         visible={modalModelosVisivel}
         onClose={() => setModalModelosVisivel(false)}
         tipo="entrada"
+        entradas={entradasFiltradas}
+        loadingEntradas={loading}
       />
 
       <AlertaModal

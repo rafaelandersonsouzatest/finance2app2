@@ -446,15 +446,25 @@ export const useCartoes = (month, year) => {
         await recalcularValorTotalCompra(basePath, atual.idCompra);
       }
 
-      // 🔹 "Pago" tem sua própria ação (mais reconhecível pro usuário do que
-      // um "editado" genérico) — só quando de fato transiciona para true;
-      // desmarcar não gera evento (ver ARQUITETURA.md seção 18). Fora isso,
-      // um evento "editado" cobre qualquer campo relevante que mudou nesta
-      // mesma chamada.
+      // 🔹 "Pago"/"Reaberto" têm ação própria (mais reconhecível pro usuário
+      // do que um "editado" genérico) — só quando de fato transiciona de um
+      // estado pro outro. Fora isso, um evento "editado" cobre qualquer
+      // campo relevante que mudou nesta mesma chamada.
       const marcouComoPago = dadosAtualizados.pago === true && atual?.pago !== true;
+      const desmarcouComoPago = dadosAtualizados.pago === false && atual?.pago === true;
       if (marcouComoPago) {
         await registrarEvento(basePath, {
           acao: 'pago',
+          entidade: 'cartao',
+          entidadeId: id,
+          idCompra: atual?.idCompra || null,
+          alteracoes: Object.keys(alteracoesCampos).length > 0 ? alteracoesCampos : null,
+          origem: { agente: 'usuario', canal: 'edicao' },
+          usuarioId: user.uid,
+        });
+      } else if (desmarcouComoPago) {
+        await registrarEvento(basePath, {
+          acao: 'reaberto',
           entidade: 'cartao',
           entidadeId: id,
           idCompra: atual?.idCompra || null,
@@ -699,20 +709,18 @@ export const useCartoes = (month, year) => {
 
       // 🔹 Caminho de mutação separado de updateCartao (toggle direto de
       // pago/pendente) — precisa do próprio registro de evento, ver
-      // ARQUITETURA.md seção 18. Só marcar como pago gera evento, desmarcar
-      // não (mesmo critério de updateCartao).
-      if (novoStatus) {
-        const docSnap = await getDoc(cartaoRef);
-        const atual = docSnap.data();
-        await registrarEvento(basePath, {
-          acao: 'pago',
-          entidade: 'cartao',
-          entidadeId: cartaoId,
-          idCompra: atual?.idCompra || null,
-          origem: { agente: 'usuario', canal: 'edicao' },
-          usuarioId: user.uid,
-        });
-      }
+      // ARQUITETURA.md seção 18. Mesmo critério de updateCartao: marcar como
+      // pago gera "pago", desmarcar gera "reaberto".
+      const docSnap = await getDoc(cartaoRef);
+      const atual = docSnap.data();
+      await registrarEvento(basePath, {
+        acao: novoStatus ? 'pago' : 'reaberto',
+        entidade: 'cartao',
+        entidadeId: cartaoId,
+        idCompra: atual?.idCompra || null,
+        origem: { agente: 'usuario', canal: 'edicao' },
+        usuarioId: user.uid,
+      });
     } catch (err) {
       setError(err.message);
       throw err;

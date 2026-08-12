@@ -5,8 +5,9 @@
 // timestamps, totalParcelas, corCartao derivada etc.) nunca entram aqui —
 // a Linha do Tempo é para o usuário, não uma auditoria técnica. `valor` e
 // `pago` ficam de fora de propósito: valor muda junto de ações próprias
-// (antecipação, redistribuição) e pago tem sua própria `acao` dedicada
-// (ver detectarPagamento em registrarEvento.js).
+// (antecipação, redistribuição) e pago/despago tem sua própria `acao`
+// dedicada (`marcouComoPago`/`desmarcouComoPago`, calculado inline em cada
+// hook — useGastos.js/useEntradas.js/useCartoes.js/useEmprestimos.js).
 //
 // Incluir um campo novo no futuro é só adicionar o nome na lista da
 // entidade certa — nenhuma outra lógica precisa mudar.
@@ -14,6 +15,9 @@
 export const CAMPOS_RELEVANTES = {
   cartao: ['descricao', 'categoria', 'cartao', 'pessoa'],
   emprestimo: ['descricao', 'categoria', 'credor'],
+  gasto: ['descricao', 'categoria'],
+  entrada: ['descricao', 'categoria', 'membro'],
+  investimento: ['nome', 'instituicao', 'meta'],
 };
 
 // 🔹 Compara só os campos relevantes da entidade entre o estado atual e os

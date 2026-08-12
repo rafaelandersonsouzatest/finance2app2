@@ -4,6 +4,15 @@ import { colors } from '../styles/colors';
 import { globalStyles } from '../styles/globalStyles';
 import { montarDescricaoEvento, ICONE_POR_ACAO } from '../utils/linhaDoTempoRender';
 
+// 🔹 Só "pago"/"reaberto" ganham cor própria — mesmas cores do resto do app
+// para os mesmos status (`colors.balance` = pago/paga, `colors.pending` =
+// pendente, ver `ParcelaItem`/`ModalDetalhes.js`). Qualquer outra ação
+// (criado, editado, excluído, antecipado etc.) fica com `colors.primary`.
+const COR_POR_ACAO = {
+  pago: colors.balance,
+  reaberto: colors.pending,
+};
+
 const formatarDataHora = (timestamp) => {
   if (!timestamp?.toDate) return '';
   const data = timestamp.toDate();
@@ -47,7 +56,7 @@ export default function LinhaDoTempoEventos({ eventos = [], carregando = false }
           <MaterialCommunityIcons
             name={ICONE_POR_ACAO[evento.acao] || 'circle-outline'}
             size={20}
-            color={colors.primary}
+            color={COR_POR_ACAO[evento.acao] || colors.primary}
             style={{ marginRight: 10, marginTop: 2 }}
           />
           <View style={{ flex: 1 }}>
