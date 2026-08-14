@@ -52,7 +52,12 @@ export default ({ config }) => {
     },
     christian: {
       name: "Financeiro - Convidado",
-      slug: "convidado",
+      // 🔹 O slug real do projeto no Expo é "christian" (imutável depois da
+      // criação — não existe campo de renomear no painel, só "Display name",
+      // que é cosmético). Mantido por compatibilidade, mesmo princípio já
+      // aplicado a APP_ENV/projectId/owner (ver CLAUDE.md) — invisível para
+      // quem usa o app, que já vê "Financeiro - Convidado" normalmente.
+      slug: "christian",
       projectId: "8887c54c-8cde-4f30-9a5a-ccd977b9795e", // ID do projeto do ambiente de Convidados no Expo
       updatesUrl: "https://u.expo.dev/8887c54c-8cde-4f30-9a5a-ccd977b9795e",
       icon: "./assets/icon.png",
