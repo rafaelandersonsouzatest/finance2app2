@@ -35,6 +35,15 @@ câmera, complexidade de UI maior para o ganho — bom candidato a V1.1, é só 
 visual do mesmo código); busca por e-mail/telefone (descartado por decisão de privacidade já
 registrada em `COLABORACAO_DISCOVERY.md` seção 13).
 
+🔵 **Revisitado em 2026-08-13, ao testar a Etapa 2.1/2.2**: proposta de trocar o código
+aleatório por um identificador escolhido pelo usuário (`@usuario`, como Instagram) — já mapeado
+como alternativa em `COLABORACAO_DISCOVERY.md` seção 13, nunca descartado, só não escolhido
+para a V1. **Decisão: manter o código aleatório por agora**, registrado aqui para não
+esquecer — melhoria candidata a uma rodada futura, não implementada nesta etapa. Principal
+diferença de esforço se decidirmos trocar depois: exige checar disponibilidade do identificador
+escolhido e decidir se pode ser alterado depois de definido (código aleatório de hoje é
+permanente e nunca colide de um jeito que o usuário perceba).
+
 **Modelo de dados necessário**:
 ```
 users/{uid}
@@ -65,7 +74,7 @@ users/{uid}/conexoes/{conexaoId}
   nomeExibicao: string,       // snapshot, não referência viva
   avatarSnapshot: object | null,
   papel: 'solicitante' | 'destinatario',
-  status: 'pendente' | 'aceita' | 'recusada',
+  status: 'pendente' | 'aceita' | 'recusada' | 'expirada' | 'cancelada',
   criadoEm, atualizadoEm
 }
 ```
@@ -75,20 +84,43 @@ complexo, três checagens simples dentro da própria `solicitarConexao`:
 - **Idempotência**: se já existe uma conexão `pendente` ou `aceita` entre A e B, a Function
   retorna esse estado existente em vez de criar um segundo documento — evita que A consiga
   gerar N solicitações duplicadas para o mesmo B só de repetir a ação.
-- **Cooldown pós-recusa**: se a conexão mais recente entre A e B está `recusada`, uma nova
-  solicitação de A para o mesmo B só é aceita depois de um intervalo mínimo (proposta: 7 dias,
-  comparando `atualizadoEm`) — impede reenvio imediato repetido para quem já recusou uma vez.
-  B continua livre para iniciar uma conexão com A a qualquer momento, o cooldown vale só no
-  mesmo sentido que já foi recusado.
+- **Cooldown pós-recusa**: se a conexão mais recente entre A e B está `recusada` **e o próprio
+  chamador foi quem a enviou** (`papel: 'solicitante'` no doc dele), uma nova solicitação de A
+  para o mesmo B só é aceita depois de um intervalo mínimo (7 dias, comparando `atualizadoEm`).
+  Se, em vez disso, o doc do chamador tem `papel: 'destinatario'` (ele só recusou um pedido de
+  B antes, nunca enviou o próprio) — sem cooldown, ele pode iniciar uma conexão nova a qualquer
+  momento (gera um `conexaoId` novo, não reaproveita o registro antigo).
 - **Limite de solicitações pendentes enviadas**: a Function rejeita uma nova solicitação se A
   já tiver um número alto de conexões `pendente` como solicitante (proposta: 20) — protege
-  contra um uso indevido de enviar solicitações em massa para muitos destinatários diferentes,
-  sem exigir nenhuma tela ou fluxo novo de "bloquear usuário".
+  contra um uso indevido de enviar solicitações em massa para muitos destinatários diferentes.
 
-Nenhum "bloquear este usuário" explícito entra na V1 — as três checagens acima cobrem o abuso
-mais provável (reenvio repetido/em massa) sem introduzir uma lista de bloqueio, tela de
-gerenciamento de bloqueios ou qualquer estado novo para o usuário administrar. 🔵 Fora do
-escopo da V1: bloqueio explícito de usuário, denúncia/reporte.
+**🟢 Expiração de solicitação pendente (decisão, 2026-08-13)** — sem essa regra, o limite de 20
+acima vira uma armadilha: um convite nunca respondido ocuparia uma vaga para sempre. Decisão:
+- Prazo de **15 dias** a partir de `criadoEm`.
+- **Expiração "preguiçosa" (lazy), sem infraestrutura nova**: nenhuma Cloud Function agendada
+  roda sozinha em segundo plano. Em vez disso, toda vez que `solicitarConexao` ou
+  `responderConexao` encontrarem um doc `pendente` com mais de 15 dias, tratam-no **na hora**
+  como se já estivesse expirado (não conta pro limite de 20, não pode mais ser aceito) e
+  aproveitam para gravar `status: 'expirada'` nos dois lados, como limpeza.
+- ⚠️ **Limitação conhecida, aceita conscientemente para a V1**: se **ninguém nunca mais**
+  interagir com um pedido pendente específico (nem o remetente tenta de novo, nem o
+  destinatário responde), ele fica "logicamente expirado" mas grava `status: 'pendente'` para
+  sempre no Firestore — só a próxima interação de fato grava a expiração. 🔵 **Candidato futuro,
+  não implementado agora**: uma Cloud Function agendada (`onSchedule`) fazendo a limpeza de
+  verdade, caso isso se mostre um problema real no uso (ex.: relatórios/contagens que dependam
+  do status refletir a expiração sem esperar uma interação).
+- Expiração é tratada como **neutra**, nunca como recusa — reenviar depois de expirado não
+  entra no cooldown de 7 dias (esse só se aplica a uma recusa ativa de alguém).
+
+**🟡 Reabertura de escopo (2026-08-13)** — bloqueio explícito de usuário, antes listado como
+fora da V1 (seção 17), foi reaberto a pedido do usuário. Desenho ainda em definição — ver
+discussão em andamento antes de qualquer implementação.
+
+**🟢 Cancelar solicitação pendente (nova, 2026-08-13)** — função nova (`cancelarConexao`),
+adicionada à Etapa 2 (não existia na lista original de 7 Functions da seção 12). Permite que
+quem enviou uma solicitação `pendente` a cancele antes do destinatário responder — mesmo
+princípio de `cancelarConviteDivisao` (seção 10), aplicado à conexão em si, não à divisão de
+despesa.
 
 ## 2. Fluxo de convite e aceite de uma despesa
 
@@ -347,7 +379,8 @@ aqui — tudo continua em `users/{uid}`).
 - Subcoleções novas: `conexoes`, `despesasCompartilhadas`, `convitesDeDivisao`.
 - Campos novos: `users/{uid}.codigoConexao`; Membro `.usuarioVinculadoId`; `gastos`
   `.origemCompartilhamento`/`.compartilhamentoId`.
-- **Primeira infraestrutura de backend do projeto**: 7 Cloud Functions (seção 12).
+- **Primeira infraestrutura de backend do projeto**: 7 Cloud Functions (seção 12) + `cancelarConexao`
+  (nova, seção 1, 2026-08-13) + o que o bloqueio de usuário exigir (desenho em definição).
 - Telas novas: "Conexões" (listar, adicionar, aceitar/recusar solicitação); seletor de
   compartilhamento (conexões + cotas), reaproveitável tanto para "despesa nova" quanto
   "compartilhar existente".
@@ -419,27 +452,43 @@ de escrever a primeira função.
 - Sem qualquer gamificação relacionada.
 - Sem múltiplos compartilhamentos a partir do mesmo gasto — um gasto origina no máximo uma
   `despesaCompartilhada` (seção 6.1).
-- Sem bloqueio explícito de usuário ou denúncia — só as proteções mínimas de spam da seção 1.
+- Sem denúncia/reporte de usuário.
+- ~~Sem bloqueio explícito de usuário~~ 🟡 **Reaberto em 2026-08-13** — vai entrar na V1, desenho
+  em definição (ver seção 1).
 
 ## Plano de implementação por etapas (🟢 proposta)
 
-1. **Infraestrutura de Cloud Functions** — habilitar o plano Blaze no projeto `dev` (seção
-   16.1), configurar o projeto Functions, pipeline de deploy, uma função simples publicada e
-   testada de ponta a ponta. De-risca a categoria de infraestrutura nova antes de escrever
-   lógica de negócio em cima dela.
-2. **Conexões** — código, `solicitarConexao`, `responderConexao`, tela "Conexões". Testável
-   isoladamente, sem nenhum dado financeiro envolvido ainda.
+1. ✅ **Infraestrutura de Cloud Functions** (concluída, validada 2026-08-13) — feita **inteiramente
+   local**, sem habilitar Blaze (decisão revista em relação à proposta original: em vez de
+   habilitar Blaze já na Etapa 1, provamos a infraestrutura toda contra o Firebase Local
+   Emulator Suite primeiro — ver `ARQUITETURA.md` seção 7.3). JDK instalado, `functions/`
+   configurada, `pingDiagnostico` publicada e testada de ponta a ponta (Auth + Functions +
+   Firestore, app real conectado via Wi-Fi). Habilitar Blaze de verdade continua em aberto,
+   sem data definida — só quando/se formos publicar de verdade.
+2. ✅ **Conexões** (concluída, validada 2026-08-14) — escopo final maior que o proposto
+   originalmente aqui: código de conexão, `solicitarConexao`, `responderConexao`
+   (aceitar/recusar, com opção de recusar+bloquear), **`cancelarConexao`** (nova, não estava
+   nesta lista original) e **bloquear/desbloquear** (`bloquearConexao`/`desbloquearConexao`,
+   reabertos — antes listados como fora da V1 na seção 17, decisão revertida em 2026-08-13).
+   Expiração "preguiçosa" de solicitação pendente (15 dias) implementada junto. Tela
+   "Conexões" com 3 abas (Conexões/Solicitações/Bloqueados, `ModernTabs`). 30 testes
+   automatizados (`functions/conexoes.test.js`, Jest + Firestore Emulator) + validação manual
+   completa via app real (Expo Go, Wi-Fi). Desbloquear restaura a conexão automaticamente para
+   `aceita` (não exige reconectar do zero — decisão tomada depois de testar o fluxo contrário e
+   achar confuso).
 3. **Modelo de dados + Functions de divisão de despesa** (`criarDivisaoDespesa`,
    `aceitarConviteDivisao`, `recusarConviteDivisao`, `cancelarConviteDivisao`,
-   `atualizarDivisaoDespesa`) — sem UI ainda, testável via chamada direta/emulador.
+   `atualizarDivisaoDespesa`) — sem UI ainda, testável via chamada direta/emulador. Próxima
+   etapa a começar.
 4. **UI de compartilhar despesa** (nova e retrofit de existente) + convites pendentes na
    Central de Avisos.
 5. **Indicação visual** — badge na lista, seção "Compartilhado" em `ModalDetalhes.js`, eventos
    na Linha do Tempo.
 6. **Participante sem conta** — campo no Membro, seleção no seletor de cotas. Pode ser feita em
    paralelo à etapa 4, é independente.
-7. **`firestore.rules` das novas coleções + testes reais** — momento de finalmente instalar
-   Java e rodar `firebase emulators:start` com testes automatizados, não só leitura de código.
+7. **`firestore.rules` das novas coleções + testes reais** — já em prática desde a Etapa 2 (Java
+   instalado, testes automatizados rodando contra o emulador); esta etapa passa a ser sobre as
+   coleções de despesa compartilhada especificamente.
 
 Cada etapa é entregável e testável isoladamente — segue o mesmo princípio já usado no projeto
 ("uma melhoria por vez, validar antes de seguir").

@@ -9,6 +9,7 @@ import ContaScreen from '../screens/ContaScreen';
 import AlterarSenhaScreen from '../screens/AlterarSenhaScreen';
 import FinanceiroScreen from '../screens/FinanceiroScreen';
 import MembrosScreen from '../screens/MembrosScreen';
+import ConexoesScreen from '../screens/ConexoesScreen';
 import GerenciarCartoesScreen from '../screens/GerenciarCartoesScreen';
 import PlanejamentoFinanceiroScreen from '../screens/PlanejamentoFinanceiroScreen';
 import CategoriasScreen from '../screens/CategoriasScreen';
@@ -53,6 +54,7 @@ export default function MainStack() {
       />
       <Stack.Screen name="Financeiro" component={FinanceiroScreen} options={{ title: 'Financeiro' }} />
       <Stack.Screen name="Membros" component={MembrosScreen} options={{ title: 'Membros' }} />
+      <Stack.Screen name="Conexoes" component={ConexoesScreen} options={{ title: 'Conexões' }} />
       <Stack.Screen name="GerenciarCartoes" component={GerenciarCartoesScreen} options={{ title: 'Cartões' }} />
       <Stack.Screen
         name="PlanejamentoFinanceiro"

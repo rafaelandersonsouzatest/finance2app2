@@ -28,6 +28,24 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Código de conexão entre usuários (Colaboração — Etapa 2 de
+    // COLABORACAO_ARQUITETURA_V1.md). Existe só para permitir "dado um código
+    // conhecido, qual é o uid do dono", sem dar acesso de leitura a nenhum
+    // perfil — mesmo padrão de documentosCadastrados acima. Diferente dali,
+    // aqui exige login: o código só é consultado depois que A já está
+    // autenticado no app (não faz parte do fluxo de cadastro). "get" liberado
+    // para qualquer autenticado; "list" nunca, então não dá para descobrir
+    // códigos de outras pessoas sem já conhecê-los. Criação só do próprio
+    // dono, com o formato exato esperado (sem campos extras); depois de
+    // criado, o código é permanente — sem update/delete.
+    match /codigosConexao/{codigo} {
+      allow get: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.keys().hasOnly(['uid']);
+      allow update, delete: if false;
+    }
+
     // O caminho tenants/{tenantId} já existe no código (getBasePath) para o
     // futuro Modo Família, mas não é usado hoje em nenhum fluxo do app.
     // Fica bloqueado por padrão até essa fase ser implementada com regras

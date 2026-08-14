@@ -320,6 +320,21 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ===================================================
+  // 🔥 Sincronizar o perfil local depois de uma escrita feita por OUTRO hook
+  // ===================================================
+  // Só atualiza o estado em memória — nenhuma escrita no Firestore (quem
+  // chama já escreveu por conta própria, ex.: useConexoes.js gravando o
+  // próprio código dentro de um writeBatch atômico com outro documento).
+  // Existe para não precisar de `carregarPerfil` nesse caso: ela alterna
+  // `profileLoading` para `true` brevemente, e como `App.js` faz
+  // `if (loading || profileLoading) return null`, isso desmonta a árvore de
+  // navegação inteira por um instante — a tela que o usuário está vendo
+  // "fecha sozinha". Achado real, 2026-08-13, ao testar a Etapa 2.2.
+  const atualizarPerfilLocal = (dados) => {
+    setProfile((prev) => (prev ? { ...prev, ...dados } : prev));
+  };
+
+  // ===================================================
   // 🔥 Logout
   // ===================================================
   const logout = async () => {
@@ -363,6 +378,7 @@ export const AuthProvider = ({ children }) => {
         signInWithGoogleCredential,
         carregarPerfil, // 🔥 agora está no contexto
         atualizarPerfil,
+        atualizarPerfilLocal,
       }}
     >
       {children}

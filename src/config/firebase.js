@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { getAuth, connectAuthEmulator } from "firebase/auth";
+import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 import Constants from "expo-constants";
 
 const appEnv = Constants.expoConfig.extra.APP_ENV;
@@ -42,12 +43,49 @@ const firebaseConfigs = {
 }
 };
 
-// 🔹 Seleciona o config com base no ambiente atual
-const firebaseConfig = firebaseConfigs[appEnv] || firebaseConfigs["meu-app"];
+// 🔧 Firebase Local Emulator Suite — DESLIGADO por padrão. Só liga com as 3
+// condições abaixo simultaneamente verdadeiras; nenhuma delas sozinha ativa
+// nada, e nenhuma é setada num `npm run start:*` normal:
+//   1. __DEV__               — nunca true numa build EAS/produção.
+//   2. appEnv === "meu-app"  — nunca ativa em rafael/marina/christian.
+//   3. EXPO_PUBLIC_USE_FIREBASE_EMULATOR=true — variável explícita, exportada
+//      manualmente no terminal antes de rodar (ver ARQUITETURA.md/PROJECT_STATUS.md
+//      para o passo a passo completo de como usar em desenvolvimento).
+// Quando ligado, o app nem chega a conhecer o projeto Firebase real — inicializa
+// direto com um projeto fictício (demo-financeiro-local), então mesmo um
+// connect*Emulator() esquecido não teria como "vazar" para produção.
+export const usandoEmulador =
+  __DEV__ &&
+  appEnv === "meu-app" &&
+  process.env.EXPO_PUBLIC_USE_FIREBASE_EMULATOR === "true";
+
+// Host dos emuladores — sem IP fixo no código de propósito (a rede local muda).
+// Definido via env var no momento de rodar; "localhost" só serve de fallback
+// para quem testar via web/simulador na própria máquina.
+const emulatorHost = process.env.EXPO_PUBLIC_EMULATOR_HOST || "localhost";
+
+// 🔹 Seleciona o config com base no ambiente atual — em modo Emulator, usa um
+// projeto fictício em vez do config real, para a conexão nunca apontar,
+// mesmo por engano, para um ambiente Firebase de verdade.
+const firebaseConfig = usandoEmulador
+  ? { apiKey: "demo-api-key", projectId: "demo-financeiro-local" }
+  : firebaseConfigs[appEnv] || firebaseConfigs["meu-app"];
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+export const functions = getFunctions(app);
+
+if (usandoEmulador) {
+  connectAuthEmulator(auth, `http://${emulatorHost}:9099`, { disableWarnings: true });
+  connectFirestoreEmulator(db, emulatorHost, 8080);
+  connectFunctionsEmulator(functions, emulatorHost, 5001);
+  console.warn(
+    `[DEV] Firebase conectado ao Emulator Suite local (${emulatorHost}) — ` +
+      "NÃO é um projeto Firebase real. Para desligar, não defina EXPO_PUBLIC_USE_FIREBASE_EMULATOR."
+  );
+}
+
 export default app;
 
 

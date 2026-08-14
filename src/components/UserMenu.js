@@ -24,6 +24,7 @@ const CATEGORIAS = [
   { icon: 'account-outline', label: 'Conta', route: 'Conta' },
   { icon: 'cash-multiple', label: 'Financeiro', route: 'Financeiro' },
   { icon: 'account-group-outline', label: 'Membros', route: 'Membros' },
+  { icon: 'account-multiple-plus-outline', label: 'Conexões', route: 'Conexoes' },
   { icon: 'credit-card-outline', label: 'Cartões', route: 'GerenciarCartoes' },
   // 🔹 Hub próprio (não navega direto para uma tela final) — Categorias é a
   // primeira funcionalidade; Metas/Orçamentos/Relatórios entram depois no

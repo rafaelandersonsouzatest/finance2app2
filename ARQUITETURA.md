@@ -208,6 +208,52 @@ rodar `firebase emulators:start --only firestore` com `@firebase/rules-unit-test
 menos testar manualmente em um app de homologação) para confirmar na prática, não só por
 leitura, que nenhum fluxo real quebra.
 
+### 7.3 Cloud Functions local (Emulator Suite) — infraestrutura validada (2026-08-13)
+
+✅ Confirmado por teste real (não só leitura de código): dá para desenvolver e testar Cloud
+Functions **inteiramente local**, sem habilitar o plano Blaze nem afetar nenhum dos 4 projetos
+Firebase reais. Registrado aqui para não repetir a mesma investigação quando a Etapa 2 da
+Colaboração (`COLABORACAO_ARQUITETURA_V1.md`) começar a implementar as Functions de verdade.
+
+- **Pré-requisitos locais**: JDK 11+ (só o Firestore Emulator precisa; Auth/Functions não).
+  Instalado nesta máquina via `winget install EclipseAdoptium.Temurin.21.JDK`.
+- **Estrutura**: `functions/` na raiz (`package.json`, `index.js`), com `firebase-admin` e
+  `firebase-functions` como dependências próprias — isoladas desse diretório, não entram no
+  `node_modules` do app.
+- **⚠️ Achado importante**: `firebase-tools@14.10.1` (versão global instalada) tem um bug de
+  compatibilidade com Node 22 — qualquer invocação de Function trava o worker
+  (`"Your function was killed because it raised an unhandled error"`, sem stack trace útil).
+  Reproduzido mesmo com uma Function mínima, sem `firebase-admin`. **Resolvido usando
+  `npx firebase-tools@15.26.0`** (não requer alterar a instalação global) para rodar
+  `emulators:start` — confirmado funcionando de ponta a ponta com essa versão.
+- **Comando de referência** (Auth + Firestore + Functions, sem tocar em nenhum projeto real):
+  ```
+  npx firebase-tools@15.26.0 emulators:start --only auth,firestore,functions --project demo-financeiro-local
+  ```
+  O prefixo `demo-` é o padrão oficial do Firebase para garantir zero chamada de rede real —
+  usar o alias real do `.firebaserc` (`fincanceapp-rafael`) faz o CLI tentar buscar a config
+  Admin SDK desse projeto pela rede (só leitura, sem sucesso sem login válido, mas ainda assim
+  contato externo desnecessário).
+- **`firebase.json`**: blocos `functions`/`emulators` adicionados, com `"host": "0.0.0.0"` nos
+  três emuladores — necessário para testar a partir de um celular físico na mesma Wi-Fi (por
+  padrão os emuladores só escutam em `127.0.0.1`, inacessível de outro dispositivo).
+- **Conectar o app aos emuladores (`src/config/firebase.js`)**: existe um toggle permanente,
+  **desligado por padrão**, com 3 condições simultâneas obrigatórias para ativar —
+  `__DEV__` (nunca em build EAS/produção), `appEnv === "meu-app"` (nunca em
+  rafael/marina/christian) e a env var explícita `EXPO_PUBLIC_USE_FIREBASE_EMULATOR=true`.
+  Quando ativo, o app inicializa com um projeto fictício (`demo-financeiro-local`, com um
+  `apiKey` também fictício — o SDK do Auth exige o campo presente mesmo sem validar o valor),
+  nunca com o config real. Para usar em uma sessão de desenvolvimento futura:
+  ```
+  # PowerShell — IP muda conforme a rede, não há valor fixo no código
+  $env:EXPO_PUBLIC_USE_FIREBASE_EMULATOR="true"
+  $env:EXPO_PUBLIC_EMULATOR_HOST="<IP da máquina na rede local>"
+  npm run start:dev
+  ```
+- **Validado em 2026-08-13**: autenticação (Auth Emulator), chamada de uma Function `onCall`
+  a partir do app real (Expo Go, celular físico via Wi-Fi), escrita no Firestore Emulator e
+  bloqueio correto de chamada sem autenticação — os quatro pontos funcionando juntos.
+
 ## 8. Principais regras de negócio implementadas
 
 - **Lançamentos fixos via modelos**: `gerarFixosDoMes()` (presente em `useGastos` e `useEntradas`) verifica se já existem lançamentos com `origemModelo: true` no mês; se não, lê os modelos ativos (`modelosDeGasto`/`modelosDeEntrada`) e gera lançamentos em lote (`writeBatch`). Suporta modo de cálculo `valor` (fixo) ou `porcentagem` (calculado sobre entradas selecionadas).
