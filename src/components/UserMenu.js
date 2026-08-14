@@ -15,16 +15,27 @@ import { colors } from '../styles/colors';
 import { vibrarLeve } from '../utils/haptics';
 import { getNomeExibicao } from '../utils/perfil';
 import AlertaModal from './AlertaModal';
+import { colaboracaoDisponivel } from '../config/featureFlags';
 
 // 🔹 Estrutura pensada para crescer (ver ARQUITETURA.md seção 11 e
 // PROJECT_STATUS.md seção 8): cada categoria já existe como rota própria,
 // mesmo quando hoje só mostra "estrutura" — funcionalidades futuras entram
 // no conteúdo da tela, não exigem mexer neste menu.
+//
+// 🔹 `disponivel: false` (Conexões, hoje) não esconde o item — mostra
+// desabilitado com um selo "EM BREVE". Controlado por `colaboracaoDisponivel`
+// (ver src/config/featureFlags.js): sem comentar/descomentar nada aqui
+// quando o backend real da Colaboração estiver pronto.
 const CATEGORIAS = [
   { icon: 'account-outline', label: 'Conta', route: 'Conta' },
   { icon: 'cash-multiple', label: 'Financeiro', route: 'Financeiro' },
   { icon: 'account-group-outline', label: 'Membros', route: 'Membros' },
-  { icon: 'account-multiple-plus-outline', label: 'Conexões', route: 'Conexoes' },
+  {
+    icon: 'account-multiple-plus-outline',
+    label: 'Conexões',
+    route: 'Conexoes',
+    disponivel: colaboracaoDisponivel,
+  },
   { icon: 'credit-card-outline', label: 'Cartões', route: 'GerenciarCartoes' },
   // 🔹 Hub próprio (não navega direto para uma tela final) — Categorias é a
   // primeira funcionalidade; Metas/Orçamentos/Relatórios entram depois no
@@ -88,30 +99,51 @@ export default function UserMenu() {
             data={CATEGORIAS}
             keyExtractor={(item) => item.route}
             scrollEnabled={false}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={globalStyles.listItem}
-                onPress={() => {
-                  vibrarLeve();
-                  abrirCategoria(item.route);
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <MaterialCommunityIcons
-                    name={item.icon}
-                    size={22}
-                    color={colors.textPrimary}
-                    style={{ marginRight: 12 }}
-                  />
-                  <Text style={globalStyles.listItemTitle}>{item.label}</Text>
-                </View>
-                <MaterialCommunityIcons
-                  name="chevron-right"
-                  size={20}
-                  color={colors.textSecondary}
-                />
-              </TouchableOpacity>
-            )}
+            renderItem={({ item }) => {
+              const indisponivel = item.disponivel === false;
+              return (
+                <TouchableOpacity
+                  style={[globalStyles.listItem, indisponivel && { opacity: 0.5 }]}
+                  disabled={indisponivel}
+                  onPress={() => {
+                    vibrarLeve();
+                    abrirCategoria(item.route);
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <MaterialCommunityIcons
+                      name={item.icon}
+                      size={22}
+                      color={colors.textPrimary}
+                      style={{ marginRight: 12 }}
+                    />
+                    <Text style={globalStyles.listItemTitle}>{item.label}</Text>
+                    {indisponivel && (
+                      <View
+                        style={{
+                          backgroundColor: colors.pending,
+                          borderRadius: 4,
+                          paddingHorizontal: 6,
+                          paddingVertical: 2,
+                          marginLeft: 8,
+                        }}
+                      >
+                        <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>
+                          EM BREVE
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  {!indisponivel && (
+                    <MaterialCommunityIcons
+                      name="chevron-right"
+                      size={20}
+                      color={colors.textSecondary}
+                    />
+                  )}
+                </TouchableOpacity>
+              );
+            }}
           />
 
           <TouchableOpacity

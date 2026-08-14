@@ -13,6 +13,7 @@ import { vibrarLeve } from '../utils/haptics';
 import ModernTabs from '../components/ModernTabs';
 import AvatarRenderer from '../components/AvatarRenderer';
 import AlertaModal from '../components/AlertaModal';
+import { colaboracaoDisponivel } from '../config/featureFlags';
 
 function CardConexao({ nome, status, avatar, bloqueando, onBloquear }) {
   // 🔹 Mesmas cores já usadas no resto do app pra status positivo/pendente
@@ -522,9 +523,37 @@ export default function ConexoesScreen() {
   } = useConexoes();
 
   useEffect(() => {
+    if (!colaboracaoDisponivel) return;
     gerarMeuCodigoSeNecessario().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 🔹 Segunda camada de proteção — a mesma flag que desabilita o item no
+  // Menu (ver UserMenu.js) também bloqueia aqui, caso a tela seja alcançada
+  // por outro caminho no futuro. Nenhuma chamada de rede acontece nesse caso
+  // (o useEffect acima já não dispara).
+  if (!colaboracaoDisponivel) {
+    return (
+      <View
+        style={[
+          globalStyles.container,
+          { alignItems: 'center', justifyContent: 'center', padding: 24 },
+        ]}
+      >
+        <MaterialCommunityIcons
+          name="account-multiple-plus-outline"
+          size={48}
+          color={colors.textSecondary}
+        />
+        <Text style={[globalStyles.headerTitle, { marginTop: 16, textAlign: 'center' }]}>
+          Conexões — em breve
+        </Text>
+        <Text style={{ color: colors.textSecondary, marginTop: 8, textAlign: 'center' }}>
+          Estamos preparando essa funcionalidade. Volte mais tarde!
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={globalStyles.container}>
