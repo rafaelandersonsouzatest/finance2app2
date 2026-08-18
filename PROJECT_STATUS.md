@@ -712,3 +712,29 @@ seção 19 para o desenho técnico completo.
   arquivos, nomes de callback inconsistentes (`onAdiantar` vs `onAdiantarParcelas`), possível
   rename futuro de `GastosScreen.js`/`EmprestimosScreen.js`/`CartoesScreen.js` (não são mais
   "Screens" de fato), responsabilidades do `TelaPadrao.js`.
+
+## 18. Colaboração entre Usuários (🟡 backend + UI implementados e testados manualmente em 2026-08-18; ainda não publicado)
+
+Feature grande, com documentação própria e muito mais detalhada em
+`COLABORACAO_ARQUITETURA_V1.md` (seções 2–11.3 e "Plano de implementação por etapas") — esta
+entrada é só um resumo de estado, não repete o conteúdo de lá.
+
+- **O que é**: conexão entre duas contas (`ConexoesScreen.js` + `useConexoes.js`, solicitar/
+  aceitar/recusar/desconectar) e, a partir de uma conexão aceita, divisão de despesa
+  (`functions/divisaoDespesa.js`) — compartilhar um gasto existente ou criar um já compartilhado,
+  com cotas por participante (conexão com conta ou "Membro sem conta", seção 7), aceite/recusa/
+  cancelamento individual, edição antes do primeiro aceite real, adicionar participante depois,
+  propor alteração de cota de quem já aceitou (com consentimento), excluir participante (Membro
+  sem conta direto; com conta só via proposta), encerrar a divisão inteira, e um modelo de "valor
+  sem destino" (seção 11.3) para todo valor liberado que ainda não tem um destino decidido (pode
+  virar um novo convite, inclusive pra alguém que não fazia parte da divisão original).
+- **Testado com**: 111 testes automatizados em `functions/` (Jest + Firestore Emulator, sem
+  `firebase-functions-test` — chama `.run({data, auth})` direto) + validação manual do usuário no
+  app (Expo + emuladores Auth/Firestore/Functions), rodada mais recente em 2026-08-18.
+- **Não publicado em produção**: mesmo bloqueio já registrado na seção 5 (`firestore.rules` não
+  publicado) + Cloud Functions exigem o plano Blaze (pay-as-you-go) nos 4 projetos Firebase, ainda
+  não confirmado/ativado. Até isso acontecer, a feature só existe nos emuladores locais.
+- **Estado do Git no momento desta atualização**: `functions/` (backend inteiro), `src/hooks/useConexoes.js`
+  e `src/screens/ConexoesScreen.js` aparecem como **não rastreados** (`??` no `git status`) — nada
+  desta feature foi commitado ainda. Vale decidir quando comitar (provavelmente depois de decidir
+  Blaze + publicação das rules, pra comitar tudo relacionado à publicação junto).

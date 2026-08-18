@@ -45,6 +45,7 @@ import { navigationRef } from "./src/navigation/navigationRef";
 import { DateFilterProvider } from "./src/contexts/DateFilterContext";
 import { VisibilityProvider } from "./src/contexts/VisibilityContext";
 import { UserMenuProvider } from "./src/contexts/UserMenuContext";
+import { DivisaoDespesaProvider } from "./src/contexts/DivisaoDespesaContext";
 
 import AlertaModal from "./src/components/AlertaModal";
 import UserMenu from "./src/components/UserMenu";
@@ -181,7 +182,9 @@ export default function App() {
       <AuthProvider>
         <VisibilityProvider>
           <DateFilterProvider>
-            <AppContent />
+            <DivisaoDespesaProvider>
+              <AppContent />
+            </DivisaoDespesaProvider>
           </DateFilterProvider>
         </VisibilityProvider>
       </AuthProvider>

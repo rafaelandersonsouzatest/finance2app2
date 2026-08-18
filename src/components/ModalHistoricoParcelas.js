@@ -466,7 +466,7 @@ export default function ModalHistoricoParcelas({ visible, onClose, item }) {
                 {renderContent()}
               </View>
               <ScrollView tabKey="linhaDoTempo" showsVerticalScrollIndicator={false}>
-                <LinhaDoTempoEventos eventos={eventos} carregando={carregandoEventos} />
+                <LinhaDoTempoEventos eventos={eventos} carregando={carregandoEventos} meuUid={user?.uid} />
               </ScrollView>
             </ModernTabs>
           ) : (
@@ -475,7 +475,7 @@ export default function ModalHistoricoParcelas({ visible, onClose, item }) {
             // altura fixa do pai, ver ARQUITETURA.md seção 19.8, sem
             // necessidade aqui já que é conteúdo único).
             <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-              <LinhaDoTempoEventos eventos={eventos} carregando={carregandoEventos} />
+              <LinhaDoTempoEventos eventos={eventos} carregando={carregandoEventos} meuUid={user?.uid} />
             </ScrollView>
           )}
         </View>

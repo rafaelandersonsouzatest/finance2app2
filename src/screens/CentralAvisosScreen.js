@@ -8,17 +8,27 @@ import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import { useProximosEventos } from '../hooks/useEventosFinanceiros';
 import ItemEventoFinanceiro from '../components/agenda/ItemEventoFinanceiro';
+import ItemConviteDivisao from '../components/ItemConviteDivisao';
+import ItemPropostaAlteracao from '../components/ItemPropostaAlteracao';
+import ItemValorSemDestino from '../components/ItemValorSemDestino';
 import AlertaModal from '../components/AlertaModal';
 import ModalEditorParcelas from '../components/ModalEditorParcelas';
+import { useDivisaoDespesaContext } from '../contexts/DivisaoDespesaContext';
 
 const JANELA_DIAS = 7;
 
-function Secao({ titulo, eventos, textoVazio, onToggleStatus, onEditar, onExcluir }) {
+// `renderItem` (opcional) — permite reaproveitar o mesmo bloco "título + lista
+// + texto vazio" para um tipo de item diferente de evento financeiro (ver
+// seção "Convites de divisão de despesa" abaixo, Etapa 4.4). Sem essa prop,
+// o comportamento é idêntico ao de antes (ItemEventoFinanceiro).
+function Secao({ titulo, eventos, textoVazio, onToggleStatus, onEditar, onExcluir, renderItem }) {
   return (
     <View style={{ marginBottom: 20 }}>
       <Text style={styles.tituloSecao}>{titulo}</Text>
       {eventos.length === 0 ? (
         <Text style={{ color: colors.textSecondary, marginTop: 4 }}>{textoVazio}</Text>
+      ) : renderItem ? (
+        eventos.map(renderItem)
       ) : (
         eventos.map((evento) => (
           <ItemEventoFinanceiro
@@ -50,6 +60,21 @@ export default function CentralAvisosScreen() {
     confirmarEditorExclusao,
   } = useProximosEventos(JANELA_DIAS);
 
+  const {
+    convitesPendentes,
+    respondendoEventoId,
+    aceitarConvite,
+    recusarConvite,
+    propostasPendentes,
+    respondendoPropostaId,
+    responderProposta,
+    despesasComValorSemDestino,
+    resolvendoValorSemDestino,
+    resolverValorSemDestino,
+    conexoesAceitas,
+    membrosSelecionaveis,
+  } = useDivisaoDespesaContext();
+
   if (loading) {
     return (
       <View style={globalStyles.loadingContainer}>
@@ -62,6 +87,71 @@ export default function CentralAvisosScreen() {
 
   return (
     <ScrollView style={globalStyles.container} contentContainerStyle={{ padding: 16 }}>
+      {/* Convites de divisão de despesa — mesma fonte usada pelo badge do
+          sino (DivisaoDespesaContext), nunca uma segunda busca (ver
+          COLABORACAO_ARQUITETURA_V1.md). Só aparece quando há pendência: se
+          a Colaboração ainda não estiver disponível, convitesPendentes já
+          chega vazio (ver DivisaoDespesaContext.js). */}
+      {convitesPendentes.length > 0 && (
+        <Secao
+          titulo="Convites de divisão de despesa"
+          eventos={convitesPendentes}
+          textoVazio=""
+          renderItem={(convite) => (
+            <ItemConviteDivisao
+              key={convite.id}
+              convite={convite}
+              respondendo={respondendoEventoId === convite.eventoId}
+              onAceitar={aceitarConvite}
+              onRecusar={recusarConvite}
+              conexoesAceitas={conexoesAceitas}
+            />
+          )}
+        />
+      )}
+
+      {/* Propostas de alteração pós-aceite (Etapa 3.9, seção 11.1/11.3) —
+          mesma fonte do badge do sino, nunca uma segunda busca. */}
+      {propostasPendentes.length > 0 && (
+        <Secao
+          titulo="Propostas de alteração"
+          eventos={propostasPendentes}
+          textoVazio=""
+          renderItem={(proposta) => (
+            <ItemPropostaAlteracao
+              key={proposta.id}
+              proposta={proposta}
+              respondendo={respondendoPropostaId === proposta.id}
+              onAceitar={(id) => responderProposta(id, true)}
+              onRecusar={(id) => responderProposta(id, false)}
+              conexoesAceitas={conexoesAceitas}
+            />
+          )}
+        />
+      )}
+
+      {/* Valor "sem destino" de um cancelamento anterior, ainda não decidido
+          (seção 11.3) — pedido do usuário: um lembrete aqui além do banner
+          dentro de ModalGerenciarDivisao, com todas as opções de destino
+          (não só devolver pro criador). */}
+      {despesasComValorSemDestino.length > 0 && (
+        <Secao
+          titulo="Valores sem destino"
+          eventos={despesasComValorSemDestino}
+          textoVazio=""
+          renderItem={(despesa) => (
+            <ItemValorSemDestino
+              key={despesa.id}
+              despesa={despesa}
+              resolvendo={resolvendoValorSemDestino}
+              onResolver={resolverValorSemDestino}
+              conexoesAceitas={conexoesAceitas}
+              membrosSelecionaveis={membrosSelecionaveis}
+            />
+          )}
+        />
+      )}
+
       <Secao titulo="Vencidos" eventos={vencidos} textoVazio="Nenhuma pendência vencida." {...acoes} />
       <Secao titulo="Vencem hoje" eventos={venceHoje} textoVazio="Nada vencendo hoje." {...acoes} />
       <Secao

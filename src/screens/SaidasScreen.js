@@ -12,6 +12,7 @@ import ModalCriacao from '../components/ModalCriacao';
 import GerenciarModelosModal from '../components/GerenciarModelosModal';
 import AlertaModal from '../components/AlertaModal';
 import { globalStyles } from '../styles/globalStyles';
+import { colors } from '../styles/colors';
 import ModalDetalhes from '../components/ModalDetalhes';
 import ModalEdicao from '../components/ModalEdicao';
 import ModalHistoricoParcelas from '../components/ModalHistoricoParcelas';
@@ -25,6 +26,11 @@ import EstatisticasComponent from '../components/EstatisticasComponent';
 import ModernTabs from '../components/ModernTabs';
 import GastosScreen from './GastosScreen';
 import EmprestimosScreen from './EmprestimosScreen';
+import { useDivisaoDespesaContext } from '../contexts/DivisaoDespesaContext';
+import ModalCompartilharDespesa from '../components/ModalCompartilharDespesa';
+import ModalGerenciarDivisao from '../components/ModalGerenciarDivisao';
+import { deveMostrarIconeCompartilhado } from '../utils/compartilhamento';
+import { colaboracaoDisponivel } from '../config/featureFlags';
 
 
 
@@ -299,6 +305,61 @@ export default function SaidasScreen() {
   const [historicoModalVisivel, setHistoricoModalVisivel] = useState(false);
   const [itemHistorico, setItemHistorico] = useState(null);
 
+  // --- Compartilhar despesa (Etapa 4.6, ver COLABORACAO_ARQUITETURA_V1.md
+  // seção 4) — só se aplica à aba "gastos"; SaidasScreen já é quem busca os
+  // próprios gastos, então é a dona natural desta ação também (ver
+  // ARQUITETURA.md seção 19).
+  const {
+    conexoesAceitas,
+    membrosSelecionaveis,
+    compartilhando,
+    errorCompartilhar,
+    compartilharGastoExistente,
+    despesas,
+    cancelandoConviteId,
+    errorCancelarConvite,
+    cancelarConvite,
+    resolvendoValorSemDestino,
+    errorResolverValorSemDestino,
+    resolverValorSemDestino,
+    adicionandoParticipante,
+    errorAdicionarParticipante,
+    adicionarParticipante,
+    propondo,
+    errorPropor,
+    proporAlteracaoCota,
+    editandoCotaMembro,
+    errorEditarCotaMembro,
+    editarCotaMembro,
+    removendoMembroId,
+    errorRemoverMembro,
+    removerParticipanteSemConta,
+    encerrando,
+    errorEncerrar,
+    encerrarCompartilhamento,
+  } = useDivisaoDespesaContext();
+  const [modalCompartilharVisivel, setModalCompartilharVisivel] = useState(false);
+  const [gastoParaCompartilhar, setGastoParaCompartilhar] = useState(null);
+  const [modalGerenciarVisivel, setModalGerenciarVisivel] = useState(false);
+
+  // Despesa compartilhada do item atualmente aberto no ModalDetalhes — dado
+  // já vem do DivisaoDespesaContext (único listener), nunca uma busca própria
+  // (ver ARQUITETURA.md seção 19).
+  const despesaDoItemSelecionado =
+    abaAtiva === 'gastos' && itemSelecionado?.compartilhamentoId
+      ? despesas.find((d) => d.id === itemSelecionado.compartilhamentoId)
+      : null;
+
+  // Mapa despesaId → despesa, pra GastosScreen.js decidir o ícone/alerta de
+  // cada linha sem precisar de um `.find()` por item (seção 11.1/11.3).
+  const despesasPorId = useMemo(() => {
+    const mapa = {};
+    despesas.forEach((d) => {
+      mapa[d.id] = d;
+    });
+    return mapa;
+  }, [despesas]);
+
   const {
     cartoes,
     loading: loadingCartoes,
@@ -418,6 +479,72 @@ const handleEditar = async (itemEditado) => {
 // via onDeleteItem — antes não fazia nada, ver ARQUITETURA.md seção 20) além
 // do uso padrão via ModalEdicao, que continua sem passar argumento nenhum
 // (força o fallback para itemSelecionado, nunca usa um rascunho não salvo).
+// Exclusão de um gasto já compartilhado (seção 11.1, decisão 2026-08-14) —
+// sempre passa por `encerrarCompartilhamento` antes de excluir o gasto de
+// fato (cancela convites pendentes, avisa quem já aceitou; o gasto de quem
+// aceitou nunca é tocado — seção 11). O texto do aviso varia conforme já
+// haver ou não algum aceite, mas a operação por trás é sempre a mesma.
+const handleExcluirGastoCompartilhado = (item, fecharSelecao) => {
+  const despesa = despesas.find((d) => d.id === item.compartilhamentoId);
+
+  const prosseguirExclusao = async () => {
+    setAlerta({ visivel: false });
+    try {
+      if (despesa && despesa.status !== 'encerrada') {
+        await encerrarCompartilhamento(item.compartilhamentoId);
+      }
+      await deleteGasto(item.id);
+      fecharSelecao();
+    } catch (err) {
+      setAlerta({
+        visivel: true,
+        titulo: 'Erro ao excluir',
+        mensagem: err.message || 'Não foi possível excluir esta despesa.',
+        icone: 'wifi-off',
+        corIcone: colors.error,
+        botoes: [{ texto: 'Entendi', onPress: () => setAlerta({ visivel: false }) }],
+      });
+    }
+  };
+
+  const outrasCotas = (despesa?.cotas || []).filter((c) => c.participanteId !== despesa?.criadoPor);
+  const algumAceitou = outrasCotas.some((c) => c.status === 'aceito');
+  const algumPendente = outrasCotas.some((c) => c.status === 'pendente');
+  const nomes = outrasCotas.map((c) => c.nomeExibicao).filter(Boolean).join(', ');
+
+  // Já encerrada, ou não sobrou ninguém envolvido (todo mundo recusou/já foi
+  // cancelado) — exclui direto, sem aviso extra sobre compartilhamento.
+  if (!despesa || despesa.status === 'encerrada' || (!algumAceitou && !algumPendente)) {
+    confirmarExclusao({
+      item,
+      tipoLabel: 'Gasto',
+      excluirParcela: async (id) => {
+        await deleteGasto(id);
+        fecharSelecao();
+      },
+    });
+    return;
+  }
+
+  setAlerta({
+    visivel: true,
+    titulo: algumAceitou ? 'Esta despesa já foi compartilhada' : 'Esta despesa está compartilhada',
+    mensagem: algumAceitou
+      ? `Você compartilhou esta despesa com ${nomes}. Ao excluir: a divisão será encerrada, ` +
+        'convites pendentes serão cancelados, e quem já aceitou continua com o próprio ' +
+        'lançamento (esta exclusão não afeta o gasto de quem já aceitou). Esta ação não ' +
+        'poderá ser desfeita.'
+      : `Você compartilhou esta despesa com ${nomes} e ainda não responderam. Ao excluir, os ` +
+        'convites pendentes serão cancelados. Esta ação não poderá ser desfeita.',
+    icone: 'account-multiple-remove-outline',
+    corIcone: colors.error,
+    botoes: [
+      { texto: 'Voltar', onPress: () => setAlerta({ visivel: false }) },
+      { texto: 'Excluir despesa', style: 'destructive', onPress: prosseguirExclusao },
+    ],
+  });
+};
+
 const handleExcluir = (itemParam) => {
   const item = itemParam || itemSelecionado;
   if (!item) return;
@@ -428,6 +555,13 @@ const handleExcluir = (itemParam) => {
   };
 
   if (abaAtiva === 'gastos') {
+    // Gasto compartilhado (seção 11.1) — exclusão sempre passa por
+    // encerrarCompartilhamento antes; texto do aviso varia conforme já
+    // houver ou não algum aceite (ver handleExcluirGastoCompartilhado).
+    if (item.compartilhamentoId) {
+      handleExcluirGastoCompartilhado(item, fecharSelecao);
+      return;
+    }
     confirmarExclusao({
       item,
       tipoLabel: 'Gasto',
@@ -518,6 +652,179 @@ const handleExcluir = (itemParam) => {
     setHistoricoModalVisivel(true);
   };
 
+  const handleAbrirCompartilhar = (item) => {
+    if (!item) return;
+    setGastoParaCompartilhar(item);
+    setModalDetalhesVisivel(false);
+    setModalCompartilharVisivel(true);
+  };
+
+  const handleConfirmarCompartilhar = async (cotas) => {
+    await compartilharGastoExistente({
+      origemLancamentoId: gastoParaCompartilhar.id,
+      descricao: gastoParaCompartilhar.descricao,
+      cotas,
+    });
+    setModalCompartilharVisivel(false);
+    setGastoParaCompartilhar(null);
+  };
+
+  // Abre o modal de gerenciamento da divisão (seção 11.2) — substitui a
+  // antiga seção "Compartilhado com" que vivia dentro do ModalDetalhes.
+  const handleAbrirGerenciarDivisao = () => {
+    setModalDetalhesVisivel(false);
+    setModalGerenciarVisivel(true);
+  };
+
+  // Cancelar um convite individual ainda pendente (seção 11.1/11.3) —
+  // `destino` é opcional (escolhido em ModalDecidirDestino, dentro de
+  // ModalGerenciarDivisao); sem ele, o valor fica "sem destino" até uma
+  // decisão posterior.
+  const handleCancelarConvite = async (uidParticipante, destino) => {
+    if (!itemSelecionado?.compartilhamentoId) return;
+    try {
+      await cancelarConvite(itemSelecionado.compartilhamentoId, uidParticipante, destino);
+    } catch (err) {
+      setAlerta({
+        visivel: true,
+        titulo: 'Erro ao cancelar convite',
+        mensagem: err.message || 'Não foi possível cancelar este convite.',
+        icone: 'wifi-off',
+        corIcone: colors.error,
+        botoes: [{ texto: 'Entendi', onPress: () => setAlerta({ visivel: false }) }],
+      });
+    }
+  };
+
+  // Decide o destino de um valor que já ficou "sem destino" (seção 11.3) —
+  // acessado pelo banner dentro de ModalGerenciarDivisao.
+  const handleResolverValorSemDestino = async (destino) => {
+    if (!itemSelecionado?.compartilhamentoId) return;
+    try {
+      await resolverValorSemDestino(itemSelecionado.compartilhamentoId, destino);
+    } catch (err) {
+      setAlerta({
+        visivel: true,
+        titulo: 'Erro ao decidir o destino',
+        mensagem: err.message || 'Não foi possível decidir o destino deste valor.',
+        icone: 'wifi-off',
+        corIcone: colors.error,
+        botoes: [{ texto: 'Entendi', onPress: () => setAlerta({ visivel: false }) }],
+      });
+    }
+  };
+
+  // Adicionar participante (Etapa 3.8, seção 11.1/11.3) — o próprio
+  // ModalGerenciarDivisao já valida seleção/valor antes de chamar.
+  const handleAdicionarParticipante = async ({ eventoId, uidParticipante, membroId, valorCentavos }) => {
+    try {
+      await adicionarParticipante({ eventoId, uidParticipante, membroId, valorCentavos });
+    } catch (err) {
+      setAlerta({
+        visivel: true,
+        titulo: 'Erro ao adicionar participante',
+        mensagem: err.message || 'Não foi possível adicionar este participante.',
+        icone: 'wifi-off',
+        corIcone: colors.error,
+        botoes: [{ texto: 'Entendi', onPress: () => setAlerta({ visivel: false }) }],
+      });
+      throw err;
+    }
+  };
+
+  // Propor alteração pós-aceite (Etapa 3.9, seção 11.1/11.3) — nada muda até
+  // a pessoa concordar.
+  const handleProporAlteracao = async ({ eventoId, participanteId, novoValorCentavos, destino }) => {
+    try {
+      await proporAlteracaoCota({ eventoId, participanteId, novoValorCentavos, destino });
+    } catch (err) {
+      setAlerta({
+        visivel: true,
+        titulo: 'Erro ao propor alteração',
+        mensagem: err.message || 'Não foi possível propor esta alteração.',
+        icone: 'wifi-off',
+        corIcone: colors.error,
+        botoes: [{ texto: 'Entendi', onPress: () => setAlerta({ visivel: false }) }],
+      });
+      throw err;
+    }
+  };
+
+  // Editar a cota de um Membro sem conta (seção 7/11.3) — direto, sem
+  // consentimento; o ModalGerenciarDivisao já monta o array de cotas.
+  const handleEditarCotaMembro = async ({ eventoId, cotas }) => {
+    try {
+      await editarCotaMembro({ eventoId, cotas });
+    } catch (err) {
+      setAlerta({
+        visivel: true,
+        titulo: 'Erro ao editar cota',
+        mensagem: err.message || 'Não foi possível editar esta cota.',
+        icone: 'wifi-off',
+        corIcone: colors.error,
+        botoes: [{ texto: 'Entendi', onPress: () => setAlerta({ visivel: false }) }],
+      });
+      throw err;
+    }
+  };
+
+  // Remover um Membro sem conta da divisão (seção 7/11.3) — direto, sem
+  // consentimento; `destino` é opcional (mesmo modelo do cancelamento).
+  const handleRemoverParticipanteSemConta = async (participanteId, destino) => {
+    if (!itemSelecionado?.compartilhamentoId) return;
+    try {
+      await removerParticipanteSemConta(itemSelecionado.compartilhamentoId, participanteId, destino);
+    } catch (err) {
+      setAlerta({
+        visivel: true,
+        titulo: 'Erro ao remover participante',
+        mensagem: err.message || 'Não foi possível remover este participante.',
+        icone: 'wifi-off',
+        corIcone: colors.error,
+        botoes: [{ texto: 'Entendi', onPress: () => setAlerta({ visivel: false }) }],
+      });
+    }
+  };
+
+  // Encerrar o compartilhamento sem excluir o próprio gasto (seção 11.1) —
+  // ação independente da exclusão, acessível dentro do ModalGerenciarDivisao.
+  const handleEncerrarCompartilhamento = () => {
+    if (!itemSelecionado?.compartilhamentoId) return;
+    const eventoId = itemSelecionado.compartilhamentoId;
+
+    setAlerta({
+      visivel: true,
+      titulo: 'Encerrar compartilhamento',
+      mensagem:
+        'Isso cancela os convites ainda pendentes e avisa quem já aceitou — seu gasto ' +
+        'continua normalmente, só deixa de ser compartilhado. Esta ação não poderá ser desfeita.',
+      icone: 'account-multiple-remove-outline',
+      corIcone: colors.error,
+      botoes: [
+        { texto: 'Voltar', onPress: () => setAlerta({ visivel: false }) },
+        {
+          texto: 'Encerrar',
+          style: 'destructive',
+          onPress: async () => {
+            setAlerta({ visivel: false });
+            try {
+              await encerrarCompartilhamento(eventoId);
+            } catch (err) {
+              setAlerta({
+                visivel: true,
+                titulo: 'Erro ao encerrar',
+                mensagem: err.message || 'Não foi possível encerrar o compartilhamento.',
+                icone: 'wifi-off',
+                corIcone: colors.error,
+                botoes: [{ texto: 'Entendi', onPress: () => setAlerta({ visivel: false }) }],
+              });
+            }
+          },
+        },
+      ],
+    });
+  };
+
   const handleGerarFixos = () =>
     handleGerarFixosUtil(gerarFixosDoMes, setAlerta, 'gasto');
 
@@ -594,6 +901,7 @@ const handleExcluir = (itemParam) => {
       <GastosScreen
         tabKey="gastos"
         gastos={gastos}
+        despesasPorId={despesasPorId}
         onPressItem={handleAbrirDetalhes}
         onToggleStatus={handleToggleStatus}
         onDeleteItem={handleExcluir}
@@ -654,6 +962,18 @@ tipo={
     : 'cartao'
 }
   onHistoryPress={() => handleAbrirHistorico(itemSelecionado)}
+  onSharePress={
+    colaboracaoDisponivel && abaAtiva === 'gastos' ? handleAbrirCompartilhar : undefined
+  }
+  onGerenciarDivisao={handleAbrirGerenciarDivisao}
+  mostrarIconeCompartilhado={deveMostrarIconeCompartilhado(itemSelecionado, despesaDoItemSelecionado)}
+  statusDivisaoTexto={
+    despesaDoItemSelecionado
+      ? despesaDoItemSelecionado.status === 'encerrada'
+        ? 'Encerrada'
+        : 'Ativa'
+      : undefined
+  }
 />
 
 <ModalEdicao
@@ -734,6 +1054,49 @@ tipo={
         aoFechar={fecharModalAdiantamento}
         parcelasFuturas={parcelasParaAdiantar}
         aoConfirmar={confirmarAdiantamento}
+      />
+
+      <ModalCompartilharDespesa
+        visible={modalCompartilharVisivel}
+        onClose={() => {
+          setModalCompartilharVisivel(false);
+          setGastoParaCompartilhar(null);
+        }}
+        gasto={gastoParaCompartilhar}
+        conexoesAceitas={conexoesAceitas}
+        membrosSelecionaveis={membrosSelecionaveis}
+        compartilhando={compartilhando}
+        errorCompartilhar={errorCompartilhar}
+        onConfirmar={handleConfirmarCompartilhar}
+      />
+
+      <ModalGerenciarDivisao
+        visible={modalGerenciarVisivel}
+        onClose={() => setModalGerenciarVisivel(false)}
+        despesaCompartilhada={despesaDoItemSelecionado}
+        conexoesAceitas={conexoesAceitas}
+        membrosSelecionaveis={membrosSelecionaveis}
+        cancelandoConviteId={cancelandoConviteId}
+        errorCancelarConvite={errorCancelarConvite}
+        onCancelarConvite={handleCancelarConvite}
+        resolvendoValorSemDestino={resolvendoValorSemDestino}
+        errorResolverValorSemDestino={errorResolverValorSemDestino}
+        onResolverValorSemDestino={handleResolverValorSemDestino}
+        adicionandoParticipante={adicionandoParticipante}
+        errorAdicionarParticipante={errorAdicionarParticipante}
+        onAdicionarParticipante={handleAdicionarParticipante}
+        propondo={propondo}
+        errorPropor={errorPropor}
+        onProporAlteracao={handleProporAlteracao}
+        editandoCotaMembro={editandoCotaMembro}
+        errorEditarCotaMembro={errorEditarCotaMembro}
+        onEditarCotaMembro={handleEditarCotaMembro}
+        removendoMembroId={removendoMembroId}
+        errorRemoverMembro={errorRemoverMembro}
+        onRemoverParticipanteSemConta={handleRemoverParticipanteSemConta}
+        encerrando={encerrando}
+        errorEncerrar={errorEncerrar}
+        onEncerrarCompartilhamento={handleEncerrarCompartilhamento}
       />
 
       {/* 🔹 Mensagem de sucesso/erro do useAdiantamento — antes vinha da

@@ -29,8 +29,12 @@ const formatarDataHora = (timestamp) => {
 // filtro (por compra hoje, por conta inteira no futuro) é sempre quem
 // chama, nunca este componente — reaproveitável tanto na aba dentro de
 // ModalHistoricoParcelas.js quanto numa futura tela de atividade geral.
+// `meuUid` (uid de quem está vendo a tela, não o dono do evento) precisa vir
+// de quem chama — sem ele, eventos de divisão de despesa (seção 2.1 da
+// COLABORACAO_ARQUITETURA_V1.md) sempre caem no texto em terceira pessoa,
+// mesmo pra quem causou a ação (bug encontrado em teste manual, 2026-08-17).
 // =========================================================
-export default function LinhaDoTempoEventos({ eventos = [], carregando = false }) {
+export default function LinhaDoTempoEventos({ eventos = [], carregando = false, meuUid }) {
   if (carregando) {
     return (
       <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: 40 }} />
@@ -61,7 +65,7 @@ export default function LinhaDoTempoEventos({ eventos = [], carregando = false }
           />
           <View style={{ flex: 1 }}>
             <Text style={{ color: colors.textPrimary, fontSize: 14 }}>
-              {montarDescricaoEvento(evento)}
+              {montarDescricaoEvento(evento, meuUid)}
             </Text>
             <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }}>
               {formatarDataHora(evento.criadoEm)}

@@ -5,18 +5,12 @@
 // dos dois lados atomicamente via Admin SDK.
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { diasDesde, EXPIRACAO_PENDENTE_DIAS } = require("./tempoUtil");
 
 const db = getFirestore();
 
 const COOLDOWN_RECUSA_DIAS = 7;
-const EXPIRACAO_PENDENTE_DIAS = 15;
 const LIMITE_PENDENTES_ENVIADAS = 20;
-
-function diasDesde(timestamp) {
-  if (!timestamp) return Infinity;
-  const ms = typeof timestamp.toMillis === "function" ? timestamp.toMillis() : timestamp;
-  return (Date.now() - ms) / (1000 * 60 * 60 * 24);
-}
 
 // Encontra, sem `orderBy` (evita índice composto — mesmo cuidado já registrado
 // em ARQUITETURA.md para queries do app), o registro de conexão mais recente

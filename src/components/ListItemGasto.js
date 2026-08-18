@@ -6,7 +6,13 @@ import { colors } from '../styles/colors';
 import { useVisibility } from '../contexts/VisibilityContext';
 import { vibrarLeve } from '../utils/haptics';
 
-export default function ListItemGasto({ item, onPressItem, onToggleStatus }) {
+export default function ListItemGasto({
+  item,
+  onPressItem,
+  onToggleStatus,
+  mostrarIconeCompartilhado = false,
+  valorSemDestinoPendente = false,
+}) {
   const { formatValue } = useVisibility();
 
   const getIconePorCategoria = (categoria) => {
@@ -69,9 +75,36 @@ const formatarDataSegura = (dataString) => {
           style={globalStyles.listItemIcon}
         />
         <View style={globalStyles.listItemInfo}>
-          <Text style={globalStyles.listItemTitle}>
-            {item.descricao || 'Sem título'}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={globalStyles.listItemTitle}>
+              {item.descricao || 'Sem título'}
+            </Text>
+            {/* Indicação visual de gasto compartilhado (seção 11.1) — aparece
+                dos dois lados (quem criou a divisão e quem aceitou o
+                convite). Some quando a divisão é encerrada (2026-08-17,
+                feedback de teste manual) — decisão calculada por quem já
+                busca `despesas` (GastosScreen.js/SaidasScreen.js), nunca
+                aqui, que só apresenta (ver ARQUITETURA.md seção 19). Detalhe
+                fica em ModalGerenciarDivisao. */}
+            {mostrarIconeCompartilhado && (
+              <MaterialCommunityIcons
+                name="account-multiple-outline"
+                size={14}
+                color={colors.primary}
+                style={{ marginLeft: 6 }}
+              />
+            )}
+            {/* Alerta de valor "sem destino" ainda pendente de decisão nesta
+                despesa (seção 11.3) — só o criador vê isso (só ele decide). */}
+            {valorSemDestinoPendente && (
+              <MaterialCommunityIcons
+                name="alert-circle"
+                size={14}
+                color={colors.pending}
+                style={{ marginLeft: 4 }}
+              />
+            )}
+          </View>
           <Text style={globalStyles.listItemSubtitle}>
             {item.categoria} • Venc: {formatarDataSegura(item.dataVencimento)}
           </Text>

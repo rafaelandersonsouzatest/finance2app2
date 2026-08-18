@@ -23,6 +23,7 @@ import FabMenu from '../components/FabMenu';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../auth/useAuth';
 import { useUserMenu } from '../contexts/UserMenuContext';
+import { useDivisaoDespesaContext } from '../contexts/DivisaoDespesaContext';
 import { getNomeExibicao } from '../utils/perfil';
 import { calcularProgressoMeta } from '../utils/metas';
 import { useFabPosition } from '../hooks/useFabPosition';
@@ -95,7 +96,13 @@ export default function TelaPadrao({
   const { formatValue } = useVisibility();
   const { profile } = useAuth();
   const { open: abrirMenuUsuario } = useUserMenu();
+  const { convitesPendentes, propostasPendentes, despesasComValorSemDestino } = useDivisaoDespesaContext();
   const navigation = useNavigation();
+  // Tudo que precisa de uma decisão do usuário sobre divisão de despesa
+  // (seção 11.3): convite recebido, proposta de alteração recebida, ou valor
+  // "sem destino" de um cancelamento anterior ainda não resolvido.
+  const totalPendencias =
+    convitesPendentes.length + propostasPendentes.length + despesasComValorSemDestino.length;
 
   const handleAbrirDetalhes = (item) => {
     onPressItem?.(item);
@@ -328,6 +335,26 @@ const renderHeader = () => (
         style={{ marginLeft: 12, padding: 2 }}
       >
         <MaterialCommunityIcons name="bell-outline" size={20} color={colors.textSecondary} />
+        {totalPendencias > 0 && (
+          <View
+            style={{
+              position: 'absolute',
+              top: -2,
+              right: -4,
+              minWidth: 14,
+              height: 14,
+              borderRadius: 7,
+              paddingHorizontal: 2,
+              backgroundColor: colors.error,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ color: '#fff', fontSize: 9, fontWeight: '700' }}>
+              {totalPendencias > 9 ? '9+' : totalPendencias}
+            </Text>
+          </View>
+        )}
       </TouchableOpacity>
 
       <TouchableOpacity

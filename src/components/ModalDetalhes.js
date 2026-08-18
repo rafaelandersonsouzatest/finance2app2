@@ -24,7 +24,7 @@ import AlertaModal from './AlertaModal';
 // ------------------------------------------------------
 // 🔹 COMPONENTE DE LINHA DE INFORMAÇÃO
 // ------------------------------------------------------
-const InfoRow = ({ icon, label, value, color = colors.textPrimary }) => (
+const InfoRow = ({ icon, label, value, color = colors.textPrimary, right }) => (
   <View style={globalStyles.infoRow}>
     <MaterialCommunityIcons
       name={icon}
@@ -32,10 +32,29 @@ const InfoRow = ({ icon, label, value, color = colors.textPrimary }) => (
       color={colors.textSecondary}
       style={globalStyles.infoRowIcon}
     />
-    <View>
+    <View style={{ flex: 1 }}>
       <Text style={globalStyles.infoRowLabel}>{label}</Text>
       <Text style={[globalStyles.infoRowValue, { color }]}>{value}</Text>
     </View>
+    {right}
+  </View>
+);
+
+// Selo de status (Ativa/Encerrada) da linha de Compartilhamento — mesmo
+// padrão visual das badges já usadas no app (fundo translúcido da própria
+// cor do status, ver colors.badgePending/badgePaid), nunca cinza pra tudo
+// (ARQUITETURA.md seção 18).
+const SeloStatus = ({ texto, cor }) => (
+  <View
+    style={{
+      backgroundColor: `${cor}20`,
+      borderRadius: 20,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      marginLeft: 8,
+    }}
+  >
+    <Text style={{ color: cor, fontSize: 12, fontWeight: '600' }}>{texto}</Text>
   </View>
 );
 
@@ -147,6 +166,10 @@ export default function ModalDetalhes({
   onEditPress,
   tipo,
   onHistoryPress,
+  onSharePress,
+  onGerenciarDivisao,
+  mostrarIconeCompartilhado = false,
+  statusDivisaoTexto,
 }) {
   const [totalReal, setTotalReal] = useState(0);
   const [totalPago, setTotalPago] = useState(0);
@@ -386,6 +409,60 @@ export default function ModalDetalhes({
                 color={colors.primary}
               />
             </TouchableOpacity>
+
+            {/* Compartilhamento (Etapa 4.6 + seção 11.2/11.3, unificado em
+                2026-08-17) — uma única linha pro tema inteiro, em vez de duas
+                linhas separadas ("Compartilhar" e "Divisão") que chegavam a
+                aparecer juntas ao mesmo tempo quando a divisão estava
+                encerrada (mesmo assunto, duas entradas — feedback do
+                usuário). O destino do toque muda conforme o estado, mas é
+                exatamente o mesmo roteamento de antes, sem perder nenhum
+                caminho:
+                - nunca compartilhado, ou divisão anterior 'encerrada' →
+                  onSharePress (escolher com quem compartilhar de novo);
+                - divisão 'ativa' → onGerenciarDivisao (participantes, cotas,
+                  cancelar, encerrar — tudo já implementado em
+                  ModalGerenciarDivisao.js, nunca duplicado aqui).
+                Escondido se o gasto veio de aceitar a divisão de outra
+                pessoa (`origemCompartilhamento`) — ainda não há regra
+                decidida pra "repassar"/encadear uma divisão (seção 11). */}
+            {!item.origemCompartilhamento &&
+              (() => {
+                const compartilhado = !!item.compartilhamentoId;
+                const encerrada = statusDivisaoTexto === 'Encerrada';
+                const podeGerenciar = compartilhado && !encerrada && !!onGerenciarDivisao;
+                const podeCompartilhar = (!compartilhado || encerrada) && !!onSharePress;
+
+                if (podeGerenciar) {
+                  return (
+                    <TouchableOpacity onPress={() => onGerenciarDivisao(item)}>
+                      <InfoRow
+                        icon="account-multiple-outline"
+                        label="Compartilhamento"
+                        value="Toque para gerenciar participantes"
+                        color={colors.primary}
+                        right={<SeloStatus texto="Ativa" cor={colors.balance} />}
+                      />
+                    </TouchableOpacity>
+                  );
+                }
+                if (podeCompartilhar) {
+                  return (
+                    <TouchableOpacity onPress={() => onSharePress(item)}>
+                      <InfoRow
+                        icon="account-multiple-plus-outline"
+                        label="Compartilhamento"
+                        value={compartilhado ? 'Toque para compartilhar de novo' : 'Dividir com alguém'}
+                        color={colors.primary}
+                        right={
+                          compartilhado ? <SeloStatus texto="Encerrada" cor={colors.textSecondary} /> : null
+                        }
+                      />
+                    </TouchableOpacity>
+                  );
+                }
+                return null;
+              })()}
           </>
         );
 
@@ -532,9 +609,25 @@ export default function ModalDetalhes({
         <View style={globalStyles.modalOverlay}>
           <View style={globalStyles.modalContainer}>
             <View style={globalStyles.modalHeader}>
-              <Text style={globalStyles.modalTitle}>
-                {item.descricao || item.nome || 'Detalhes'}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                {/* `globalStyles.modalTitle` já tem `flex: 1` — sem
+                    sobrescrever aqui, o Text ocupa todo o espaço da linha e
+                    empurra o ícone pro canto direito, longe do nome (bug
+                    reportado em teste manual, 2026-08-17). */}
+                <Text style={[globalStyles.modalTitle, { flex: 0, flexShrink: 1 }]}>
+                  {item.descricao || item.nome || 'Detalhes'}
+                </Text>
+                {/* Mesmo ícone/regra da lista (ListItemGasto.js via
+                    deveMostrarIconeCompartilhado). */}
+                {mostrarIconeCompartilhado && (
+                  <MaterialCommunityIcons
+                    name="account-multiple-outline"
+                    size={16}
+                    color={colors.primary}
+                    style={{ marginLeft: 6 }}
+                  />
+                )}
+              </View>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <TouchableOpacity
                   onPress={() => {

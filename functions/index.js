@@ -10,6 +10,10 @@ const db = getFirestore();
 // bloquearConexao), para não deixar tudo misturado num único index.js.
 Object.assign(exports, require("./conexoes"));
 
+// Functions da divisão de despesa (Etapa 3, ver COLABORACAO_ARQUITETURA_V1.md
+// seção 2) — mesmo princípio de arquivo próprio por crescerem juntas.
+Object.assign(exports, require("./divisaoDespesa"));
+
 // Function mínima de diagnóstico da Etapa 1 — só valida que a infraestrutura
 // (Auth + Function + Firestore) funciona de ponta a ponta. Nenhuma regra de
 // negócio de Colaboração entre Usuários vive aqui.
