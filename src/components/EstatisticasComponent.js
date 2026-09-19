@@ -5,20 +5,11 @@ import {
   TouchableOpacity,
   Animated,
   LayoutAnimation,
-  Platform,
-  UIManager,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import { useVisibility } from '../contexts/VisibilityContext'; // 👈 IMPORTANTE
-
-if (
-  Platform.OS === 'android' &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 const EstatisticasComponent = ({ estatisticas = {} }) => {
   const [expandido, setExpandido] = useState(false);

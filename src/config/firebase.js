@@ -1,7 +1,12 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
-import { getAuth, connectAuthEmulator } from "firebase/auth";
+import {
+  initializeAuth,
+  getReactNativePersistence,
+  connectAuthEmulator,
+} from "firebase/auth";
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 
 const appEnv = Constants.expoConfig.extra.APP_ENV;
@@ -73,7 +78,9 @@ const firebaseConfig = usandoEmulador
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
-export const auth = getAuth(app);
+export const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage),
+});
 export const functions = getFunctions(app);
 
 if (usandoEmulador) {

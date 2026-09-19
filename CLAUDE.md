@@ -157,3 +157,9 @@ Resumo rápido — regras práticas para não reintroduzir um bug já corrigido:
   (nem hooks que os chamem por dentro, como `useAdiantamento`) por conta própria — os
   dados devem vir por prop de quem já os busca (ver `ARQUITETURA.md` seção 19, princípio
   "um dono, vários apresentadores").
+- A pasta `android/` está commitada por engano (Sprint 6) e faz o Expo tratar o projeto como
+  *bare workflow* — por isso `runtimeVersion` no `app.json` não pode usar
+  `{"policy": "sdkVersion"}` (o Expo recusa), tem que ser um valor fixo no formato
+  `exposdk:X.Y.Z`, atualizado manualmente a cada upgrade de SDK do Expo. Se esquecer de
+  atualizar depois de um upgrade de SDK, o Expo Go mostra "not compatible" mesmo com o
+  bundle certo (ver `PROJECT_STATUS.md` seção 19.1).

@@ -11,7 +11,9 @@
 | **0.3.0** — Sprint 4: Categorias e Subcategorias (base do Planejamento Financeiro) | 2026-07-29 | `b6c1715` | `meu-app`, `rafael`, `christian` | `main` |
 | **0.3.1** — chore: owner do Expo do ambiente Convidado renomeado para `finance-app-convidado` | 2026-07-29 | `e48014e` | `meu-app`, `rafael`, `christian` | `main` |
 | **0.4.0** — Sprint 5: Sistema de Identidade e Avatares | 2026-07-30 | `47cd7a7` | `meu-app`, `rafael`, `christian` | `main` |
-| **0.5.0** — Migração Expo SDK 54→57 (ver seção 19). Como não havia publicação desde a 0.4.0, esta release também levou junto todo o acumulado no meio tempo: Sprint 6 (Cartões, seção 14), refactor de carregamento em `SaidasScreen` (seção 17), extensão da Linha do Tempo (seção 16), fix de login Google, e as Etapas 1–4 de Colaboração entre Usuários (seção 18) — esta última permanece **atrás de flag**, não fica visível para o usuário. | 2026-09-19 | `5315841` | `meu-app`, `rafael`, `christian` | `main` |
+| **0.5.0** — Linha do Tempo estendida (Gastos/Entradas/Investimentos), fix de login Google e infraestrutura local de Colaboração entre Usuários | 2026-08-14 | `bd824c6` | `meu-app`, `rafael`, `christian` | `main` |
+| **0.6.0** — Migração Expo SDK 54→57 (ver seção 19). Como não havia publicação desde a 0.5.0 (14/08), esta release também levou junto todo o acumulado no meio tempo: Sprint 6 (Cartões, seção 14), refactor de carregamento em `SaidasScreen` (seção 17), e as Etapas 3–4 de Colaboração entre Usuários (divisão de despesa, seção 18) — permanece **atrás de flag**, não fica visível para o usuário. | 2026-09-19 | `5315841` | `meu-app`, `rafael`, `christian` | `main` |
+| **0.6.1** — Corrige `runtimeVersion` (era `"1.0.0"`, um texto fixo sem relação com o SDK; passou a `"exposdk:57.0.0"`) que impedia o Expo Go de abrir a atualização publicada em 0.6.0 mesmo com o SDK certo — ver seção 19.1. Aproveitada para remover 2 warnings: chamada legada de `LayoutAnimation` (no-op na New Architecture, `EstatisticasComponent.js`) e Firebase Auth sem persistência configurada para React Native (`src/config/firebase.js`, usuário era deslogado a cada reabertura do app). | 2026-09-19 | *(pendente de commit)* | `meu-app`, `rafael`, `christian` | `main` |
 
 Publicada com o script `publish-all.ps1` (novo, raiz do projeto — ver seção 11). Antes desta release, corrigido um bug de configuração que impedia publicar para `christian`: `app.config.js` tinha um `owner` fixo (`rafael.anderson.souza`) para todos os ambientes, mas o projeto `christian` (hoje o ambiente de distribuição para convidados/testadores externos) pertence a uma organização Expo diferente (`finance-app-convidado`) — `owner` agora varia por `APP_ENV`, mesmo padrão já usado para `name`/`slug`/`projectId` (ver `ARQUITETURA.md` seção 7).
 
@@ -109,6 +111,7 @@ Ver `ARQUITETURA.md` para o mapeamento completo de pastas/fluxos. Resumo das mai
 - `ModalCriacao.js` e `ModalEdicao.js` reimplementam os mesmos 5 tipos de formulário de formas diferentes (risco de campos divergirem entre criar e editar).
 - `globalStyles.js` (1360 linhas) é dependência de 39 arquivos — qualquer mudança tem risco de efeito colateral amplo.
 - `TelaPadrao.js` tem uma função inteira (`renderModalDetailsContent`) definida mas **nunca chamada** — código morto, o modal de detalhes exibido de fato é o `ModalDetalhes.js` importado. Encontrado em 2026-07-25 investigando o indicador "Progresso"; não removido (fora do escopo pedido), candidato a limpeza futura.
+- **Pasta `android/` (projeto nativo) commitada por engano no Sprint 6** (`b456b11`, 2026-08-04) e nunca removida. Isso faz as ferramentas do Expo tratarem o projeto como *bare workflow*, o que bloqueia usar `runtimeVersion: {"policy": "sdkVersion"}` no `app.json` — teve que virar um valor fixo (`"exposdk:57.0.0"`, ver seção 19.1), que precisa ser lembrado manualmente em cada upgrade futuro de SDK. Não removida agora porque apagar uma pasta versionada é uma decisão maior (confirmar que ninguém depende de código nativo customizado ali dentro antes) — mas resolveria a causa raiz do problema do `runtimeVersion`.
 
 ### Backlog arquitetural — riscos residuais aceitos conscientemente (autenticação, 2026-07-24)
 
@@ -740,7 +743,7 @@ entrada é só um resumo de estado, não repete o conteúdo de lá.
   desta feature foi commitado ainda. Vale decidir quando comitar (provavelmente depois de decidir
   Blaze + publicação das rules, pra comitar tudo relacionado à publicação junto).
 
-## 19. Migração Expo SDK 54 → 57 (✅ implementada, testada em dispositivo real e publicada via EAS Update em 2026-09-19 — release 0.5.0)
+## 19. Migração Expo SDK 54 → 57 (✅ implementada, testada em dispositivo real e publicada via EAS Update em 2026-09-19 — releases 0.6.0/0.6.1)
 
 - **Motivo**: o Expo Go da loja (Play Store/App Store) só roda a versão de SDK mais recente por
   vez; testadores externos com o Expo Go já atualizado não conseguiam mais abrir o build em SDK 54.
@@ -756,6 +759,35 @@ entrada é só um resumo de estado, não repete o conteúdo de lá.
   `rafael`, `christian`) — testadores já conseguem abrir pelo Expo Go sem rodar `npm run start:*`
   localmente. Ambiente `marina` não faz parte do `publish-all.ps1` e não foi publicado nesta
   rodada.
-- **Atenção**: como não havia publicação desde a 0.4.0 (30/07/2026), esta publicação também
-  entregou todos os commits acumulados desde então (ver release 0.5.0 na seção 0), não só o
+- **Atenção**: como não havia publicação desde a 0.5.0 (14/08/2026), esta publicação também
+  entregou todos os commits acumulados desde então (ver release 0.6.0 na seção 0), não só o
   upgrade de SDK.
+
+### 19.1 Correção pós-publicação: `runtimeVersion` incompatível com Expo Go (✅ corrigida em 2026-09-19)
+
+A primeira publicação (0.6.0) subiu com `sdkVersion: 57.0.0` correto, mas o Expo Go mostrava
+"not compatible with this version of Expo Go" mesmo assim. Causa raiz: `app.json` tinha
+`"runtimeVersion": "1.0.0"` — um texto fixo qualquer, sem relação com o SDK, provavelmente
+esquecido desde o início do projeto. O Expo Go só reconhece um update como compatível quando o
+`runtimeVersion` está no formato especial `exposdk:X.Y.Z`; um valor arbitrário como `"1.0.0"` faz
+o Expo Go tratar o update como destinado a um build nativo customizado, não a ele.
+
+- **Por que rodar pelo `npm run start:dev` funcionava mesmo com o bug**: o dev server usa outro
+  mecanismo de negociação de versão, que não depende do `runtimeVersion` do EAS Update.
+- **Complicador descoberto durante a investigação**: a pasta `android/` (projeto nativo) foi
+  commitada sem querer no Sprint 6 (`b456b11`, 2026-08-04) e nunca foi removida — isso faz as
+  ferramentas do Expo tratarem o projeto como **bare workflow**. Nesse modo, a policy
+  `{"policy": "sdkVersion"}` (que recalcularia o `runtimeVersion` sozinha a cada upgrade futuro de
+  SDK) **não é suportada** (`npx expo-updates runtimeversion:resolve` recusa com erro explícito) —
+  por isso a correção usou um valor fixo (`"exposdk:57.0.0"`) em vez da policy. Ver seção 6 para o
+  registro dessa pendência (pasta `android/` commitada por engano).
+- **Correção**: `app.json` → `"runtimeVersion": "exposdk:57.0.0"`. Em qualquer upgrade futuro de
+  SDK, esse valor precisa ser atualizado manualmente junto (não há como automatizar enquanto a
+  pasta `android/` continuar versionada).
+- **Aproveitado na mesma publicação (0.6.1)**: removidos 2 warnings — chamada legada
+  `UIManager.setLayoutAnimationEnabledExperimental` em `EstatisticasComponent.js` (vira no-op na
+  New Architecture, que já é obrigatória aqui por causa do `react-native-reanimated` 4.x); e
+  `src/config/firebase.js` trocou `getAuth(app)` por `initializeAuth(app, { persistence:
+  getReactNativePersistence(AsyncStorage) })` — sem isso, a sessão do usuário não persistia entre
+  reaberturas do app (auth caía para memória, deslogando a cada restart). Esse segundo ponto era um
+  bug funcional real, não só um warning cosmético.
