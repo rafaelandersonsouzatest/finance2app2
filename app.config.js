@@ -75,7 +75,19 @@ export default ({ config }) => {
     slug: selected.slug,
     owner: selected.owner,
     scheme: "meuapp", 
-    plugins: ["expo-web-browser"],
+    plugins: [
+      "expo-web-browser",
+      "expo-status-bar",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          image: "./assets/splash-icon.png",
+          resizeMode: "contain",
+          backgroundColor: "#ffffff",
+        },
+      ],
+    ],
     icon: selected.icon,
     ios: { ...config.ios },
     android: { ...config.android },
