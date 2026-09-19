@@ -1,6 +1,6 @@
 # Status do Projeto
 
-> Última atualização: 2026-08-06
+> Última atualização: 2026-09-19
 > Este documento reflete o estado real do código no momento da análise, não intenções ou memória de conversas anteriores. Atualize-o sempre que o estado mudar de forma relevante.
 
 ## 0. Releases publicadas (EAS Update / OTA)
@@ -11,6 +11,7 @@
 | **0.3.0** — Sprint 4: Categorias e Subcategorias (base do Planejamento Financeiro) | 2026-07-29 | `b6c1715` | `meu-app`, `rafael`, `christian` | `main` |
 | **0.3.1** — chore: owner do Expo do ambiente Convidado renomeado para `finance-app-convidado` | 2026-07-29 | `e48014e` | `meu-app`, `rafael`, `christian` | `main` |
 | **0.4.0** — Sprint 5: Sistema de Identidade e Avatares | 2026-07-30 | `47cd7a7` | `meu-app`, `rafael`, `christian` | `main` |
+| **0.5.0** — Migração Expo SDK 54→57 (ver seção 19). Como não havia publicação desde a 0.4.0, esta release também levou junto todo o acumulado no meio tempo: Sprint 6 (Cartões, seção 14), refactor de carregamento em `SaidasScreen` (seção 17), extensão da Linha do Tempo (seção 16), fix de login Google, e as Etapas 1–4 de Colaboração entre Usuários (seção 18) — esta última permanece **atrás de flag**, não fica visível para o usuário. | 2026-09-19 | `5315841` | `meu-app`, `rafael`, `christian` | `main` |
 
 Publicada com o script `publish-all.ps1` (novo, raiz do projeto — ver seção 11). Antes desta release, corrigido um bug de configuração que impedia publicar para `christian`: `app.config.js` tinha um `owner` fixo (`rafael.anderson.souza`) para todos os ambientes, mas o projeto `christian` (hoje o ambiente de distribuição para convidados/testadores externos) pertence a uma organização Expo diferente (`finance-app-convidado`) — `owner` agora varia por `APP_ENV`, mesmo padrão já usado para `name`/`slug`/`projectId` (ver `ARQUITETURA.md` seção 7).
 
@@ -738,3 +739,23 @@ entrada é só um resumo de estado, não repete o conteúdo de lá.
   e `src/screens/ConexoesScreen.js` aparecem como **não rastreados** (`??` no `git status`) — nada
   desta feature foi commitado ainda. Vale decidir quando comitar (provavelmente depois de decidir
   Blaze + publicação das rules, pra comitar tudo relacionado à publicação junto).
+
+## 19. Migração Expo SDK 54 → 57 (✅ implementada, testada em dispositivo real e publicada via EAS Update em 2026-09-19 — release 0.5.0)
+
+- **Motivo**: o Expo Go da loja (Play Store/App Store) só roda a versão de SDK mais recente por
+  vez; testadores externos com o Expo Go já atualizado não conseguiam mais abrir o build em SDK 54.
+- **O que mudou**: `react-native`, `reanimated`, `worklets` e demais dependências nativas realinhadas
+  para as versões compatíveis com SDK 57; `@expo/vector-icons` e `expo-font` passaram a ser
+  dependências diretas (antes vinham implícitas via `expo`); `app.config.js` migrado para o novo
+  formato de plugins exigido pelo schema do SDK 57 (splash screen como plugin, `expo-font` e
+  `expo-status-bar` explícitos).
+- **Testado com**: bundle limpo nos 4 ambientes (`meu-app`, `rafael`, `marina`, `christian`) e
+  teste em dispositivo real (dono do projeto e testador externo via ambiente `christian`).
+- **Commits**: `e5923ae` (upgrade) + merge `5315841`.
+- **Publicação**: feita em 2026-09-19 via `.\publish-all.ps1` (branch `main`, ambientes `meu-app`,
+  `rafael`, `christian`) — testadores já conseguem abrir pelo Expo Go sem rodar `npm run start:*`
+  localmente. Ambiente `marina` não faz parte do `publish-all.ps1` e não foi publicado nesta
+  rodada.
+- **Atenção**: como não havia publicação desde a 0.4.0 (30/07/2026), esta publicação também
+  entregou todos os commits acumulados desde então (ver release 0.5.0 na seção 0), não só o
+  upgrade de SDK.
