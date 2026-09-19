@@ -791,3 +791,20 @@ o Expo Go tratar o update como destinado a um build nativo customizado, não a e
   getReactNativePersistence(AsyncStorage) })` — sem isso, a sessão do usuário não persistia entre
   reaberturas do app (auth caía para memória, deslogando a cada restart). Esse segundo ponto era um
   bug funcional real, não só um warning cosmético.
+
+#### 19.1.1 Depois da correção: Android continuou "not compatible" — causa externa, não é bug nosso
+
+Depois de publicar com `runtimeVersion: "exposdk:57.0.0"`, o iPhone (Expo Go 57.0.9) abriu a
+branch `main` normalmente. Um Android com o mesmo Expo Go 57.0.9 instalado continuou recusando
+como "not compatible", mesmo depois de limpar cache, limpar dados e reinstalar o Expo Go — ou
+seja, não é cache local.
+
+**Verificação feita para descartar problema nosso**: requisição manual ao manifesto (mesmo
+protocolo que o Expo Go usa, `curl` com headers `Expo-Platform: android` e
+`Expo-Runtime-Version: exposdk:57.0.0` direto no `manifestPermalink` do update) devolveu
+`200 OK` com `"runtimeVersion":"exposdk:57.0.0"` corretamente — o servidor da Expo entrega o
+manifesto certo para Android. **Conclusão: o problema é do próprio app Expo Go Android nesse
+aparelho** (rollout da Play Store em transição — o Expo Go mostrava o aviso "New Expo Go version
+coming soon... it will only support SDK 58" no momento do teste), não algo corrigível editando o
+projeto. Contorno enquanto isso não se resolve sozinho: usar `npm run start:dev` (ou
+`start:rafael`/`start:christian`) nesse aparelho, que não depende do EAS Update.
