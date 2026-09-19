@@ -824,3 +824,41 @@ no Android com `IOException`, ainda sem resposta da equipe).
 - **SDK 58** entrou em beta em 2026-09-15 (React Native 0.88 RC) — não resolveria esse bug (é do
   parser do `runtimeVersion`, independente da versão) e ainda não é estável o suficiente pra
   migrar agora.
+
+## 20. Build standalone (APK) para distribuição sem Expo Go (✅ primeiro APK gerado em 2026-09-19)
+
+Motivado pelo bug do Expo Go Android (seção 19.1.1): como o app vai ser instalado direto (sem
+Expo Go), o bug de compatibilidade deixa de existir para quem usa o APK. Decisão consciente do
+usuário: gerar o APK a partir do ambiente **`meu-app` (dev)** em vez de criar um ambiente/projeto
+Expo separado tipo o `christian` — o motivo de existir um projeto separado pra convidados era
+evitar que eles precisassem logar no Expo, mas um APK standalone não exige login nenhum de quem
+instala, então essa separação deixou de ser necessária para esse caso de uso.
+
+- **Pendência resolvida antes de buildar**: a pasta `android/` estava commitada por engano desde o
+  Sprint 6 (seção 6) e tinha o `runtimeVersion` (`"1.0.0"`) e plugins congelados de antes do
+  upgrade de SDK — buildar a partir dela geraria um APK que nunca receberia as atualizações OTA
+  atuais. Removida do git e adicionada ao `.gitignore` (`/android`, `/ios`), voltando o projeto ao
+  managed workflow — o que também destravou usar `"runtimeVersion": {"policy": "sdkVersion"}` de
+  novo no `app.json` (não precisa mais lembrar de atualizar isso manualmente a cada SDK novo).
+  Conferido antes de remover: nenhuma customização nativa manual, só boilerplate padrão do
+  template do Expo.
+- **`package-lock.json` estava fora de sincronia** (`@firebase/auth` declara uma peerDependency
+  opcional em `@react-native-async-storage/async-storage@^1.18.1`; o app usa `2.2.0` direto, que é
+  o que realmente roda). O `npm` 11 (local) tolerava esse descasamento; o `npm 10.9.8` (usado pela
+  imagem de build da EAS) é mais rígido e falhava `npm ci` com "Missing ... from lock file".
+  Corrigido com `"overrides"` no `package.json` forçando a resolução única pra `2.2.0`, e o lock
+  file foi regenerado do zero.
+- **Configuração adicional necessária**: criado um *channel* `meuapp` no EAS Update e apontado pra
+  branch `main` (não existia nenhum channel antes — só branches). É o channel, embutido no APK no
+  momento do build, que diz de onde ele deve buscar atualizações OTA depois de instalado.
+- **Perfil usado**: `meuapp` (já existia em `eas.json`, `distribution: internal`, `APP_ENV: meu-app`)
+  — não foi preciso criar perfil novo.
+- **Primeiro APK gerado**: `npx eas build --platform android --profile meuapp` (precisou responder
+  interativamente "Generate a new Android Keystore?" na primeira vez — passo único, a EAS guarda a
+  chave nos servidores dela pros próximos builds). Build:
+  `https://expo.dev/accounts/rafael.anderson.souza/projects/meu-app/builds/5a381a06-e24b-49fb-b9a3-02d6c458baac`.
+- **Fluxo de atualização não muda**: o APK só precisa ser gerado de novo se mudar algo nativo (nova
+  lib nativa, upgrade de SDK). Mudanças de JS continuam indo pelo `publish-all.ps1`/`eas update`
+  de sempre, na branch `main` — o channel `meuapp` já está apontado pra lá.
+- **Expo Go continua funcionando normalmente** — são dois canais de distribuição independentes
+  sobre a mesma base de código, um não desativa o outro.
