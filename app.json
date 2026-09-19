@@ -32,7 +32,9 @@
       }
     },
     "owner": "rafael.anderson.souza",
-    "runtimeVersion": "exposdk:57.0.0",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
     "updates": {
       "url": "https://u.expo.dev/559b4f2b-514f-42d8-bf1c-fca02444f277"
     }
