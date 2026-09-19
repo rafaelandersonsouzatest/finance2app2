@@ -803,8 +803,24 @@ seja, não é cache local.
 protocolo que o Expo Go usa, `curl` com headers `Expo-Platform: android` e
 `Expo-Runtime-Version: exposdk:57.0.0` direto no `manifestPermalink` do update) devolveu
 `200 OK` com `"runtimeVersion":"exposdk:57.0.0"` corretamente — o servidor da Expo entrega o
-manifesto certo para Android. **Conclusão: o problema é do próprio app Expo Go Android nesse
-aparelho** (rollout da Play Store em transição — o Expo Go mostrava o aviso "New Expo Go version
-coming soon... it will only support SDK 58" no momento do teste), não algo corrigível editando o
-projeto. Contorno enquanto isso não se resolve sozinho: usar `npm run start:dev` (ou
-`start:rafael`/`start:christian`) nesse aparelho, que não depende do EAS Update.
+manifesto certo para Android. **Conclusão: o problema é do próprio app Expo Go Android**, não
+algo corrigível editando o projeto.
+
+**Causa raiz confirmada (pesquisa em 2026-09-19)**: é um bug documentado do cliente Expo Go
+Android, registrado em
+[expo/expo#46846](https://github.com/expo/expo/issues/46846). A checagem de compatibilidade do
+Android faz `runtimeVersion.split(".").firstOrNull()` pra extrair a versão do SDK — só que pra um
+valor no formato correto `exposdk:57.0.0` isso resulta em `"exposdk:57"`, que nunca é igual a
+`"57"`. Ou seja: **qualquer projeto usando o formato `exposdk:X.Y.Z` recomendado pela própria
+Expo é marcado como "Not compatible" no Android**, mesmo estando certo (por isso o iPhone abre
+normal e o Android não, com o mesmo `runtimeVersion`). Já existe correção mesclada no código-fonte
+do Expo (PR #49703, mesclada em 2026-09-03), mas **nenhuma versão publicada do Expo Go Android
+ainda contém o fix** (nem a 56.0.1 nem a 57.0.9, testada aqui). Ver também
+[expo/expo#50139](https://github.com/expo/expo/issues/50139) (update de SDK 57 falhando ao baixar
+no Android com `IOException`, ainda sem resposta da equipe).
+- **Não há workaround oficial** além de aguardar uma versão nova do Expo Go Android com o fix.
+- **Contorno enquanto isso não sai**: usar `npm run start:dev` (ou `start:rafael`/
+  `start:christian`) nesse aparelho — não depende do EAS Update, então não é afetado pelo bug.
+- **SDK 58** entrou em beta em 2026-09-15 (React Native 0.88 RC) — não resolveria esse bug (é do
+  parser do `runtimeVersion`, independente da versão) e ainda não é estável o suficiente pra
+  migrar agora.
