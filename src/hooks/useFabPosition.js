@@ -18,9 +18,7 @@ export function useFabPosition() {
       ? insets.bottom > 0
         ? insets.bottom + (height < 750 ? 100 : 80) // iPhones menores sobem mais
         : 100 // iPhones antigos sem notch
-      : height < 750
-      ? 90 // Android pequeno
-      : 70; // Android normal
+      : insets.bottom + (height < 750 ? 90 : 70); // Android: soma a área da navegação (barra de gestos ou botões) — sem isso, o FAB fica atrás do menu inferior em aparelhos com botões físicos/na tela
 
   return { position: 'absolute', right: 20, bottom };
 }
