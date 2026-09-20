@@ -862,3 +862,26 @@ instala, então essa separação deixou de ser necessária para esse caso de uso
   de sempre, na branch `main` — o channel `meuapp` já está apontado pra lá.
 - **Expo Go continua funcionando normalmente** — são dois canais de distribuição independentes
   sobre a mesma base de código, um não desativa o outro.
+
+### 20.1 Correção pós-instalação: esse primeiro APK nunca ia receber atualização nenhuma (✅ corrigida em 2026-09-20)
+
+O primeiro APK (build `5a381a06`, acima) foi instalado e testado, mas mesmo fechando/reabrindo o
+app várias vezes o "Atualizado em" da tela Sobre (seção 21) nunca mudava. Causa: o `eas.json` não
+tinha o campo `"channel"` declarado no perfil `meuapp` — sem isso, o log da fase
+`CONFIGURE_EXPO_UPDATES` do build (que não aparece como erro, só como aviso, por isso passou
+despercebido na hora) mostra: `"This build has an invalid EAS Update configuration ... No channel
+will be set and EAS Update will be disabled for the build."` Ou seja, **esse APK específico saiu
+de fábrica com a checagem de atualização completamente desativada** — não era questão de tempo,
+cache ou dados, não tinha como funcionar de jeito nenhum.
+
+- **Correção**: adicionado `"channel": "meuapp"` ao perfil `meuapp` em `eas.json` (o channel em si
+  já existia desde a seção 20, só faltava declarar ele no perfil de build pra ser embutido no
+  APK). Confirmado no log do build seguinte: `Setting the update request headers in
+  'AndroidManifest.xml' to '{"expo-channel-name":"meuapp"...}'`.
+- **Novo APK gerado** (já com o channel embutido):
+  `https://expo.dev/accounts/rafael.anderson.souza/projects/meu-app/builds/76883142-c8ca-43ce-9061-1939f5efc216`
+  — precisa reinstalar por cima do anterior. Dali em diante, atualizações via `publish-all.ps1`
+  devem chegar normalmente (fechar/reabrir o app duas vezes).
+- **Lição pra próximos ambientes**: se um dia gerar build pra `rafael`/`marina`/`christian`, lembrar
+  de declarar `"channel"` no perfil correspondente em `eas.json` também — o mesmo problema se repete
+  se esquecer.
