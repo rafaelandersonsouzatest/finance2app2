@@ -5,6 +5,7 @@
   "build": {
     "meuapp": {
       "distribution": "internal",
+      "channel": "meuapp",
       "env": {
         "APP_ENV": "meu-app"
       }
