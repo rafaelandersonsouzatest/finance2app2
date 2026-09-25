@@ -34,7 +34,7 @@ O script **não** publica para `marina` — se um dia isso for necessário, é s
 - **Resumo Mensal** (`ResumoMensal.js`): dashboard consolidado com totais previstos e realizados de entradas, gastos, empréstimos, cartões e investimentos.
 - **Entradas** (`EntradasScreen.js` + `useEntradas`): CRUD de receitas do mês, com geração automática de entradas fixas a partir de modelos.
 - **Saídas** (`SaidasScreen.js`): tela única que agrega Gastos, Empréstimos e Cartões em abas internas — única dona dos dados/hooks; `GastosScreen.js`/`EmprestimosScreen.js`/`CartoesScreen.js` são componentes de apresentação pura, sem hook próprio (ver `ARQUITETURA.md` seção 19).
-  - **Gastos** (`useGastos`): CRUD de despesas fixas/variáveis, com geração automática via modelos e suporte a cálculo percentual sobre entradas selecionadas.
+  - **Gastos** (`useGastos`): CRUD de despesas fixas/variáveis, com geração automática via modelos (incremental: gera só os modelos ainda não lançados no mês, com confirmação — ver seção 22) e suporte a cálculo percentual sobre modelos de entrada e/ou entradas avulsas do mês.
   - **Empréstimos** (`useEmprestimos`): controle de parcelas, com antecipação de parcelas e desconto.
   - **Cartões** (`useCartoes`): controle de compras e faturas por cartão.
 - **Investimentos** (`InvestimentosScreen.js` + `useInvestimentos`): aportes, resgates e histórico de movimentações por investimento.
@@ -885,3 +885,55 @@ cache ou dados, não tinha como funcionar de jeito nenhum.
 - **Lição pra próximos ambientes**: se um dia gerar build pra `rafael`/`marina`/`christian`, lembrar
   de declarar `"channel"` no perfil correspondente em `eas.json` também — o mesmo problema se repete
   se esquecer.
+
+## 22. Modelos recorrentes: geração incremental e base percentual estável (✅ implementada e testada manualmente em 2026-09-25)
+
+Três melhorias em sequência, cada uma validada pelo usuário antes da seguinte.
+
+### 22.1 "Gerar do Mês" incremental (gerar só o que falta)
+- **Antes**: trava "tudo ou nada" — se o mês já tinha qualquer lançamento com `origemModelo: true`,
+  a geração retornava `JA_GERADO` e o botão sumia (Entradas). Modelo criado no meio do mês tinha
+  que ser lançado à mão.
+- **Agora**: o botão fica sempre disponível. Ao tocar, abre `ModalGerarPendentes` com os modelos
+  ainda não lançados no mês (ordenados por dia de vencimento), todos marcados, com
+  "Marcar/Desmarcar todos". Só os marcados são gerados. Funciona em qualquer mês.
+- Todo lançamento gerado passa a gravar **`modeloId`**. Lançamentos antigos (sem `modeloId`) são
+  reconhecidos pela descrição (decisão do usuário, "opção a").
+- Limitações aceitas conscientemente: um lançamento gerado e depois **apagado de propósito** volta
+  a aparecer como pendente (não há registro de "apagado"); lançamento **manual** com o mesmo nome
+  de um modelo não conta como gerado. Em ambos os casos a tela de confirmação é a proteção.
+
+### 22.2 "Lançar também neste mês?" ao criar modelo
+- Ao salvar um modelo **novo**, o app pergunta se quer lançá-lo no mês aberto na tela
+  (Sim/Não). Editar modelo existente não pergunta. Não existe "desativar/reativar modelo" no app,
+  então não há pergunta para esse caso.
+
+### 22.3 Gasto em porcentagem vinha zerado todo mês (🔴 bug de cálculo, corrigido)
+- **Causa**: o modelo guardava `entradasSelecionadas` = ids de entradas **de um mês específico**.
+  No mês seguinte as entradas são documentos novos → soma 0 → gasto zerado. O usuário
+  contornava resselecionando a base todo mês.
+- **Correção**: a base passou a apontar para **modelos de entrada** (`baseModelosEntrada`) + a
+  opção **"Entradas avulsas do mês"** (`baseIncluiAvulsas`, soma toda entrada que não veio de
+  modelo). Modelos antigos são **convertidos automaticamente** (uma vez, ao abrir "Configurar
+  Modelos" de gastos ou antes de gerar); `entradasSelecionadas` não é apagado.
+- "Atualização de valor" reduzida a 2 opções: **Recalcular quando as entradas mudarem**
+  (`dinamico`) e **Manter o valor calculado na hora de gerar** (`fixo`). As antigas "Fixar ao
+  gerar modelo" e "Fixar ao gerar gasto" já se comportavam igual — aparecem como `fixo`, sem
+  migração de dado.
+- Bugs relacionados corrigidos junto: porcentagem **sem base** gerava "10%" como **R$ 10,00**
+  (agora gera 0 e o formulário não deixa salvar sem base); arredondamento via `toFixed` trocado por
+  arredondamento exato em centavos.
+- Limitação: gasto zerado gerado **antes** do 22.1 não tem `modeloId`, então não se corrige
+  sozinho — apagar e gerar de novo.
+
+### 22.4 Outros
+- `useEntradas.js`: leituras de valor monetário trocadas de `parseFloat` para `parseBRL`
+  (inconsistência latente, não havia valor errado em produção).
+- **Primeiros testes automatizados do app** (fora de `functions/`): Jest + `jest-expo` como
+  devDependencies, `npm test`, testes em `src/utils/__tests__/` (20 casos cobrindo pendentes,
+  soma da base, conversão da base antiga e arredondamento). A config usa
+  `modulePaths: ["<rootDir>/node_modules/expo/node_modules"]` porque no Expo 57 o
+  `expo-modules-core` fica aninhado dentro de `expo/` e o preset não o encontrava.
+- Aviso "InteractionManager has been deprecated" no Expo Go: vem de `react-native-gesture-handler`
+  (2.32.0, a versão que o Expo 57 espera) e `react-native-modal` (já na última versão) — não é
+  código do app, não aparece no APK, sem correção disponível hoje.

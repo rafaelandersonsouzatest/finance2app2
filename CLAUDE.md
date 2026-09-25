@@ -108,7 +108,7 @@ Antes de implementar qualquer alteração, avaliar se ela deve ser acompanhada p
 
 ## Stack
 
-- React Native + Expo (SDK 54), React 19, React Navigation (bottom-tabs + native-stack).
+- React Native + Expo (SDK 57), React 19, React Navigation (bottom-tabs + native-stack).
 - Firebase (Auth + Firestore) — sem backend próprio; toda regra de negócio roda no
   cliente hoje.
 - 4 variantes de build a partir do mesmo código

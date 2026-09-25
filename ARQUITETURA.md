@@ -256,8 +256,8 @@ Colaboração (`COLABORACAO_ARQUITETURA_V1.md`) começar a implementar as Functi
 
 ## 8. Principais regras de negócio implementadas
 
-- **Lançamentos fixos via modelos**: `gerarFixosDoMes()` (presente em `useGastos` e `useEntradas`) verifica se já existem lançamentos com `origemModelo: true` no mês; se não, lê os modelos ativos (`modelosDeGasto`/`modelosDeEntrada`) e gera lançamentos em lote (`writeBatch`). Suporta modo de cálculo `valor` (fixo) ou `porcentagem` (calculado sobre entradas selecionadas).
-- **Gastos dinâmicos recalculados automaticamente**: `useEntradas.js` mantém um segundo listener que, sempre que as entradas do mês mudam, recalcula e sobrescreve (via `writeBatch`) os gastos com `fixacao: "dinamico"` e `modoCalculo: "porcentagem"`.
+- **Lançamentos fixos via modelos** (ver seção 21): `listarModelosPendentes()` + `gerarFixosDoMes(modeloIds)` (em `useGastos` e `useEntradas`) — a geração é **incremental**: um modelo conta como já lançado no mês quando existe lançamento `origemModelo: true` com o mesmo `modeloId` (ou, em dado antigo sem `modeloId`, a mesma descrição) — regra em `utils/modelosPendentes.js`. O usuário confirma quais pendentes gerar (`ModalGerarPendentes`, fluxo em `hooks/useGerarFixos.js`); a lista de pendentes é recalculada de novo antes do `writeBatch`, para nunca duplicar. Suporta modo de cálculo `valor` (fixo) ou `porcentagem`.
+- **Gastos dinâmicos recalculados automaticamente**: `useEntradas.js` mantém um segundo listener que, sempre que as entradas do mês mudam, recalcula e sobrescreve (via `writeBatch`, só quando o valor muda) os gastos com `fixacao: "dinamico"` e `modoCalculo: "porcentagem"`, usando a mesma soma da geração (`utils/basePercentual.js`). Por isso `SaidasScreen` mantém `useEntradas` montado mesmo sem usar a lista.
 - **Parcelamento e antecipação de empréstimos** (regra oficializada em 2026-07-24, Sprint 1 / A3): `useEmprestimos.js` gera parcelas dividindo o valor total. Cada parcela grava `valorContratado` (o valor total original — **fixo desde a criação, nunca recalculado depois**) e `economiaTotal` (soma dos descontos de todas as antecipações do empréstimo, denormalizada em todas as parcelas do mesmo `idCompra`, recalculada via `recalcularEconomiaTotal` só quando uma antecipação ou reversão de antecipação realmente muda um desconto). "Valor efetivamente pago" é sempre derivado **na exibição** — soma do campo `valor` (já reflete desconto, quando antecipada) apenas das parcelas com `pago === true` ou `adiantada === true`; nunca é `valorContratado - economiaTotal` (isso foi um erro conceitual do A3, corrigido em 2026-07-25 após a 1ª bateria de testes — aquela fórmula projetava o total final considerando descontos já aplicados, e não refletia quantas parcelas de fato já tinham sido pagas). A barra de progresso (ajustada em 2026-07-25, após 2ª bateria de testes) é `valorPago ÷ valorReferencia`, onde `valorReferencia` **difere por tipo**: para empréstimo é `valorContratado - economiaTotal` (o que de fato será pago, descontos já considerados — necessário para a barra chegar a 100% mesmo com desconto, já que `valorContratado` é fixo e nunca diminui); para cartão é o próprio `valorReal` (soma ao vivo das parcelas, que já reflete qualquer desconto, sem precisar subtrair de novo). Quando todas as parcelas de um grupo (`idCompra`) estão pagas (`parcelasPagas === totalParcelas`), exibe um selo "✅ Empréstimo quitado"/"✅ Compra quitada" — checagem por contagem de parcelas, não por dinheiro, então não depende de arredondamento. O indicador "Parcelas Pagas" por item individual (antes chamado "Progresso", mostrava a posição `parcelaAtual/totalParcelas`) também foi corrigido para mostrar `parcelasPagas/totalParcelas` — quantas já foram pagas, não a posição da parcela sendo vista. Exibido em `ModalDetalhes.js`/`ModalHistoricoParcelas.js` (com fallback por soma para empréstimos criados antes da mudança do A3, sem `valorContratado`/`economiaTotal`). Cartões (`useCartoes.js`) não têm `valorContratado`/`economiaTotal` — continuam com o cálculo por soma de parcelas, escopo do A3 foi só empréstimos.
 - **`valorTotal` do cartão é sempre derivado da soma das parcelas** (regra oficializada em 2026-08-03, ver seção 15): diferente do `valorContratado` do empréstimo (fixo por design), o `valorTotal` de uma compra no cartão nunca é uma fonte de verdade independente — é recalculado (`recalcularValorTotalCompra`) sempre que o `valor` de qualquer parcela do grupo (`idCompra`) muda, inclusive fora do fluxo de personalização de parcelas.
 
@@ -367,7 +367,7 @@ Busca global, filtros avançados, dashboard mais completo, metas, categorias int
   `tipo` é `'gasto' | 'entrada' | 'cartao' | 'emprestimo'`; `origem` é `'firestore'` (lançamento real) ou `'projetado'` (ver 12.2); `itemOriginal` é o documento cru por trás do evento (`null` quando projetado). Retorna também `eventosPorDia` (agrupado por data, com `total` do dia — usado no calendário) e as ações `toggleStatus`/`editar`/`excluir` (ver 12.3).
 - **`useProximosEventos(dias = 7)`**: compõe duas instâncias de `useEventosFinanceiros` (mês atual + mês seguinte) para cobrir uma janela rolante a partir de hoje, mesmo perto da virada do mês. Retorna `vencidos`/`venceHoje`/`proximosDias` (todos filtrados para `pago === false`) e repassa as mesmas ações da instância do mês atual (a operação de CRUD independe de qual instância a expôs, já que atua por id de documento, não pelo `mes`/`ano` do hook).
 
-**Projeção de meses futuros**: cartões/empréstimos já têm todas as parcelas gravadas no Firestore desde a criação (`writeBatch` na hora da compra/contratação), então meses futuros são lidos direto. Gastos/entradas fixos (via `modelosDeGasto`/`modelosDeEntrada`) só existem no Firestore depois que `gerarFixosDoMes()` roda para aquele mês (ao abrir a tela) — para meses ainda não visitados, `normalizarEventos` projeta os modelos ativos em modo `"valor"` (não `"porcentagem"`, que dependeria de entradas daquele mês futuro) usando o mesmo critério de "já gerado?" que `gerarFixosDoMes()` usa (`origemModelo === true` presente no mês).
+**Projeção de meses futuros**: cartões/empréstimos já têm todas as parcelas gravadas no Firestore desde a criação (`writeBatch` na hora da compra/contratação), então meses futuros são lidos direto. Gastos/entradas fixos (via `modelosDeGasto`/`modelosDeEntrada`) só existem no Firestore depois que `gerarFixosDoMes()` roda para aquele mês (ao abrir a tela) — para meses ainda não visitados, `normalizarEventos` projeta os modelos ativos em modo `"valor"` (não `"porcentagem"`, que dependeria de entradas daquele mês futuro) usando o critério de "já gerado?" **tudo ou nada** (`origemModelo === true` presente no mês). Limitação conhecida desde a geração incremental (seção 21): num mês já gerado, um modelo criado depois não aparece como "previsto" na Agenda até ser lançado.
 
 ### 12.2 Ações — reaproveitamento em vez de nova lógica de negócio
 
@@ -1996,3 +1996,54 @@ sido feita na Sprint 4 (ver comentário no próprio `utils/metas.js`, referencia
 `SPRINT4_DISCOVERY.md`). O achado na auditoria de bugs (seção 5, `PROJECT_STATUS.md`) descrevia
 um problema que já não existia — a linha na tabela de bugs nunca tinha sido riscada quando o
 fix aconteceu. Só documentação foi corrigida, nenhum código.
+
+## 21. Modelos recorrentes: geração incremental e base percentual (✅ 2026-09-25)
+
+Detalhe do "o quê/por quê" em `PROJECT_STATUS.md` seção 22. Aqui, só o desenho.
+
+### 21.1 Campos no Firestore
+- Lançamentos gerados (`gastos`, `entradas`): **`modeloId`** — de qual modelo veio. Ausente em
+  dado anterior a 2026-09-25; fallback por descrição normalizada (trim + minúsculas).
+- `modelosDeGasto` em modo porcentagem e os `gastos` gerados a partir deles:
+  **`baseModelosEntrada`** (ids de `modelosDeEntrada`) e **`baseIncluiAvulsas`** (bool). O campo
+  legado `entradasSelecionadas` (ids de entradas de um mês) continua gravado em dado antigo e é
+  preservado nos modelos (o formulário não o envia mais; `updateDoc` não o apaga).
+- `fixacao`: só `"dinamico"` tem comportamento (recálculo). Qualquer outro valor (`"fixo"`, e os
+  legados `"modelo"`/`"gasto"`) = valor congelado na geração.
+
+### 21.2 Onde está cada regra
+| Regra | Arquivo | Tem teste |
+|---|---|---|
+| Quais modelos estão pendentes no mês | `utils/modelosPendentes.js` | ✅ |
+| Soma da base, % e arredondamento em centavos | `utils/basePercentual.js` (`somarBase`, `calcularValorPercentual`, `arredondarCentavos`) | ✅ |
+| Conversão da base antiga → nova (regra) | `utils/basePercentual.js` (`converterBaseLegada`) | ✅ |
+| Conversão da base antiga (leitura/escrita Firestore) | `utils/migrarBasePercentual.js` | — |
+| Fluxo do botão + alertas | `hooks/useGerarFixos.js` + `components/ModalGerarPendentes.js` | — |
+
+Uma entrada entra na base quando: veio de um modelo da base (`modeloId`); ou é antiga, sem
+`modeloId`, e a descrição bate com a de um modelo da base; ou não veio de modelo e
+`baseIncluiAvulsas` está ligado.
+
+### 21.3 Conversão automática (uma vez por modelo)
+`migrarBasesPercentuaisLegadas(basePath)` roda ao abrir "Configurar Modelos" de gastos e no
+início de `gerarFixosDoMes` (falha ali não bloqueia a geração). Para cada modelo em porcentagem
+sem `baseModelosEntrada`: busca por id (`getDoc`, independe do mês) as entradas de
+`entradasSelecionadas` → entrada de modelo vira o modelo (por `modeloId` ou descrição), entrada
+avulsa liga `baseIncluiAvulsas`, entrada apagada é ignorada. Nada convertível → modelo intocado
+(cálculo antigo continua valendo, usuário resseleciona). Resultado logado no console.
+
+### 21.4 Resolução da base no recálculo dinâmico (`useEntradas.js`)
+1. Gasto com `baseModelosEntrada` → base nova.
+2. Gasto só com `entradasSelecionadas` e algum desses ids existe no mês → cálculo antigo
+   (gastos de meses passados que estavam certos não mudam de valor).
+3. Ids antigos não batem com nada no mês (o caso que gerava zero) e o modelo de origem
+   (`modeloId`) já tem base nova → usa a do modelo e grava no gasto.
+
+O guard `entradas.length === 0` é intencional: no primeiro render a lista ainda não chegou e
+recalcular zeraria os gastos.
+
+### 21.5 Testes automatizados
+Jest + `jest-expo` (devDependencies), `npm test`, `roots: ["<rootDir>/src"]` (a pasta
+`functions/` tem Jest próprio). `modulePaths` inclui `node_modules/expo/node_modules` porque no
+Expo 57 o `expo-modules-core` fica aninhado e o preset não o resolvia. Convenção: testes em
+`__tests__/` ao lado do código, priorizando funções puras de cálculo financeiro.
