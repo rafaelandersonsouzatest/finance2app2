@@ -1,6 +1,6 @@
 # Status do Projeto
 
-> Última atualização: 2026-09-19
+> Última atualização: 2026-09-25
 > Este documento reflete o estado real do código no momento da análise, não intenções ou memória de conversas anteriores. Atualize-o sempre que o estado mudar de forma relevante.
 
 ## 0. Releases publicadas (EAS Update / OTA)
@@ -14,6 +14,7 @@
 | **0.5.0** — Linha do Tempo estendida (Gastos/Entradas/Investimentos), fix de login Google e infraestrutura local de Colaboração entre Usuários | 2026-08-14 | `bd824c6` | `meu-app`, `rafael`, `christian` | `main` |
 | **0.6.0** — Migração Expo SDK 54→57 (ver seção 19). Como não havia publicação desde a 0.5.0 (14/08), esta release também levou junto todo o acumulado no meio tempo: Sprint 6 (Cartões, seção 14), refactor de carregamento em `SaidasScreen` (seção 17), e as Etapas 3–4 de Colaboração entre Usuários (divisão de despesa, seção 18) — permanece **atrás de flag**, não fica visível para o usuário. | 2026-09-19 | `5315841` | `meu-app`, `rafael`, `christian` | `main` |
 | **0.6.1** — Corrige `runtimeVersion` (era `"1.0.0"`, um texto fixo sem relação com o SDK; passou a `"exposdk:57.0.0"`) que impedia o Expo Go de abrir a atualização publicada em 0.6.0 mesmo com o SDK certo — ver seção 19.1. Aproveitada para remover 2 warnings: chamada legada de `LayoutAnimation` (no-op na New Architecture, `EstatisticasComponent.js`) e Firebase Auth sem persistência configurada para React Native (`src/config/firebase.js`, usuário era deslogado a cada reabertura do app). | 2026-09-19 | *(pendente de commit)* | `meu-app`, `rafael`, `christian` | `main` |
+| **0.7.0** — Geração incremental de modelos ("Gerar do Mês" só gera o que falta, com confirmação), "Lançar também neste mês?" ao criar modelo, e correção do gasto em porcentagem que vinha zerado todo mês (ver seção 22). Leva junto o acumulado desde a 0.6.1: FAB acima da navegação do Android, data/"o que mudou" na tela Sobre (data agora em dd/mm/aaaa). Publicada sem o `publish-all.ps1` (ele pede a mensagem interativamente) — mesmo comando, um ambiente por vez. | 2026-09-25 | `a5f3365` | `meu-app`, `rafael`, `christian` | `main` |
 
 Publicada com o script `publish-all.ps1` (novo, raiz do projeto — ver seção 11). Antes desta release, corrigido um bug de configuração que impedia publicar para `christian`: `app.config.js` tinha um `owner` fixo (`rafael.anderson.souza`) para todos os ambientes, mas o projeto `christian` (hoje o ambiente de distribuição para convidados/testadores externos) pertence a uma organização Expo diferente (`finance-app-convidado`) — `owner` agora varia por `APP_ENV`, mesmo padrão já usado para `name`/`slug`/`projectId` (ver `ARQUITETURA.md` seção 7).
 
