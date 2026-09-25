@@ -5,6 +5,10 @@
 // listar toda mudança interna/técnica).
 export const CHANGELOG = [
   {
+    data: '2026-09-25',
+    texto: '"Gerar do Mês" agora gera só os modelos que faltam (dá para escolher quais), novo modelo pode ser lançado no mês na hora, e gastos em porcentagem não vêm mais zerados nos meses novos.',
+  },
+  {
     data: '2026-09-20',
     texto: 'Corrige o botão "+" ficando atrás do menu inferior em celulares Android com navegação por 3 botões.',
   },
