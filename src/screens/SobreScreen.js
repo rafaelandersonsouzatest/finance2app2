@@ -45,7 +45,8 @@ export default function SobreScreen() {
         <View style={{ marginTop: 24, alignSelf: 'stretch' }}>
           <Text style={[globalStyles.headerTitle, { fontSize: 16 }]}>O que mudou</Text>
           <Text style={{ color: colors.textSecondary, marginTop: 4 }}>
-            {ultimaMudanca.data} — {ultimaMudanca.texto}
+            {/* changelog.js guarda ISO (yyyy-mm-dd); exibe dd/mm/aaaa */}
+            {ultimaMudanca.data.split('-').reverse().join('/')} — {ultimaMudanca.texto}
           </Text>
         </View>
       )}
