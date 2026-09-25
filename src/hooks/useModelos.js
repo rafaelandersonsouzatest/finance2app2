@@ -86,12 +86,15 @@ export const useModelos = (tipo = 'gasto') => {
       const collectionName = tipo === 'gasto' ? 'modelosDeGasto' : 'modelosDeEntrada';
       const valor = parseFloat(String(modelo.valor ?? 0).replace(',', '.')) || 0;
 
-      await addDoc(collection(db, `${basePath}/${collectionName}`), {
+      const docRef = await addDoc(collection(db, `${basePath}/${collectionName}`), {
         ...modelo,
         ativo: modelo.ativo ?? true,
         valor,
         criadoEm: serverTimestamp(),
       });
+      // 🔹 id devolvido para quem quiser lançar o modelo recém-criado no mês
+      // na hora (GerenciarModelosModal → "Lançar também neste mês?").
+      return docRef.id;
     } catch (err) {
       console.error('Erro ao adicionar modelo:', err);
       setError(err.message || String(err));

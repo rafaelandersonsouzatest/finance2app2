@@ -10,6 +10,14 @@ import { getBasePath } from "../utils/firestorePaths";
 import { removerIndefinidos } from "../utils/firestoreSanitize";
 import { registrarEvento } from "../utils/registrarEvento";
 import { detectarAlteracoes } from "../utils/linhaDoTempoConfig";
+import { parseBRL } from "../utils/formatarValor";
+import { calcularModelosPendentes } from "../utils/modelosPendentes";
+import {
+  temBaseNova,
+  somarBase,
+  calcularValorPercentual,
+  arredondarCentavos,
+} from "../utils/basePercentual";
 
 
 // =========================================================
@@ -39,7 +47,7 @@ export const useEntradas = (mes, ano) => {
           return {
             id: docSnap.id,
             ...data,
-            valor: parseFloat(data.valor) || 0,
+            valor: parseBRL(data.valor),
             pago: data.pago === true,
             // 🔹 `data.membro`/`data.categoria` podem ser `null` (nenhum
             // Membro/categoria escolhido) — em JS, `typeof null === 'object'`
@@ -80,51 +88,87 @@ export const useEntradas = (mes, ano) => {
   // =========================================================
   // 🔹 Recalcular automaticamente gastos dinâmicos
   // =========================================================
+  // 🔹 `entradas.length === 0` continua bloqueando: no primeiro render a lista
+  // ainda está vazia (snapshot não chegou) e recalcular aqui zeraria os gastos.
   useEffect(() => {
     if (!user?.uid || !mes || !ano || entradas.length === 0) return;
 
+    const basePath = getBasePath(user);
     const qGastos = query(
-      collection(db, `${getBasePath(user)}/gastos`),
+      collection(db, `${basePath}/gastos`),
       where("mes", "==", mes),
       where("ano", "==", ano),
       where("fixacao", "==", "dinamico")
     );
 
     const unsubscribe = onSnapshot(qGastos, async (snapshot) => {
+      const gastosPercentuais = snapshot.docs.filter(
+        (d) => d.data().modoCalculo === "porcentagem"
+      );
+      if (gastosPercentuais.length === 0) return;
+
+      // Modelos de gasto: só para gasto gerado ainda com a base antiga
+      // (ver resolução da base abaixo).
+      const precisaModelosGasto = gastosPercentuais.some((d) => !temBaseNova(d.data()));
+      const modelosGasto = new Map(
+        precisaModelosGasto
+          ? (await getDocs(collection(db, `${basePath}/modelosDeGasto`))).docs.map(
+              (d) => [d.id, d.data()]
+            )
+          : []
+      );
+      // Modelos de entrada: para reconhecer entradas antigas (sem modeloId)
+      // pela descrição, na base nova.
+      const modelosEntrada = (
+        await getDocs(collection(db, `${basePath}/modelosDeEntrada`))
+      ).docs.map((d) => ({ id: d.id, ...d.data() }));
+
       const batch = writeBatch(db);
+      let temAlteracao = false;
 
-      snapshot.docs.forEach((docSnap) => {
+      gastosPercentuais.forEach((docSnap) => {
         const gasto = docSnap.data();
+        const idsLegados = Array.isArray(gasto.entradasSelecionadas)
+          ? gasto.entradasSelecionadas
+          : [];
+        const entradasLegadas = entradas.filter((e) => idsLegados.includes(e.id));
 
-        if (
-          gasto.modoCalculo === "porcentagem" &&
-          Array.isArray(gasto.entradasSelecionadas) &&
-          gasto.entradasSelecionadas.length > 0
-        ) {
-          const entradasSelecionadas = entradas.filter((e) =>
-            gasto.entradasSelecionadas.includes(e.id)
-          );
+        // 🔹 Qual base usar:
+        // 1. a do próprio gasto (gerado já com a base nova);
+        // 2. base antiga, se os ids ainda apontam para entradas deste mês
+        //    (gastos de meses passados continuam exatamente como eram);
+        // 3. base antiga "quebrada" (ids de outro mês — o gasto que saía
+        //    zerado): usa a base nova do modelo de origem, se já convertido,
+        //    e grava no gasto para não precisar resolver de novo.
+        const modeloOrigem = modelosGasto.get(gasto.modeloId);
+        let total;
+        let baseDoModelo = null;
+        if (temBaseNova(gasto)) {
+          total = somarBase(gasto, entradas, modelosEntrada);
+        } else if (entradasLegadas.length > 0) {
+          total = entradasLegadas.reduce((soma, e) => soma + parseBRL(e.valor), 0);
+        } else if (temBaseNova(modeloOrigem)) {
+          baseDoModelo = {
+            baseModelosEntrada: modeloOrigem.baseModelosEntrada,
+            baseIncluiAvulsas: modeloOrigem.baseIncluiAvulsas === true,
+          };
+          total = somarBase(baseDoModelo, entradas, modelosEntrada);
+        } else {
+          return;
+        }
 
-          const total = entradasSelecionadas.reduce(
-            (soma, e) => soma + (parseFloat(e.valor) || 0),
-            0
-          );
-
-          const novoValor = total * (parseFloat(gasto.valorPercentual) / 100);
-
-          if (novoValor.toFixed(2) !== (gasto.valor || 0).toFixed(2)) {
-            batch.update(
-              doc(db, `${getBasePath(user)}/gastos`, docSnap.id),
-              {
-                valor: parseFloat(novoValor.toFixed(2)),
-                atualizadoEm: serverTimestamp(),
-              }
-            );
-          }
+        const novoValor = calcularValorPercentual(total, gasto.valorPercentual);
+        if (novoValor !== arredondarCentavos(parseBRL(gasto.valor)) || baseDoModelo) {
+          batch.update(doc(db, `${basePath}/gastos`, docSnap.id), {
+            valor: novoValor,
+            ...baseDoModelo,
+            atualizadoEm: serverTimestamp(),
+          });
+          temAlteracao = true;
         }
       });
 
-      await batch.commit();
+      if (temAlteracao) await batch.commit();
     });
 
     return () => unsubscribe();
@@ -151,7 +195,7 @@ export const useEntradas = (mes, ano) => {
           ...entrada,
           pago: entrada.pago === true,
           data: dataFinal,
-          valor: parseFloat(entrada.valor),
+          valor: parseBRL(entrada.valor),
           compartilhado: false, // 👈 novo campo padrão
           criadoEm: serverTimestamp(),
         })
@@ -202,7 +246,7 @@ export const useEntradas = (mes, ano) => {
         ref,
         removerIndefinidos({
           ...dadosAtualizados,
-          valor: parseFloat(dadosAtualizados.valor),
+          valor: parseBRL(dadosAtualizados.valor),
           atualizadoEm: serverTimestamp(),
         })
       );
@@ -267,32 +311,59 @@ export const useEntradas = (mes, ano) => {
 // =========================================================
 // 🔹 Gerar entradas fixas do mês com base em modelos
 // =========================================================
-const gerarFixosDoMes = async () => {
-  if (!user?.uid) throw new Error("Usuário não autenticado.");
+// 🔹 Mesma estrutura de useGastos.js: lê direto do Firestore e recalcula os
+// pendentes de novo antes de gravar, para nunca duplicar.
+const carregarPendentes = async (basePath) => {
+  const refEntradas = collection(db, `${basePath}/entradas`);
+  const qEntradas = query(refEntradas, where("mes", "==", mes), where("ano", "==", ano));
+  const snapshotEntradasExistentes = await getDocs(qEntradas);
+  const entradasDoMes = snapshotEntradasExistentes.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  }));
+
+  const refModelos = collection(db, `${basePath}/modelosDeEntrada`);
+  const snapshotModelos = await getDocs(refModelos);
+  const modelos = snapshotModelos.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+  return {
+    entradasDoMes,
+    modelos,
+    pendentes: calcularModelosPendentes(modelos, entradasDoMes),
+  };
+};
+
+// 🔹 Para a tela de confirmação. `status`: SEM_MODELOS | NADA_PENDENTE | OK | ERRO.
+const listarModelosPendentes = async () => {
+  if (!user?.uid) return { status: "ERRO", pendentes: [] };
+  try {
+    const { modelos, pendentes } = await carregarPendentes(getBasePath(user));
+    if (modelos.length === 0) return { status: "SEM_MODELOS", pendentes: [] };
+    if (pendentes.length === 0) return { status: "NADA_PENDENTE", pendentes: [] };
+    return { status: "OK", pendentes };
+  } catch (err) {
+    console.error("Erro ao listar modelos pendentes:", err);
+    setErro(err.message);
+    return { status: "ERRO", pendentes: [] };
+  }
+};
+
+// 🔹 Gera só os modelos escolhidos (`modeloIds`) que continuam pendentes.
+const gerarFixosDoMes = async (modeloIds = []) => {
+  if (!user?.uid) return { status: "ERRO" };
 
   try {
     const basePath = getBasePath(user);
-
-    // 👉 agora o destino é ENTRADAS, não gastos
     const refEntradas = collection(db, `${basePath}/entradas`);
-    const qEntradas = query(refEntradas, where("mes", "==", mes), where("ano", "==", ano));
-    const snapshotEntradasExistentes = await getDocs(qEntradas);
 
-    const jaGerou = snapshotEntradasExistentes.docs.some(
-      (doc) => doc.data().origemModelo === true
-    );
-    if (jaGerou) return "JA_GERADO";
-
-    // 👉 agora buscamos modelosDeEntrada (já estava certo)
-    const refModelos = collection(db, `${basePath}/modelosDeEntrada`);
-    const snapshotModelos = await getDocs(refModelos);
-    if (snapshotModelos.empty) return "SEM_MODELOS";
+    const { entradasDoMes, pendentes } = await carregarPendentes(basePath);
+    const selecionados = pendentes.filter((m) => modeloIds.includes(m.id));
+    if (selecionados.length === 0) return { status: "NADA_PENDENTE" };
 
     const novosDocs = [];
 
-    for (const docSnap of snapshotModelos.docs) {
-      const modelo = docSnap.data();
-      let valorFinal = parseFloat(modelo.valor) || 0;
+    for (const modelo of selecionados) {
+      let valorFinal = parseBRL(modelo.valor);
 
       // cálculo de porcentagem se houver
       if (
@@ -300,12 +371,12 @@ const gerarFixosDoMes = async () => {
         Array.isArray(modelo.entradasSelecionadas) &&
         modelo.entradasSelecionadas.length > 0
       ) {
-        const entradasSelecionadas = snapshotEntradasExistentes.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((e) => modelo.entradasSelecionadas.includes(e.id));
+        const entradasSelecionadas = entradasDoMes.filter((e) =>
+          modelo.entradasSelecionadas.includes(e.id)
+        );
 
         const totalEntradas = entradasSelecionadas.reduce(
-          (soma, e) => soma + (parseFloat(e.valor) || 0),
+          (soma, e) => soma + parseBRL(e.valor),
           0
         );
         valorFinal = totalEntradas * (parseFloat(modelo.valor) / 100);
@@ -331,6 +402,8 @@ const gerarFixosDoMes = async () => {
         ano,
         pago: false,
         origemModelo: true,
+        // 🔹 De qual modelo veio (ver utils/modelosPendentes.js)
+        modeloId: modelo.id,
         criadoEm: serverTimestamp(),
       });
     }
@@ -342,11 +415,11 @@ const gerarFixosDoMes = async () => {
 
     await batch.commit();
 
-    return "SUCESSO";
+    return { status: "SUCESSO", quantidade: novosDocs.length };
   } catch (err) {
     console.error("Erro ao gerar fixos:", err);
     setErro(err.message);
-    return "ERRO";
+    return { status: "ERRO" };
   }
 };
 
@@ -361,5 +434,6 @@ const gerarFixosDoMes = async () => {
     atualizarEntrada,
     excluirEntrada,
     gerarFixosDoMes,
+    listarModelosPendentes,
   };
 };

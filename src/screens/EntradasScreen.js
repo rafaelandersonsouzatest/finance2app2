@@ -8,7 +8,8 @@ import AlertaModal from '../components/AlertaModal';
 import { useDateFilter } from '../contexts/DateFilterContext';
 import { useEntradas } from "../hooks/useEntradas";
 import { colors } from '../styles/colors';
-import { handleGerarFixosUtil } from '../utils/handleGerarFixos';
+import { useGerarFixos } from '../hooks/useGerarFixos';
+import ModalGerarPendentes from '../components/ModalGerarPendentes';
 
 export default function EntradasScreen() {
   // O estado do alerta agora precisa da prop 'botoes' para o caso de exclusão
@@ -23,6 +24,7 @@ export default function EntradasScreen() {
     atualizarEntrada: updateEntrada,
     excluirEntrada: deleteEntrada,
     gerarFixosDoMes,
+    listarModelosPendentes,
   } = useEntradas(selectedMonth, selectedYear);
 
   // Modais
@@ -37,10 +39,6 @@ export default function EntradasScreen() {
     return entradasFiltradas
       .filter((e) => e.pago)
       .reduce((soma, item) => soma + (item.valor || 0), 0);
-  }, [entradasFiltradas]);
-
-  const jaGerou = useMemo(() => {
-    return entradasFiltradas.some((e) => e?.origemModelo === true);
   }, [entradasFiltradas]);
 
   // Handlers
@@ -100,8 +98,12 @@ export default function EntradasScreen() {
     setHistoricoModalVisivel(true);
   };
 
-  const handleGerarFixos = () =>
-    handleGerarFixosUtil(gerarFixosDoMes, setAlerta, 'entrada');
+  const { iniciarGeracao: handleGerarFixos, modalGerarProps } = useGerarFixos(
+    listarModelosPendentes,
+    gerarFixosDoMes,
+    setAlerta,
+    'entrada'
+  );
   const getIconePorCategoria = (categoria) => {
     const icones = {
       Renda: 'briefcase-outline',
@@ -134,8 +136,6 @@ export default function EntradasScreen() {
     },
   ];
 
-  const fabActions = jaGerou ? actions.filter(a => a.name !== 'bt_gerar') : actions;
-
   return (
     <View style={{ flex: 1 }}>
       <TelaPadrao
@@ -150,7 +150,7 @@ export default function EntradasScreen() {
         getIconePorCategoria={getIconePorCategoria}
         refreshing={loading}
         loading={loading}
-        fabActions={fabActions}
+        fabActions={actions}
         onHistoryPress={handleAbrirHistorico}
       />
 
@@ -182,9 +182,10 @@ export default function EntradasScreen() {
         visible={modalModelosVisivel}
         onClose={() => setModalModelosVisivel(false)}
         tipo="entrada"
-        entradas={entradasFiltradas}
-        loadingEntradas={loading}
+        gerarFixosDoMes={gerarFixosDoMes}
       />
+
+      <ModalGerarPendentes {...modalGerarProps} />
 
       <AlertaModal
         visible={alerta.visivel}

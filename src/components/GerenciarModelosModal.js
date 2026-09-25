@@ -21,15 +21,25 @@ import { useCategorias } from "../hooks/useCategorias";
 import { useModelos } from "../hooks/useModelos";
 import { useMembros } from "../hooks/useMembros";
 import { useDateFilter } from "../contexts/DateFilterContext";
+import { useAuth } from "../auth/useAuth";
+import { getBasePath } from "../utils/firestorePaths";
+import { migrarBasesPercentuaisLegadas } from "../utils/migrarBasePercentual";
 
-// 🔹 `entradas`/`loadingEntradas` chegam por prop, não de `useEntradas()`
-// aqui dentro — este componente não tem rota própria, é sempre renderizado
-// dentro de uma tela que já busca essa mesma lista (ver ARQUITETURA.md seção
-// 19, princípio "um dono, vários apresentadores").
-const FormularioModelo = ({ tipo, onSave, initialData, onCancel, entradas = [], loadingEntradas = false }) => {
-  const { selectedMonth, selectedYear } = useDateFilter();
+// 🔹 Opções de "Atualização de valor" (só modo porcentagem). Modelos antigos
+// com "modelo"/"gasto" (as duas opções de "fixar" de antes, que já se
+// comportavam igual) aparecem como "fixo" — só "dinamico" é recalculado.
+const OPCOES_FIXACAO = [
+  { key: "dinamico", label: "Recalcular quando as entradas mudarem" },
+  { key: "fixo", label: "Manter o valor calculado na hora de gerar" },
+];
+
+const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
   const { categorias } = useCategorias();
   const { membros } = useMembros();
+  // 🔹 Base de cálculo do modo porcentagem = modelos de entrada (estáveis
+  // entre meses) — ver utils/basePercentual.js.
+  const { modelos: modelosEntrada, loading: loadingModelosEntrada } =
+    useModelos("entrada");
 
   const [descricao, setDescricao] = useState("");
   // 🔹 Valor monetário edita via CampoMonetario (número, mesmo componente
@@ -41,13 +51,11 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel, entradas = [], 
   const [dia, setDia] = useState("");
   const [membro, setMembro] = useState(null);
   const [modoCalculo, setModoCalculo] = useState("valor");
-  const [entradasPorMes, setEntradasPorMes] = useState({});
+  const [baseModelosEntrada, setBaseModelosEntrada] = useState([]);
+  const [baseIncluiAvulsas, setBaseIncluiAvulsas] = useState(false);
   const [fixacao, setFixacao] = useState("dinamico");
   const [miniModalEntradas, setMiniModalEntradas] = useState(false);
   const [erros, setErros] = useState({});
-
-  const keyMes = `${selectedYear}-${selectedMonth}`;
-  const entradasSelecionadas = entradasPorMes[keyMes] || [];
 
   // 🔄 Preenche ao editar
   useEffect(() => {
@@ -89,14 +97,13 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel, entradas = [], 
         setMembro(null);
       }
       setModoCalculo(initialData.modoCalculo || "valor");
-      setFixacao(initialData.fixacao || "dinamico");
-
-      if (initialData.entradasSelecionadas?.length) {
-        setEntradasPorMes((prev) => ({
-          ...prev,
-          [keyMes]: initialData.entradasSelecionadas,
-        }));
-      }
+      setFixacao(
+        initialData.fixacao && initialData.fixacao !== "dinamico" ? "fixo" : "dinamico"
+      );
+      // Modelo antigo ainda não convertido (ver utils/migrarBasePercentual.js)
+      // abre sem base marcada — o usuário resseleciona.
+      setBaseModelosEntrada(initialData.baseModelosEntrada || []);
+      setBaseIncluiAvulsas(initialData.baseIncluiAvulsas === true);
     } else {
       setDescricao("");
       setValorPercentual("");
@@ -106,11 +113,12 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel, entradas = [], 
       setMembro(null);
       setModoCalculo("valor");
       setFixacao("dinamico");
-      setEntradasPorMes({});
+      setBaseModelosEntrada([]);
+      setBaseIncluiAvulsas(false);
     }
 
     setErros({});
-  }, [initialData, keyMes]);
+  }, [initialData]);
 
   // ✅ Validação
   const validarCampos = () => {
@@ -130,6 +138,15 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel, entradas = [], 
 
     if (modoCalculo === "porcentagem" && (valorNum <= 0 || valorNum > 100)) {
       novosErros.valor = "A porcentagem deve estar entre 1 e 100.";
+    }
+
+    // Sem base, o gasto seria gerado sempre zerado.
+    if (
+      modoCalculo === "porcentagem" &&
+      baseModelosEntrada.length === 0 &&
+      !baseIncluiAvulsas
+    ) {
+      novosErros.base = "Escolha ao menos uma entrada para a base de cálculo.";
     }
 
     if (!dia || isNaN(diaNum) || diaNum < 1 || diaNum > 31) {
@@ -167,41 +184,51 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel, entradas = [], 
       modoCalculo,
       diaVencimento: Number(dia),
       fixacao,
-      entradasSelecionadas: entradasPorMes[keyMes] || [],
+      // 🔹 `entradasSelecionadas` (base antiga) não é mais gravado — o
+      // updateDoc preserva o valor antigo em modelos já existentes.
+      ...(modoCalculo === "porcentagem" && {
+        baseModelosEntrada,
+        baseIncluiAvulsas,
+      }),
     };
 
     onSave(modelo);
   };
 
-  const toggleEntrada = (id) => {
-    setEntradasPorMes((prev) => {
-      const atuais = prev[keyMes] || [];
-      const novas = atuais.includes(id)
-        ? atuais.filter((e) => e !== id)
-        : [...atuais, id];
-
-      return { ...prev, [keyMes]: novas };
-    });
+  const limparErroBase = () => {
+    if (erros.base) setErros((prev) => ({ ...prev, base: null }));
   };
+
+  const toggleModeloEntrada = (id) => {
+    limparErroBase();
+    setBaseModelosEntrada((atuais) =>
+      atuais.includes(id) ? atuais.filter((e) => e !== id) : [...atuais, id]
+    );
+  };
+
+  const toggleAvulsas = () => {
+    limparErroBase();
+    setBaseIncluiAvulsas((atual) => !atual);
+  };
+
+  const todasMarcadas =
+    baseIncluiAvulsas &&
+    modelosEntrada.every((m) => baseModelosEntrada.includes(m.id));
 
   const toggleTodas = () => {
-    setEntradasPorMes((prev) => {
-      const todas = prev[keyMes] || [];
-      const novas =
-        todas.length === entradas.length ? [] : entradas.map((e) => e.id);
-
-      return { ...prev, [keyMes]: novas };
-    });
+    limparErroBase();
+    setBaseModelosEntrada(todasMarcadas ? [] : modelosEntrada.map((m) => m.id));
+    setBaseIncluiAvulsas(!todasMarcadas);
   };
 
-  // 🧮 Texto com nomes das entradas selecionadas
+  // 🧮 Texto com nomes da base selecionada
   const getTextoSelecionadas = () => {
-    if (!entradasSelecionadas.length) return "Selecionar Entradas";
+    const nomes = modelosEntrada
+      .filter((m) => baseModelosEntrada.includes(m.id))
+      .map((m) => m.descricao);
+    if (baseIncluiAvulsas) nomes.push("Entradas avulsas");
 
-    const nomes = entradas
-      .filter((e) => entradasSelecionadas.includes(e.id))
-      .map((e) => e.descricao);
-
+    if (!nomes.length) return "Selecionar Entradas";
     if (nomes.length <= 2) return nomes.join(", ");
     return `${nomes.slice(0, 2).join(", ")} e +${nomes.length - 2}`;
   };
@@ -356,6 +383,9 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel, entradas = [], 
                 color={colors.textSecondary}
               />
             </TouchableOpacity>
+            {erros.base && (
+              <Text style={globalStyles.errorMessage}>{erros.base}</Text>
+            )}
           </View>
 
           {/* ⚙️ Atualização de valor */}
@@ -381,11 +411,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel, entradas = [], 
               Atualização de valor
             </Text>
 
-            {[
-              { key: "modelo", label: "Fixar ao gerar modelo" },
-              { key: "gasto", label: "Fixar ao gerar gasto" },
-              { key: "dinamico", label: "Atualizar dinamicamente" },
-            ].map((op) => (
+            {OPCOES_FIXACAO.map((op) => (
               <TouchableOpacity
                 key={op.key}
                 onPress={() => setFixacao(op.key)}
@@ -462,7 +488,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel, entradas = [], 
                   </TouchableOpacity>
                 </View>
 
-                {loadingEntradas ? (
+                {loadingModelosEntrada ? (
                   <ActivityIndicator
                     color={colors.primary}
                     style={{ marginTop: 20 }}
@@ -483,8 +509,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel, entradas = [], 
                     >
                       <MaterialCommunityIcons
                         name={
-                          entradasSelecionadas.length === entradas.length &&
-                          entradas.length > 0
+                          todasMarcadas
                             ? "checkbox-marked"
                             : "checkbox-blank-outline"
                         }
@@ -498,10 +523,10 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel, entradas = [], 
                       </Text>
                     </TouchableOpacity>
 
-                    {entradas.map((entrada) => (
+                    {modelosEntrada.map((modeloEntrada) => (
                       <TouchableOpacity
-                        key={entrada.id}
-                        onPress={() => toggleEntrada(entrada.id)}
+                        key={modeloEntrada.id}
+                        onPress={() => toggleModeloEntrada(modeloEntrada.id)}
                         style={{
                           flexDirection: "row",
                           alignItems: "center",
@@ -510,7 +535,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel, entradas = [], 
                       >
                         <MaterialCommunityIcons
                           name={
-                            entradasSelecionadas.includes(entrada.id)
+                            baseModelosEntrada.includes(modeloEntrada.id)
                               ? "checkbox-marked"
                               : "checkbox-blank-outline"
                           }
@@ -518,17 +543,51 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel, entradas = [], 
                           color={colors.primary}
                         />
                         <Text
-                          style={{ marginLeft: 6, color: colors.textPrimary }}
+                          style={{ marginLeft: 6, color: colors.textPrimary, flexShrink: 1 }}
                         >
-                          {entrada.descricao} — R${" "}
-                          {Number(entrada.valor || 0).toFixed(2)} (
-                          {entrada.membro && typeof entrada.membro === "object"
-                            ? entrada.membro?.nome || "Sem nome"
-                            : entrada.membro || "Sem membro"}
-                          )
+                          {/* Sem valor: o do modelo pode ser diferente do da
+                              entrada do mês (editada depois de gerada), que é
+                              o que entra de fato na conta. */}
+                          {modeloEntrada.descricao}
+                          {modeloEntrada.membroNome || modeloEntrada.membro
+                            ? ` (${modeloEntrada.membroNome || modeloEntrada.membro})`
+                            : ""}
                         </Text>
                       </TouchableOpacity>
                     ))}
+
+                    {/* Entradas lançadas à mão, fora dos modelos — soma
+                        todas as do mês, qualquer que seja o mês */}
+                    <TouchableOpacity
+                      onPress={toggleAvulsas}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        paddingVertical: 6,
+                        marginTop: 4,
+                        borderTopWidth: 1,
+                        borderTopColor: colors.border,
+                        paddingTop: 10,
+                      }}
+                    >
+                      <MaterialCommunityIcons
+                        name={
+                          baseIncluiAvulsas
+                            ? "checkbox-marked"
+                            : "checkbox-blank-outline"
+                        }
+                        size={20}
+                        color={colors.primary}
+                      />
+                      <View style={{ marginLeft: 6, flexShrink: 1 }}>
+                        <Text style={{ color: colors.textPrimary }}>
+                          Entradas avulsas do mês
+                        </Text>
+                        <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                          Tudo que você lançar à mão, fora dos modelos
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
                   </ScrollView>
                 )}
 
@@ -612,22 +671,68 @@ export default function GerenciarModelosModal({
   visible,
   onClose,
   tipo = "gasto",
-  entradas,
-  loadingEntradas,
+  // 🔹 Do useGastos/useEntradas da tela dona (mesma função do "Gerar do
+  // Mês") — usado para oferecer lançar um modelo recém-criado no mês na hora.
+  gerarFixosDoMes,
 }) {
   const { modelos, loading, addModelo, updateModelo, deleteModelo } =
     useModelos(tipo);
+  const { getFormattedDate } = useDateFilter();
+  const { user } = useAuth();
+
+  // 🔹 Converte modelos em porcentagem ainda na base antiga assim que o
+  // usuário abre os modelos de gasto — o formulário já abre com a base nova
+  // marcada (ver utils/migrarBasePercentual.js). O listener de useModelos
+  // recebe a atualização sozinho.
+  useEffect(() => {
+    if (!visible || tipo !== "gasto" || !user?.uid) return;
+    migrarBasesPercentuaisLegadas(getBasePath(user)).catch((err) =>
+      console.error("Erro ao converter base percentual:", err)
+    );
+  }, [visible, tipo, user?.uid]);
 
   const [editingItem, setEditingItem] = useState(null);
   const [abaAtiva, setAbaAtiva] = useState("modelos");
   const [alerta, setAlerta] = useState({ visivel: false });
+
+  const fecharAlerta = () => setAlerta({ visivel: false });
+
+  const lancarNoMes = async (modeloId) => {
+    fecharAlerta();
+    const { status } = await gerarFixosDoMes([modeloId]);
+    // NADA_PENDENTE aqui = já existe um lançamento com a mesma descrição no
+    // mês (dado antigo, ver utils/modelosPendentes.js) — nada a fazer.
+    if (status === "SUCESSO" || status === "NADA_PENDENTE") return;
+    setAlerta({
+      visivel: true,
+      titulo: "Erro",
+      mensagem:
+        'O modelo foi salvo, mas não foi possível lançá-lo neste mês. Use "Gerar do Mês" para tentar de novo.',
+      icone: "alert-circle-outline",
+      corIcone: colors.error,
+    });
+  };
+
+  const perguntarLancarNoMes = (modeloId, descricao) =>
+    setAlerta({
+      visivel: true,
+      titulo: "Modelo salvo!",
+      mensagem: `Deseja lançar "${descricao}" também em ${getFormattedDate("full")}?`,
+      icone: "calendar-plus",
+      corIcone: colors.primary,
+      botoes: [
+        { texto: "Não", onPress: fecharAlerta },
+        { texto: "Sim", onPress: () => lancarNoMes(modeloId) },
+      ],
+    });
 
   const handleSave = async (modelo) => {
     try {
       if (editingItem) {
         await updateModelo(editingItem.id, modelo);
       } else {
-        await addModelo(modelo);
+        const novoId = await addModelo(modelo);
+        if (gerarFixosDoMes) perguntarLancarNoMes(novoId, modelo.descricao);
       }
 
       setEditingItem(null);
@@ -777,8 +882,6 @@ export default function GerenciarModelosModal({
                 setEditingItem(null);
                 setAbaAtiva("modelos");
               }}
-              entradas={entradas}
-              loadingEntradas={loadingEntradas}
             />
           )}
         </View>
@@ -788,7 +891,7 @@ export default function GerenciarModelosModal({
       <AlertaModal
         {...alerta}
         visible={alerta.visivel}
-        onClose={() => setAlerta({ visivel: false })}
+        onClose={fecharAlerta}
       />
     </Modal>
   );

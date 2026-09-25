@@ -17,7 +17,8 @@ import ModalDetalhes from '../components/ModalDetalhes';
 import ModalEdicao from '../components/ModalEdicao';
 import ModalHistoricoParcelas from '../components/ModalHistoricoParcelas';
 import ModalEditorParcelas from '../components/ModalEditorParcelas';
-import { handleGerarFixosUtil } from '../utils/handleGerarFixos';
+import { useGerarFixos } from '../hooks/useGerarFixos';
+import ModalGerarPendentes from '../components/ModalGerarPendentes';
 import { useExclusaoParcelada } from '../hooks/useExclusaoParcelada';
 import { useAdiantamento } from '../hooks/useAdiantamento';
 import ModalParcelasAdiantamento from '../components/ModalParcelasAdiantamento';
@@ -250,16 +251,14 @@ export default function SaidasScreen() {
     updateGasto,
     deleteGasto,
     gerarFixosDoMes,
+    listarModelosPendentes,
   } = useGastos(selectedMonth, selectedYear);
 
-  // 🔹 Só para alimentar o modo "porcentagem" de GerenciarModelosModal (base
-  // de cálculo de um modelo de gasto) — SaidasScreen não usa entradas para
-  // mais nada. Sem isso, o modal precisaria buscar por conta própria (ver
-  // ARQUITETURA.md seção 19, princípio "um dono, vários apresentadores").
-  const { entradas, carregando: loadingEntradas } = useEntradas(
-    selectedMonth,
-    selectedYear
-  );
+  // 🔹 SaidasScreen não usa a lista de entradas — o hook fica montado aqui
+  // pelo recálculo automático dos gastos em porcentagem "dinâmicos" que ele
+  // mantém (useEntradas.js): sem isso, mudar uma entrada só refletiria no
+  // gasto depois de abrir a tela de Entradas.
+  useEntradas(selectedMonth, selectedYear);
 
   const {
     emprestimos,
@@ -825,8 +824,12 @@ const handleExcluir = (itemParam) => {
     });
   };
 
-  const handleGerarFixos = () =>
-    handleGerarFixosUtil(gerarFixosDoMes, setAlerta, 'gasto');
+  const { iniciarGeracao: handleGerarFixos, modalGerarProps } = useGerarFixos(
+    listarModelosPendentes,
+    gerarFixosDoMes,
+    setAlerta,
+    'gasto'
+  );
 
   // ===================================================
   // 🔹 Botões flutuantes (FAB)
@@ -865,7 +868,7 @@ const handleExcluir = (itemParam) => {
     }
 
     return acoes;
-  }, [abaAtiva, gastos, emprestimos]);
+  }, [abaAtiva, gastos, emprestimos, selectedMonth, selectedYear]);
 
   // ===================================================
   // 🔹 RENDERIZAÇÃO
@@ -1003,9 +1006,10 @@ tipo={
         visible={modalModelosVisivel}
         onClose={() => setModalModelosVisivel(false)}
         tipo="gasto"
-        entradas={entradas}
-        loadingEntradas={loadingEntradas}
+        gerarFixosDoMes={gerarFixosDoMes}
       />
+
+      <ModalGerarPendentes {...modalGerarProps} />
 
       <AlertaModal
         visible={alerta.visivel}
