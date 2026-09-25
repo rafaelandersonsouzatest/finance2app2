@@ -938,3 +938,17 @@ Três melhorias em sequência, cada uma validada pelo usuário antes da seguinte
 - Aviso "InteractionManager has been deprecated" no Expo Go: vem de `react-native-gesture-handler`
   (2.32.0, a versão que o Expo 57 espera) e `react-native-modal` (já na última versão) — não é
   código do app, não aparece no APK, sem correção disponível hoje.
+
+### 22.5 Ambiente de convidados: channel `main` e link fixo para iPhone (2026-09-25)
+- **Problema**: no iPhone, o Expo Go mostra "No projects yet" para o projeto de convidados, mesmo
+  com o usuário dono da organização. Causa: bug do Expo Go iOS com **contas de organização** (a
+  resposta da lista de projetos falha ao ser lida e cai no estado vazio — corrigido upstream em
+  `expo/expo#49702`, merge 2026-09-03; depende de a versão do Expo Go instalada já ter a correção).
+  No Android aparece normalmente. `meu-app`/`rafael` (conta pessoal) não são afetados.
+- **Contorno**: o projeto `christian` não tinha nenhum channel (só a branch `main`), então o único
+  link que funcionava era o de um update group específico — fixo naquela versão. Criado o channel
+  `main` → branch `main` (`eas channel:create main`, com `APP_ENV=christian`). Link fixo, sempre
+  na versão mais recente publicada:
+  `exp://u.expo.dev/8887c54c-8cde-4f30-9a5a-ccd977b9795e?channel-name=main&runtime-version=exposdk:57.0.0`
+- **Lembrar**: o `runtime-version` do link muda a cada upgrade de SDK do Expo — nesse dia, mandar
+  o link novo aos testadores.
