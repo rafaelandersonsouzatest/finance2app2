@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, memo } from 'react';
-import { View, Text, TouchableOpacity, FlatList, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, Modal } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../styles/colors';
 import { globalStyles } from '../styles/globalStyles';
 import CampoMonetario from './CampoMonetario';
+import AreaFormulario from './AreaFormulario';
 import { dividirValorIgualmente, somarParcelas } from '../utils/parcelamento';
 
 // =========================================================
@@ -153,52 +154,61 @@ export default function ModalEditorParcelas({
             </Text>
           )}
 
-          <FlatList
-            data={valores}
-            keyExtractor={(_, indice) => String(indice)}
-            renderItem={({ item, index }) => (
+          {/* Lista em área rolável comum (não FlatList): são poucas dezenas
+              de parcelas no máximo, e assim o AreaFormulario consegue rolar
+              até a parcela que está sendo digitada. Modal centralizado de
+              altura fixa: ocupa o espaço restante e não desconta a barra de
+              navegação. */}
+          <AreaFormulario
+            style={{ flex: 1 }}
+            descontarNavegacao={false}
+            rodape={
+              <>
+                {existeParcelaAberta && (
+                  <TouchableOpacity
+                    onPress={restaurarParcelasIguais}
+                    style={{ alignItems: 'center', paddingVertical: 12 }}
+                  >
+                    <Text style={{ color: colors.primary, fontWeight: '600' }}>
+                      Restaurar parcelas iguais
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <View style={[globalStyles.resumoFinanceiroContainer, { marginBottom: 4 }]}>
+                  <View style={globalStyles.rowBetween}>
+                    <Text style={globalStyles.resumoFinanceiroLabel}>Total da compra</Text>
+                    <Text style={globalStyles.resumoFinanceiroValor}>
+                      R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={globalStyles.buttonRow}>
+                  <View style={globalStyles.rightButtons}>
+                    <TouchableOpacity style={globalStyles.cancelButton} onPress={aoFechar}>
+                      <Text style={globalStyles.cancelButtonText}>Cancelar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={globalStyles.saveButton} onPress={confirmar}>
+                      <Text style={globalStyles.saveButtonText}>Salvar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </>
+            }
+          >
+            {valores.map((valor, index) => (
               <LinhaParcela
+                key={index}
                 indice={index}
                 numero={index + 1}
                 total={valores.length}
-                valor={item}
+                valor={valor}
                 onChange={atualizarParcela}
                 bloqueada={estaBloqueada(index)}
               />
-            )}
-            showsVerticalScrollIndicator={false}
-          />
-
-          {existeParcelaAberta && (
-            <TouchableOpacity
-              onPress={restaurarParcelasIguais}
-              style={{ alignItems: 'center', paddingVertical: 12 }}
-            >
-              <Text style={{ color: colors.primary, fontWeight: '600' }}>
-                Restaurar parcelas iguais
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          <View style={[globalStyles.resumoFinanceiroContainer, { marginBottom: 4 }]}>
-            <View style={globalStyles.rowBetween}>
-              <Text style={globalStyles.resumoFinanceiroLabel}>Total da compra</Text>
-              <Text style={globalStyles.resumoFinanceiroValor}>
-                R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </Text>
-            </View>
-          </View>
-
-          <View style={globalStyles.buttonRow}>
-            <View style={globalStyles.rightButtons}>
-              <TouchableOpacity style={globalStyles.cancelButton} onPress={aoFechar}>
-                <Text style={globalStyles.cancelButtonText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={globalStyles.saveButton} onPress={confirmar}>
-                <Text style={globalStyles.saveButtonText}>Salvar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+            ))}
+          </AreaFormulario>
         </View>
       </View>
     </Modal>

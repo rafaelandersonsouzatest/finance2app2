@@ -8,10 +8,9 @@ import {
   TouchableOpacity,
   TextInput,
   FlatList,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
 import Modal from "react-native-modal";
+import AreaFormulario from "./AreaFormulario";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { useMembros } from "../hooks/useMembros";
 import { useAuth } from "../auth/useAuth";
@@ -105,10 +104,9 @@ export const GerenciarMembrosModal = ({ visivel, onFechar }) => {
       style={{ justifyContent: "flex-end", margin: 0 }}
       useNativeDriver
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={[globalStyles.modalContainer, { padding: 20 }]}
-      >
+      {/* Teclado tratado pelo AreaFormulario (antes: KeyboardAvoidingView
+          desligado no Android). */}
+      <View style={[globalStyles.modalContainer, { padding: 20 }]}>
         <AlertaModal
           visible={alerta.visivel}
           onClose={() => setAlerta((a) => ({ ...a, visivel: false }))}
@@ -128,45 +126,48 @@ export const GerenciarMembrosModal = ({ visivel, onFechar }) => {
           </TouchableOpacity>
         </View>
 
-        <View
-          style={[
-            globalStyles.card,
-            globalStyles.row,
-            globalStyles.alignCenter,
-            { paddingVertical: 8, paddingHorizontal: 12, marginBottom: 20 },
-          ]}
-        >
-          <TextInput
-            placeholder="Nome do novo membro"
-            placeholderTextColor={colors.textSecondary}
-            value={novoNome}
-            onChangeText={setNovoNome}
-            onSubmitEditing={handleAdicionar}
-            style={[globalStyles.input, { flex: 1, borderWidth: 0 }]}
-          />
-          <TouchableOpacity onPress={handleAdicionar} style={{ marginLeft: 8 }}>
-            <MaterialCommunityIcons
-              name="plus-circle"
-              size={28}
-              color={colors.entrada}
+        <AreaFormulario rolavel={false}>
+          <View
+            style={[
+              globalStyles.card,
+              globalStyles.row,
+              globalStyles.alignCenter,
+              { paddingVertical: 8, paddingHorizontal: 12, marginBottom: 20 },
+            ]}
+          >
+            <TextInput
+              placeholder="Nome do novo membro"
+              placeholderTextColor={colors.textSecondary}
+              value={novoNome}
+              onChangeText={setNovoNome}
+              onSubmitEditing={handleAdicionar}
+              style={[globalStyles.input, { flex: 1, borderWidth: 0 }]}
             />
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity onPress={handleAdicionar} style={{ marginLeft: 8 }}>
+              <MaterialCommunityIcons
+                name="plus-circle"
+                size={28}
+                color={colors.entrada}
+              />
+            </TouchableOpacity>
+          </View>
 
-        <FlatList
-          data={membros}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          ListEmptyComponent={
-            <View style={globalStyles.emptyContainer}>
-              <Text style={globalStyles.noDataText}>
-                Nenhum membro cadastrado.
-              </Text>
-            </View>
-          }
-          contentContainerStyle={{ paddingTop: 10 }}
-        />
-      </KeyboardAvoidingView>
+          <FlatList
+            data={membros}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            ListEmptyComponent={
+              <View style={globalStyles.emptyContainer}>
+                <Text style={globalStyles.noDataText}>
+                  Nenhum membro cadastrado.
+                </Text>
+              </View>
+            }
+            contentContainerStyle={{ paddingTop: 10 }}
+            keyboardShouldPersistTaps="handled"
+          />
+        </AreaFormulario>
+      </View>
 
       {/* 🔹 O proprietário edita nome/avatar via atualizarPerfil (sincroniza
           automaticamente para este mesmo documento de membro — ver

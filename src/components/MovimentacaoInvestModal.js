@@ -5,13 +5,12 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import AlertaModal from './AlertaModal';
+import AreaFormulario from './AreaFormulario';
 import { useCurrencyInput } from '../hooks/useCurrencyInput';
 import { formatarBRL } from '../utils/formatarValor';
 
@@ -106,10 +105,9 @@ export default function MovimentacaoInvestModal({
   return (
     <>
       <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={globalStyles.modalOverlay}
-        >
+        {/* Teclado tratado pelo AreaFormulario (mesmo padrão dos demais
+            modais com campos). */}
+        <View style={globalStyles.modalOverlay}>
           <View style={globalStyles.modalContainer}>
             {/* Header */}
             <View style={globalStyles.modalHeader}>
@@ -121,75 +119,77 @@ export default function MovimentacaoInvestModal({
               </TouchableOpacity>
             </View>
 
-            {/* Seleção de Tipo */}
-            <View style={globalStyles.tipoContainer}>
-              <TouchableOpacity
-                style={[
-                  globalStyles.tipoBotao,
-                  tipo === 'Aporte' && globalStyles.tipoBotaoAtivoVerde,
-                ]}
-                onPress={() => setTipo('Aporte')}
-              >
-                <Text
+            <AreaFormulario>
+              {/* Seleção de Tipo */}
+              <View style={globalStyles.tipoContainer}>
+                <TouchableOpacity
                   style={[
-                    globalStyles.tipoTexto,
-                    tipo === 'Aporte' && globalStyles.tipoTextoAtivo,
+                    globalStyles.tipoBotao,
+                    tipo === 'Aporte' && globalStyles.tipoBotaoAtivoVerde,
                   ]}
+                  onPress={() => setTipo('Aporte')}
                 >
-                  Aporte
+                  <Text
+                    style={[
+                      globalStyles.tipoTexto,
+                      tipo === 'Aporte' && globalStyles.tipoTextoAtivo,
+                    ]}
+                  >
+                    Aporte
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    globalStyles.tipoBotao,
+                    tipo === 'Retirada' && globalStyles.tipoBotaoAtivoVermelho,
+                  ]}
+                  onPress={() => setTipo('Retirada')}
+                >
+                  <Text
+                    style={[
+                      globalStyles.tipoTexto,
+                      tipo === 'Retirada' && globalStyles.tipoTextoAtivo,
+                    ]}
+                  >
+                    Retirada
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Campo Valor */}
+              <Text style={globalStyles.label}>Valor</Text>
+              <TextInput
+                style={globalStyles.input}
+                placeholder="R$ 0,00"
+                placeholderTextColor={colors.textSecondary}
+                keyboardType="decimal-pad"
+                value={valorTexto}
+                onChangeText={handleValorChange}
+              />
+
+              {/* Campo Descrição */}
+              <Text style={globalStyles.label}>Descrição</Text>
+              <TextInput
+                style={globalStyles.input}
+                placeholder="Ex: Aporte do salário"
+                placeholderTextColor={colors.textSecondary}
+                value={descricao}
+                onChangeText={setDescricao}
+              />
+
+              {/* Botão Salvar */}
+              <TouchableOpacity
+                style={[globalStyles.saveButton, { marginTop: 20 }]}
+                onPress={handleSave}
+              >
+                <Text style={globalStyles.saveButtonText}>
+                  {initialData ? 'Salvar Alterações' : 'Salvar Movimentação'}
                 </Text>
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  globalStyles.tipoBotao,
-                  tipo === 'Retirada' && globalStyles.tipoBotaoAtivoVermelho,
-                ]}
-                onPress={() => setTipo('Retirada')}
-              >
-                <Text
-                  style={[
-                    globalStyles.tipoTexto,
-                    tipo === 'Retirada' && globalStyles.tipoTextoAtivo,
-                  ]}
-                >
-                  Retirada
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Campo Valor */}
-            <Text style={globalStyles.label}>Valor</Text>
-            <TextInput
-              style={globalStyles.input}
-              placeholder="R$ 0,00"
-              placeholderTextColor={colors.textSecondary}
-              keyboardType="decimal-pad"
-              value={valorTexto}
-              onChangeText={handleValorChange}
-            />
-
-            {/* Campo Descrição */}
-            <Text style={globalStyles.label}>Descrição</Text>
-            <TextInput
-              style={globalStyles.input}
-              placeholder="Ex: Aporte do salário"
-              placeholderTextColor={colors.textSecondary}
-              value={descricao}
-              onChangeText={setDescricao}
-            />
-
-            {/* Botão Salvar */}
-            <TouchableOpacity
-              style={[globalStyles.saveButton, { marginTop: 20 }]}
-              onPress={handleSave}
-            >
-              <Text style={globalStyles.saveButtonText}>
-                {initialData ? 'Salvar Alterações' : 'Salvar Movimentação'}
-              </Text>
-            </TouchableOpacity>
+            </AreaFormulario>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       {/* Modal genérico de alerta */}

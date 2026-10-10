@@ -4,8 +4,9 @@
 // FormularioCategoriaModal.js). Único formulário para os dois casos:
 // `cartao` vem preenchido ao editar, vazio ao criar.
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import Modal from 'react-native-modal';
+import AreaFormulario from '../AreaFormulario';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCarteira } from '../../hooks/useCarteira';
 import { globalStyles } from '../../styles/globalStyles';
@@ -125,7 +126,7 @@ export default function FormularioCartaoModal({ visivel, onFechar, cartao = null
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <AreaFormulario>
           <CartaoVisual cartao={previa} />
 
           <Text style={[globalStyles.label, { marginTop: 20 }]}>Nome *</Text>
@@ -211,7 +212,7 @@ export default function FormularioCartaoModal({ visivel, onFechar, cartao = null
           >
             <Text style={globalStyles.saveButtonText}>{salvando ? 'Salvando...' : 'Salvar'}</Text>
           </TouchableOpacity>
-        </ScrollView>
+        </AreaFormulario>
       </View>
     </Modal>
   );

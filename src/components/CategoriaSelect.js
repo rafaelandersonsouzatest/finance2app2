@@ -22,6 +22,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, TextInput, FlatList } from 'react-native';
 import Modal from 'react-native-modal';
+import AreaFormulario from './AreaFormulario';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCategorias } from '../hooks/useCategorias';
 import { globalStyles } from '../styles/globalStyles';
@@ -188,174 +189,180 @@ export default function CategoriaSelect({
             </TouchableOpacity>
           </View>
 
-          <TextInput
-            style={[globalStyles.input, { marginBottom: 12 }]}
-            placeholder="Buscar categoria..."
-            placeholderTextColor={colors.textSecondary}
-            value={busca}
-            onChangeText={setBusca}
-          />
+          {/* Listas (FlatList) têm rolagem própria — a área só sobe com o
+              teclado e encolhe (ver AreaFormulario, `rolavel`). */}
+          <AreaFormulario rolavel={false}>
+            <TextInput
+              style={[globalStyles.input, { marginBottom: 12 }]}
+              placeholder="Buscar categoria..."
+              placeholderTextColor={colors.textSecondary}
+              value={busca}
+              onChangeText={setBusca}
+            />
 
-          {resultadoBusca ? (
-            <FlatList
-              data={resultadoBusca}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity style={globalStyles.listItem} onPress={() => handleSelecionar(item)}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <MaterialCommunityIcons
-                      name={item.icone || 'shape-outline'}
-                      size={20}
-                      color={item.cor || colors.textSecondary}
-                      style={{ marginRight: 10 }}
-                    />
-                    <Text style={globalStyles.listItemTitle}>{item.caminho}</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-              ListEmptyComponent={
-                permitirCriar ? (
-                  <TouchableOpacity
-                    style={[globalStyles.modalBotaoAdd, { marginTop: 8 }]}
-                    disabled={criando}
-                    onPress={() => handleCriarCategoria(busca.trim())}
-                  >
-                    <MaterialCommunityIcons name="plus-circle-outline" size={20} color="#fff" />
-                    <Text style={globalStyles.modalBotaoAddTexto}>
-                      Criar categoria "{busca.trim()}"
-                    </Text>
+            {resultadoBusca ? (
+              <FlatList
+                data={resultadoBusca}
+                keyboardShouldPersistTaps="handled"
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity style={globalStyles.listItem} onPress={() => handleSelecionar(item)}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <MaterialCommunityIcons
+                        name={item.icone || 'shape-outline'}
+                        size={20}
+                        color={item.cor || colors.textSecondary}
+                        style={{ marginRight: 10 }}
+                      />
+                      <Text style={globalStyles.listItemTitle}>{item.caminho}</Text>
+                    </View>
                   </TouchableOpacity>
-                ) : (
-                  <Text style={globalStyles.noDataText}>Nenhuma categoria encontrada.</Text>
-                )
-              }
-            />
-          ) : (
-            <FlatList
-              data={categoriasTopo}
-              keyExtractor={(item) => item.id}
-              ListHeaderComponent={
-                permitirCriar ? (
-                  <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 8 }}>
-                    Digite acima para buscar ou criar uma nova categoria.
-                  </Text>
-                ) : null
-              }
-              renderItem={({ item }) => {
-                const subs = subcategoriasDe(item.id);
-                const expandida = expandidaId === item.id;
-                return (
-                  <View>
-                    <TouchableOpacity style={globalStyles.listItem} onPress={() => handleSelecionar(item)}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <MaterialCommunityIcons
-                          name={item.icone || 'shape-outline'}
-                          size={20}
-                          color={item.cor || colors.textSecondary}
-                          style={{ marginRight: 10 }}
-                        />
-                        <Text style={globalStyles.listItemTitle}>{item.nome}</Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={(e) => {
-                          e.stopPropagation?.();
-                          setExpandidaId(expandida ? null : item.id);
-                        }}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <MaterialCommunityIcons
-                          name={expandida ? 'chevron-up' : 'chevron-down'}
-                          size={20}
-                          color={colors.textSecondary}
-                        />
-                      </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  permitirCriar ? (
+                    <TouchableOpacity
+                      style={[globalStyles.modalBotaoAdd, { marginTop: 8 }]}
+                      disabled={criando}
+                      onPress={() => handleCriarCategoria(busca.trim())}
+                    >
+                      <MaterialCommunityIcons name="plus-circle-outline" size={20} color="#fff" />
+                      <Text style={globalStyles.modalBotaoAddTexto}>
+                        Criar categoria "{busca.trim()}"
+                      </Text>
                     </TouchableOpacity>
+                  ) : (
+                    <Text style={globalStyles.noDataText}>Nenhuma categoria encontrada.</Text>
+                  )
+                }
+              />
+            ) : (
+              <FlatList
+                data={categoriasTopo}
+                keyboardShouldPersistTaps="handled"
+                keyExtractor={(item) => item.id}
+                ListHeaderComponent={
+                  permitirCriar ? (
+                    <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: 8 }}>
+                      Digite acima para buscar ou criar uma nova categoria.
+                    </Text>
+                  ) : null
+                }
+                renderItem={({ item }) => {
+                  const subs = subcategoriasDe(item.id);
+                  const expandida = expandidaId === item.id;
+                  return (
+                    <View>
+                      <TouchableOpacity style={globalStyles.listItem} onPress={() => handleSelecionar(item)}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <MaterialCommunityIcons
+                            name={item.icone || 'shape-outline'}
+                            size={20}
+                            color={item.cor || colors.textSecondary}
+                            style={{ marginRight: 10 }}
+                          />
+                          <Text style={globalStyles.listItemTitle}>{item.nome}</Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation?.();
+                            setExpandidaId(expandida ? null : item.id);
+                          }}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <MaterialCommunityIcons
+                            name={expandida ? 'chevron-up' : 'chevron-down'}
+                            size={20}
+                            color={colors.textSecondary}
+                          />
+                        </TouchableOpacity>
+                      </TouchableOpacity>
 
-                    {expandida && (
-                      <View style={{ paddingLeft: 20 }}>
-                        {subs.length === 0 && (
-                          <Text style={{ color: colors.textSecondary, fontSize: 13, marginBottom: 8 }}>
-                            Nenhuma subcategoria cadastrada.
-                          </Text>
-                        )}
-                        {subs.map((sub) => (
-                          <TouchableOpacity
-                            key={sub.id}
-                            style={globalStyles.listItem}
-                            onPress={() => handleSelecionar(sub)}
-                          >
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                              <MaterialCommunityIcons
-                                name={sub.icone || 'shape-outline'}
-                                size={18}
-                                color={sub.cor || colors.textSecondary}
-                                style={{ marginRight: 10 }}
+                      {expandida && (
+                        <View style={{ paddingLeft: 20 }}>
+                          {subs.length === 0 && (
+                            <Text style={{ color: colors.textSecondary, fontSize: 13, marginBottom: 8 }}>
+                              Nenhuma subcategoria cadastrada.
+                            </Text>
+                          )}
+                          {subs.map((sub) => (
+                            <TouchableOpacity
+                              key={sub.id}
+                              style={globalStyles.listItem}
+                              onPress={() => handleSelecionar(sub)}
+                            >
+                              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <MaterialCommunityIcons
+                                  name={sub.icone || 'shape-outline'}
+                                  size={18}
+                                  color={sub.cor || colors.textSecondary}
+                                  style={{ marginRight: 10 }}
+                                />
+                                <Text style={globalStyles.listItemTitle}>{sub.nome}</Text>
+                              </View>
+                            </TouchableOpacity>
+                          ))}
+                          {permitirCriar && criandoSubEm === item.id ? (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8 }}>
+                              <TextInput
+                                style={[globalStyles.input, { flex: 1, marginRight: 8 }]}
+                                placeholder="Nome da subcategoria"
+                                placeholderTextColor={colors.textSecondary}
+                                value={novoNomeSub}
+                                onChangeText={setNovoNomeSub}
+                                autoFocus
+                                onSubmitEditing={() => handleCriarSubcategoria(item.id)}
                               />
-                              <Text style={globalStyles.listItemTitle}>{sub.nome}</Text>
+                              <TouchableOpacity
+                                disabled={criando}
+                                onPress={() => handleCriarSubcategoria(item.id)}
+                              >
+                                <MaterialCommunityIcons name="check-circle" size={26} color={colors.primary} />
+                              </TouchableOpacity>
                             </View>
-                          </TouchableOpacity>
-                        ))}
-                        {permitirCriar && criandoSubEm === item.id ? (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8 }}>
-                            <TextInput
-                              style={[globalStyles.input, { flex: 1, marginRight: 8 }]}
-                              placeholder="Nome da subcategoria"
-                              placeholderTextColor={colors.textSecondary}
-                              value={novoNomeSub}
-                              onChangeText={setNovoNomeSub}
-                              autoFocus
-                              onSubmitEditing={() => handleCriarSubcategoria(item.id)}
-                            />
-                            <TouchableOpacity
-                              disabled={criando}
-                              onPress={() => handleCriarSubcategoria(item.id)}
-                            >
-                              <MaterialCommunityIcons name="check-circle" size={26} color={colors.primary} />
-                            </TouchableOpacity>
-                          </View>
-                        ) : (
-                          permitirCriar && (
-                            <TouchableOpacity
-                              style={{ paddingVertical: 10, paddingLeft: 4 }}
-                              onPress={() => {
-                                setNovoNomeSub('');
-                                setCriandoSubEm(item.id);
-                              }}
-                            >
-                              <Text style={{ color: colors.primary, fontWeight: '600' }}>
-                                + Adicionar subcategoria
-                              </Text>
-                            </TouchableOpacity>
-                          )
-                        )}
-                      </View>
-                    )}
-                  </View>
-                );
+                          ) : (
+                            permitirCriar && (
+                              <TouchableOpacity
+                                style={{ paddingVertical: 10, paddingLeft: 4 }}
+                                onPress={() => {
+                                  setNovoNomeSub('');
+                                  setCriandoSubEm(item.id);
+                                }}
+                              >
+                                <Text style={{ color: colors.primary, fontWeight: '600' }}>
+                                  + Adicionar subcategoria
+                                </Text>
+                              </TouchableOpacity>
+                            )
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  );
+                }}
+                ListEmptyComponent={
+                  <Text style={globalStyles.noDataText}>Nenhuma categoria cadastrada ainda.</Text>
+                }
+              />
+            )}
+
+            {!!erro && (
+              <Text style={{ color: colors.error, marginTop: 8, textAlign: 'center' }}>{erro}</Text>
+            )}
+
+            <TouchableOpacity
+              onPress={abrirGerenciar}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 12,
+                paddingVertical: 8,
               }}
-              ListEmptyComponent={
-                <Text style={globalStyles.noDataText}>Nenhuma categoria cadastrada ainda.</Text>
-              }
-            />
-          )}
-
-          {!!erro && (
-            <Text style={{ color: colors.error, marginTop: 8, textAlign: 'center' }}>{erro}</Text>
-          )}
-
-          <TouchableOpacity
-            onPress={abrirGerenciar}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginTop: 12,
-              paddingVertical: 8,
-            }}
-          >
-            <MaterialCommunityIcons name="cog-outline" size={18} color={colors.primary} style={{ marginRight: 6 }} />
-            <Text style={{ color: colors.primary, fontWeight: '600' }}>Gerenciar categorias</Text>
-          </TouchableOpacity>
+            >
+              <MaterialCommunityIcons name="cog-outline" size={18} color={colors.primary} style={{ marginRight: 6 }} />
+              <Text style={{ color: colors.primary, fontWeight: '600' }}>Gerenciar categorias</Text>
+            </TouchableOpacity>
+          </AreaFormulario>
         </View>
       </Modal>
 

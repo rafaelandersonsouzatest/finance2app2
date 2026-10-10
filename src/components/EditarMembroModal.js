@@ -16,6 +16,7 @@ import { isMembroProprietario } from "../utils/membros";
 import AvatarRenderer from "./AvatarRenderer";
 import AvatarEditor from "./AvatarEditor";
 import AlertaModal from "./AlertaModal";
+import AreaFormulario from "./AreaFormulario";
 
 export default function EditarMembroModal({
   visivel,
@@ -79,55 +80,57 @@ export default function EditarMembroModal({
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          style={{ alignItems: "center", marginBottom: 20 }}
-          onPress={() => setEditorAvatarVisivel(true)}
-        >
-          <AvatarRenderer avatar={membro.avatar} nome={membro.nome} tamanho={96} />
-          <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 6 }}>
-            Tocar para editar o avatar
-          </Text>
-        </TouchableOpacity>
-
-        <Text style={[globalStyles.label, { marginBottom: 6 }]}>Nome</Text>
-        <TextInput
-          style={globalStyles.input}
-          value={novoNome}
-          onChangeText={(t) => {
-            setNovoNome(t);
-            if (erroNome) setErroNome(null);
-          }}
-          placeholderTextColor={colors.textSecondary}
-        />
-        {!!erroNome && (
-          <Text style={{ color: colors.error, fontSize: 12, marginTop: 4 }}>{erroNome}</Text>
-        )}
-        <TouchableOpacity
-          style={[globalStyles.modalBotaoAdd, { marginTop: 12 }]}
-          onPress={salvarNome}
-          disabled={salvandoNome}
-        >
-          {salvandoNome ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <MaterialIcons name="check" size={20} color="#fff" />
-              <Text style={globalStyles.modalBotaoAddTexto}>Salvar nome</Text>
-            </>
-          )}
-        </TouchableOpacity>
-
-        {/* 🔹 O proprietário da conta não pode ser excluído aqui — excluir
-            a conta em si é um fluxo à parte (ver ContaScreen.js). */}
-        {!proprietario && (
+        <AreaFormulario>
           <TouchableOpacity
-            style={[globalStyles.modalBotaoAdd, { marginTop: 24, backgroundColor: colors.error }]}
-            onPress={() => setConfirmarExclusao(true)}
+            style={{ alignItems: "center", marginBottom: 20 }}
+            onPress={() => setEditorAvatarVisivel(true)}
           >
-            <MaterialIcons name="delete-outline" size={20} color="#fff" />
-            <Text style={globalStyles.modalBotaoAddTexto}>Excluir membro</Text>
+            <AvatarRenderer avatar={membro.avatar} nome={membro.nome} tamanho={96} />
+            <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 6 }}>
+              Tocar para editar o avatar
+            </Text>
           </TouchableOpacity>
-        )}
+
+          <Text style={[globalStyles.label, { marginBottom: 6 }]}>Nome</Text>
+          <TextInput
+            style={globalStyles.input}
+            value={novoNome}
+            onChangeText={(t) => {
+              setNovoNome(t);
+              if (erroNome) setErroNome(null);
+            }}
+            placeholderTextColor={colors.textSecondary}
+          />
+          {!!erroNome && (
+            <Text style={{ color: colors.error, fontSize: 12, marginTop: 4 }}>{erroNome}</Text>
+          )}
+          <TouchableOpacity
+            style={[globalStyles.modalBotaoAdd, { marginTop: 12 }]}
+            onPress={salvarNome}
+            disabled={salvandoNome}
+          >
+            {salvandoNome ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <MaterialIcons name="check" size={20} color="#fff" />
+                <Text style={globalStyles.modalBotaoAddTexto}>Salvar nome</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* 🔹 O proprietário da conta não pode ser excluído aqui — excluir
+              a conta em si é um fluxo à parte (ver ContaScreen.js). */}
+          {!proprietario && (
+            <TouchableOpacity
+              style={[globalStyles.modalBotaoAdd, { marginTop: 24, backgroundColor: colors.error }]}
+              onPress={() => setConfirmarExclusao(true)}
+            >
+              <MaterialIcons name="delete-outline" size={20} color="#fff" />
+              <Text style={globalStyles.modalBotaoAddTexto}>Excluir membro</Text>
+            </TouchableOpacity>
+          )}
+        </AreaFormulario>
 
         <AlertaModal
           visible={confirmarExclusao}

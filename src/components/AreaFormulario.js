@@ -29,6 +29,10 @@ export default function AreaFormulario({
   // `true` para modal colado na base da tela (bottom sheet); `false` para
   // modal centralizado, que não encosta na barra de navegação.
   descontarNavegacao = true,
+  // `false` quando o conteúdo já é uma lista com rolagem própria (FlatList)
+  // — lista virtualizada dentro de ScrollView não é suportada. Aí a área só
+  // sobe com o teclado e encolhe; quem rola é a própria lista.
+  rolavel = true,
   style,
   estiloScroll,
   estiloConteudo,
@@ -80,22 +84,26 @@ export default function AreaFormulario({
       behavior="padding"
       style={[{ flexShrink: 1 }, style]}
     >
-      <ScrollView
-        ref={scrollRef}
-        style={estiloScroll}
-        contentContainerStyle={estiloConteudo}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        scrollEventThrottle={16}
-        onScroll={(e) => {
-          offsetRef.current = e.nativeEvent.contentOffset.y;
-        }}
-        // Trocar de campo com o teclado já aberto não dispara
-        // keyboardDidShow de novo — confere depois do toque.
-        onTouchEnd={() => setTimeout(garantirCampoVisivel, 350)}
-      >
-        {children}
-      </ScrollView>
+      {rolavel ? (
+        <ScrollView
+          ref={scrollRef}
+          style={estiloScroll}
+          contentContainerStyle={estiloConteudo}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          scrollEventThrottle={16}
+          onScroll={(e) => {
+            offsetRef.current = e.nativeEvent.contentOffset.y;
+          }}
+          // Trocar de campo com o teclado já aberto não dispara
+          // keyboardDidShow de novo — confere depois do toque.
+          onTouchEnd={() => setTimeout(garantirCampoVisivel, 350)}
+        >
+          {children}
+        </ScrollView>
+      ) : (
+        <View style={[{ flexShrink: 1 }, estiloScroll]}>{children}</View>
+      )}
       {rodape}
       {descontarNavegacao && <View style={{ height: insets.bottom }} />}
     </KeyboardAvoidingView>

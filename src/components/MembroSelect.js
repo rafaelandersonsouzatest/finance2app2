@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import Modal from "react-native-modal";
+import AreaFormulario from "./AreaFormulario";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useMembros } from "../hooks/useMembros";
 import { globalStyles } from "../styles/globalStyles";
@@ -252,34 +253,36 @@ export const MembroSelect = ({
             </TouchableOpacity>
           </View>
 
-          <TextInput
-            style={[globalStyles.input, { marginBottom: 12 }]}
-            placeholder="Nome"
-            placeholderTextColor={colors.textSecondary}
-            value={nomeOutraPessoa}
-            onChangeText={setNomeOutraPessoa}
-            onSubmitEditing={confirmarOutraPessoa}
-            autoFocus
-          />
-          <TouchableOpacity style={globalStyles.modalBotaoAdd} onPress={confirmarOutraPessoa}>
-            <MaterialIcons name="check" size={20} color="#fff" />
-            <Text style={globalStyles.modalBotaoAddTexto}>Confirmar</Text>
-          </TouchableOpacity>
+          <AreaFormulario>
+            <TextInput
+              style={[globalStyles.input, { marginBottom: 12 }]}
+              placeholder="Nome"
+              placeholderTextColor={colors.textSecondary}
+              value={nomeOutraPessoa}
+              onChangeText={setNomeOutraPessoa}
+              onSubmitEditing={confirmarOutraPessoa}
+              autoFocus
+            />
+            <TouchableOpacity style={globalStyles.modalBotaoAdd} onPress={confirmarOutraPessoa}>
+              <MaterialIcons name="check" size={20} color="#fff" />
+              <Text style={globalStyles.modalBotaoAddTexto}>Confirmar</Text>
+            </TouchableOpacity>
 
-          {recentes.length > 0 && (
-            <View style={{ marginTop: 20 }}>
-              <Text style={[globalStyles.label, { marginBottom: 6 }]}>Recentes</Text>
-              {recentes.map((nome) => (
-                <TouchableOpacity
-                  key={nome}
-                  style={globalStyles.listItem}
-                  onPress={() => handleSelecionarOutraPessoa(nome)}
-                >
-                  <Text style={globalStyles.listItemTitle}>{nome}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+            {recentes.length > 0 && (
+              <View style={{ marginTop: 20 }}>
+                <Text style={[globalStyles.label, { marginBottom: 6 }]}>Recentes</Text>
+                {recentes.map((nome) => (
+                  <TouchableOpacity
+                    key={nome}
+                    style={globalStyles.listItem}
+                    onPress={() => handleSelecionarOutraPessoa(nome)}
+                  >
+                    <Text style={globalStyles.listItemTitle}>{nome}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </AreaFormulario>
         </View>
       </Modal>
 

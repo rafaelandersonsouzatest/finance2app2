@@ -13,6 +13,7 @@ import { globalStyles } from '../styles/globalStyles';
 import { vibrarLeve } from '../utils/haptics';
 import SeletorData from './SeletorData';
 import { useCurrencyInput } from '../hooks/useCurrencyInput';
+import AreaFormulario from './AreaFormulario';
 
 
 
@@ -114,103 +115,108 @@ export default function ModalParcelasAdiantamento({
             </TouchableOpacity>
           </View>
 
-          <FlatList
-            data={parcelasFuturas}
-            keyExtractor={(item) => item.id}
-            renderItem={renderParcela}
-            showsVerticalScrollIndicator={false}
-            style={{ marginTop: 12 }}
-          />
+          {/* Lista com rolagem própria: a área só sobe com o teclado e a lista
+              encolhe, deixando o campo de desconto (embaixo) visível. */}
+          <AreaFormulario style={{ flex: 1 }} descontarNavegacao={false} rolavel={false}>
+            <FlatList
+              data={parcelasFuturas}
+              keyboardShouldPersistTaps="handled"
+              keyExtractor={(item) => item.id}
+              renderItem={renderParcela}
+              showsVerticalScrollIndicator={false}
+              style={{ marginTop: 12 }}
+            />
 
-          {/* Escolher Data */}
-          <View style={{ marginTop: 16 }}>
-            <TouchableOpacity
-              onPress={() => setUsarDataAtual(!usarDataAtual)}
-              style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}
-            >
-              <MaterialCommunityIcons
-                name={usarDataAtual ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                size={20}
-                color={colors.primary}
-              />
-              <Text style={{ color: colors.textPrimary, marginLeft: 6 }}>
-                Usar data de hoje
-              </Text>
-            </TouchableOpacity>
-
-            {!usarDataAtual && (
-              <>
-                <Text style={globalStyles.label}>Data personalizada:</Text>
-                <SeletorData
-                  value={`${String(dataEscolhida.mes).padStart(2, '0')}-${dataEscolhida.ano}`}
-                  onChangeText={(novaData) => {
-                    const [dia, mes, ano] = novaData.split('-');
-                    setDataEscolhida({ mes: parseInt(mes), ano: parseInt(ano) });
-                  }}
+            {/* Escolher Data */}
+            <View style={{ marginTop: 16 }}>
+              <TouchableOpacity
+                onPress={() => setUsarDataAtual(!usarDataAtual)}
+                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}
+              >
+                <MaterialCommunityIcons
+                  name={usarDataAtual ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                  size={20}
+                  color={colors.primary}
                 />
-              </>
-            )}
-          </View>
+                <Text style={{ color: colors.textPrimary, marginLeft: 6 }}>
+                  Usar data de hoje
+                </Text>
+              </TouchableOpacity>
 
-          {/* Valor Integral / com Desconto */}
-          <View style={{ marginTop: 20 }}>
-            <TouchableOpacity
-              onPress={() => setUsarValorIntegral(!usarValorIntegral)}
-              style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}
-            >
-              <MaterialCommunityIcons
-                name={usarValorIntegral ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                size={20}
-                color={colors.primary}
-              />
-              <Text style={{ color: colors.textPrimary, marginLeft: 6 }}>
-                Usar valor integral
-              </Text>
-            </TouchableOpacity>
-
-            {!usarValorIntegral && (
-              <View style={{ marginTop: 6 }}>
-                <Text style={globalStyles.label}>Valor com desconto:</Text>
-                <View style={globalStyles.inputContainer}>
-                  <MaterialCommunityIcons name="cash-minus" size={20} color={colors.textSecondary} />
-                  <TextInput
-                    style={globalStyles.input}
-                    placeholder="R$ 0,00"
-                    placeholderTextColor={colors.textSecondary}
-                    keyboardType="numeric"
-                    value={valorComDescontoTexto}
-                    onChangeText={handleValorComDescontoChange}
+              {!usarDataAtual && (
+                <>
+                  <Text style={globalStyles.label}>Data personalizada:</Text>
+                  <SeletorData
+                    value={`${String(dataEscolhida.mes).padStart(2, '0')}-${dataEscolhida.ano}`}
+                    onChangeText={(novaData) => {
+                      const [dia, mes, ano] = novaData.split('-');
+                      setDataEscolhida({ mes: parseInt(mes), ano: parseInt(ano) });
+                    }}
                   />
+                </>
+              )}
+            </View>
+
+            {/* Valor Integral / com Desconto */}
+            <View style={{ marginTop: 20 }}>
+              <TouchableOpacity
+                onPress={() => setUsarValorIntegral(!usarValorIntegral)}
+                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}
+              >
+                <MaterialCommunityIcons
+                  name={usarValorIntegral ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={{ color: colors.textPrimary, marginLeft: 6 }}>
+                  Usar valor integral
+                </Text>
+              </TouchableOpacity>
+
+              {!usarValorIntegral && (
+                <View style={{ marginTop: 6 }}>
+                  <Text style={globalStyles.label}>Valor com desconto:</Text>
+                  <View style={globalStyles.inputContainer}>
+                    <MaterialCommunityIcons name="cash-minus" size={20} color={colors.textSecondary} />
+                    <TextInput
+                      style={globalStyles.input}
+                      placeholder="R$ 0,00"
+                      placeholderTextColor={colors.textSecondary}
+                      keyboardType="numeric"
+                      value={valorComDescontoTexto}
+                      onChangeText={handleValorComDescontoChange}
+                    />
+                  </View>
                 </View>
-              </View>
-            )}
-          </View>
+              )}
+            </View>
 
-          {/* Botões */}
-          <View style={[globalStyles.buttonRow, { marginTop: 24 }]}>
-            <TouchableOpacity style={globalStyles.cancelButton} onPress={aoFechar}>
-              <Text style={globalStyles.cancelButtonText}>Cancelar</Text>
-            </TouchableOpacity>
+            {/* Botões */}
+            <View style={[globalStyles.buttonRow, { marginTop: 24 }]}>
+              <TouchableOpacity style={globalStyles.cancelButton} onPress={aoFechar}>
+                <Text style={globalStyles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                globalStyles.saveButton,
-                { opacity: selecionadas.length > 0 ? 1 : 0.5, flexDirection: 'row' },
-              ]}
-              disabled={selecionadas.length === 0}
-              onPress={confirmar}
-            >
-              <MaterialCommunityIcons
-                name="rocket-launch-outline"
-                size={18}
-                color="#fff"
-                style={{ marginRight: 6 }}
-              />
-              <Text style={globalStyles.saveButtonText}>
-                Antecipar ({selecionadas.length})
-              </Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={[
+                  globalStyles.saveButton,
+                  { opacity: selecionadas.length > 0 ? 1 : 0.5, flexDirection: 'row' },
+                ]}
+                disabled={selecionadas.length === 0}
+                onPress={confirmar}
+              >
+                <MaterialCommunityIcons
+                  name="rocket-launch-outline"
+                  size={18}
+                  color="#fff"
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={globalStyles.saveButtonText}>
+                  Antecipar ({selecionadas.length})
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </AreaFormulario>
         </View>
       </View>
     </Modal>

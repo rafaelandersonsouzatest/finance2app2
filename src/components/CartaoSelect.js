@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, FlatList, TextInput } from 'react-native';
 import Modal from 'react-native-modal';
+import AreaFormulario from './AreaFormulario';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useCarteira } from '../hooks/useCarteira';
 import { globalStyles } from '../styles/globalStyles';
@@ -186,19 +187,21 @@ export const CartaoSelect = ({
             </TouchableOpacity>
           </View>
 
-          <TextInput
-            style={[globalStyles.input, { marginBottom: 12 }]}
-            placeholder="Nome do cartão"
-            placeholderTextColor={colors.textSecondary}
-            value={nomeOutro}
-            onChangeText={setNomeOutro}
-            onSubmitEditing={confirmarOutro}
-            autoFocus
-          />
-          <TouchableOpacity style={globalStyles.modalBotaoAdd} onPress={confirmarOutro}>
-            <MaterialIcons name="check" size={20} color="#fff" />
-            <Text style={globalStyles.modalBotaoAddTexto}>Confirmar</Text>
-          </TouchableOpacity>
+          <AreaFormulario>
+            <TextInput
+              style={[globalStyles.input, { marginBottom: 12 }]}
+              placeholder="Nome do cartão"
+              placeholderTextColor={colors.textSecondary}
+              value={nomeOutro}
+              onChangeText={setNomeOutro}
+              onSubmitEditing={confirmarOutro}
+              autoFocus
+            />
+            <TouchableOpacity style={globalStyles.modalBotaoAdd} onPress={confirmarOutro}>
+              <MaterialIcons name="check" size={20} color="#fff" />
+              <Text style={globalStyles.modalBotaoAddTexto}>Confirmar</Text>
+            </TouchableOpacity>
+          </AreaFormulario>
         </View>
       </Modal>
 

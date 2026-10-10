@@ -4,8 +4,9 @@
 // CategoriaSelect (ver GerenciarCategoriasModal.js). Único formulário para
 // os dois casos: `categoria` vem preenchida ao editar, vazia ao criar.
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import Modal from 'react-native-modal';
+import AreaFormulario from '../AreaFormulario';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCategorias } from '../../hooks/useCategorias';
 import { globalStyles } from '../../styles/globalStyles';
@@ -96,7 +97,7 @@ export default function FormularioCategoriaModal({
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <AreaFormulario>
           <Text style={globalStyles.label}>Nome</Text>
           <TextInput
             style={globalStyles.input}
@@ -172,7 +173,7 @@ export default function FormularioCategoriaModal({
               {salvando ? 'Salvando...' : 'Salvar'}
             </Text>
           </TouchableOpacity>
-        </ScrollView>
+        </AreaFormulario>
       </View>
     </Modal>
   );
