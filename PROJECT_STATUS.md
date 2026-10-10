@@ -952,3 +952,31 @@ Três melhorias em sequência, cada uma validada pelo usuário antes da seguinte
   `exp://u.expo.dev/8887c54c-8cde-4f30-9a5a-ccd977b9795e?channel-name=main&runtime-version=exposdk:57.0.0`
 - **Lembrar**: o `runtime-version` do link muda a cada upgrade de SDK do Expo — nesse dia, mandar
   o link novo aos testadores.
+
+## 23. Teclado cobrindo campos nos modais + menu sem rolagem (✅ implementada e testada em 2026-10-09)
+
+Feedback de um testador com Android de tela menor, fonte grande e navegação por 3 botões: o
+teclado cobria os modais e não dava para ver o que era digitado.
+
+- **Causa**: cada modal tratava o teclado de um jeito — `ModalCriacao` com duas proteções
+  brigando (`avoidKeyboard` + `KeyboardAvoidingView "height"`), `ModalEdicao` com a proteção
+  desligada no Android, e 13 dos 17 modais com campos sem proteção nenhuma. Nenhum rolava até o
+  campo focado.
+- **Correção (opção A — só React Native, sem dependência nova)**: componente
+  `AreaFormulario` (casca do conteúdo; o visual de cada modal não muda) — sobe com o teclado
+  (`KeyboardAvoidingView "padding"`), conteúdo sempre rolável, **rola até o campo focado**
+  (medição manual: `TextInput.State.currentlyFocusedInput()` + `measureInWindow`), modo
+  `rolavel={false}` para conteúdo que já é `FlatList`. Aplicado em 13 modais (piloto: novo/editar
+  lançamento e Configurar Modelos; depois cartão, categoria, membros, "Outro cartão"/"Outra
+  pessoa", busca de categoria, editor de parcelas, antecipação, movimentação de investimento).
+- **Alternativa B não adotada (por ora)**: `react-native-keyboard-controller` (recomendada pelo
+  Expo, incluída no Expo Go desde o SDK 54) — exige APK novo. Se a rolagem manual se mostrar
+  insuficiente, a troca acontece só dentro do `AreaFormulario`.
+- **Menu do usuário** (`UserMenu`): lista estava com `scrollEnabled={false}` — com fonte grande os
+  últimos itens ficavam inalcançáveis. Rolagem ligada, "Sair" fixo embaixo.
+- **`SafeAreaProvider` na raiz do `App.js`**: antes só existia dentro dos navegadores;
+  `UserMenu` (irmão do `MainStack`) quebrava com "No safe area value available".
+- **Achado**: no Android, modais (`react-native-modal`/`Modal`) já terminam acima da barra de
+  navegação — somar `insets.bottom` deixava um vão grande. O recuo fica só no iOS.
+- **Pendente (fora do escopo)**: 4 modais de Colaboração (atrás de flag) e telas com campos fora
+  de modal (Login, Cadastro, Conta, Alterar senha) — verificar com fonte grande antes da loja.

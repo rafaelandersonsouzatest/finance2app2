@@ -2047,3 +2047,24 @@ Jest + `jest-expo` (devDependencies), `npm test`, `roots: ["<rootDir>/src"]` (a 
 `functions/` tem Jest próprio). `modulePaths` inclui `node_modules/expo/node_modules` porque no
 Expo 57 o `expo-modules-core` fica aninhado e o preset não o resolvia. Convenção: testes em
 `__tests__/` ao lado do código, priorizando funções puras de cálculo financeiro.
+
+## 22. Modais com campos: `AreaFormulario` (✅ 2026-10-09)
+
+Toda área de conteúdo de modal com campo de digitação passa por `src/components/AreaFormulario.js`
+(detalhe do problema em `PROJECT_STATUS.md` seção 23). Ela envolve só o conteúdo — o `Modal`,
+o cabeçalho e o visual continuam de cada modal.
+
+| Prop | Uso |
+|---|---|
+| `rodape` | Botões fixos abaixo da área rolável (Cancelar/Salvar), sempre acima do teclado |
+| `rolavel={false}` | Conteúdo que já é `FlatList` (lista virtualizada não pode ficar dentro de `ScrollView`); a área só sobe e encolhe |
+| `descontarNavegacao={false}` | Modal centralizado (não encosta na borda de baixo) |
+| `style={{ flex: 1 }}` | Modal de altura fixa (`managementModalContainer`), para a área ocupar o espaço restante |
+
+Rolagem até o campo focado: no `keyboardDidShow` (e 350 ms depois de um toque, porque trocar de
+campo com o teclado aberto não dispara o evento de novo), mede o campo focado e a área com
+`measureInWindow` e rola o que faltar para o campo ficar acima do fim visível da área (que pode
+ser o rodapé, não o teclado). Campo acima da área = de outro modal, ignorado.
+
+Recuo inferior (`insets.bottom`) **só no iOS**: no Android o modal já termina acima da barra de
+navegação. Telas (não modais) continuam somando o recuo no Android (`useFabPosition`).

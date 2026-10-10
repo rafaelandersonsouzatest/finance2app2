@@ -157,6 +157,10 @@ Resumo rápido — regras práticas para não reintroduzir um bug já corrigido:
   (nem hooks que os chamem por dentro, como `useAdiantamento`) por conta própria — os
   dados devem vir por prop de quem já os busca (ver `ARQUITETURA.md` seção 19, princípio
   "um dono, vários apresentadores").
+- Modal com campo de digitação deve envolver o conteúdo em `AreaFormulario`
+  (`src/components/AreaFormulario.js`) — nunca `KeyboardAvoidingView`/`avoidKeyboard` próprios
+  nem `ScrollView` solta. Conteúdo que já é `FlatList` usa `rolavel={false}`. No Android o modal
+  já termina acima da barra de navegação: não somar `insets.bottom` lá (deixa um vão grande).
 - A pasta `android/` está commitada por engano (Sprint 6) e faz o Expo tratar o projeto como
   *bare workflow* — por isso `runtimeVersion` no `app.json` não pode usar
   `{"policy": "sdkVersion"}` (o Expo recusa), tem que ser um valor fixo no formato
