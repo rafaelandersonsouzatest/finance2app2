@@ -37,6 +37,7 @@
 
 import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import MainStack from "./src/navigation/MainStack";
@@ -179,15 +180,21 @@ function AppContent() {
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <AuthProvider>
-        <VisibilityProvider>
-          <DateFilterProvider>
-            <DivisaoDespesaProvider>
-              <AppContent />
-            </DivisaoDespesaProvider>
-          </DateFilterProvider>
-        </VisibilityProvider>
-      </AuthProvider>
+      {/* 🔹 Medidas de área segura (barra de status/navegação) disponíveis
+          no app inteiro — antes só existiam dentro dos navegadores, e
+          componentes fora deles (ex.: UserMenu, irmão do MainStack) quebravam
+          ao chamar useSafeAreaInsets. */}
+      <SafeAreaProvider>
+        <AuthProvider>
+          <VisibilityProvider>
+            <DateFilterProvider>
+              <DivisaoDespesaProvider>
+                <AppContent />
+              </DivisaoDespesaProvider>
+            </DateFilterProvider>
+          </VisibilityProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

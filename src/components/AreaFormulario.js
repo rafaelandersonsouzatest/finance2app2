@@ -8,14 +8,15 @@
 //      continua alcançável;
 //   3. rola até o campo que está sendo digitado quando o teclado cobriria ele
 //      (no Android o ScrollView não faz isso sozinho);
-//   4. desconta a barra de navegação do sistema (botões ou gestos), mesmo
-//      cálculo do botão "+" (hooks/useFabPosition.js).
+//   4. no iPhone, desconta a barrinha de gesto da parte de baixo. No Android
+//      não: lá o modal já termina acima da barra de navegação (testado em
+//      aparelho com botões — somar o recuo deixava um vão grande).
 //
 // Feito só com React Native puro (sem dependência nativa nova). Se um dia
 // trocarmos por `react-native-keyboard-controller` (KeyboardAwareScrollView),
 // a troca acontece só aqui.
 import { useCallback, useEffect, useRef } from 'react';
-import { KeyboardAvoidingView, ScrollView, View, Keyboard, TextInput } from 'react-native';
+import { KeyboardAvoidingView, ScrollView, View, Keyboard, TextInput, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Folga entre o campo e o topo do teclado, para o texto não ficar colado.
@@ -105,7 +106,7 @@ export default function AreaFormulario({
         <View style={[{ flexShrink: 1 }, estiloScroll]}>{children}</View>
       )}
       {rodape}
-      {descontarNavegacao && <View style={{ height: insets.bottom }} />}
+      {descontarNavegacao && Platform.OS === 'ios' && <View style={{ height: insets.bottom }} />}
     </KeyboardAvoidingView>
   );
 }

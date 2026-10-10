@@ -4,9 +4,10 @@
 // em vários outros modais do app (ContaCriadaModal, GerenciarMembrosModal,
 // MembroSelect, ModalCriacao, ModalEdicao) — nenhuma dependência nova.
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, Platform } from 'react-native';
 import Modal from 'react-native-modal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { navigate } from '../navigation/navigationRef';
 import { useUserMenu } from '../contexts/UserMenuContext';
 import { useAuth } from '../auth/useAuth';
@@ -50,6 +51,7 @@ export default function UserMenu() {
   const { isOpen, close } = useUserMenu();
   const { profile, logout } = useAuth();
   const [confirmarSaida, setConfirmarSaida] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const abrirCategoria = (route) => {
     close();
@@ -71,7 +73,15 @@ export default function UserMenu() {
         style={{ justifyContent: 'flex-end', margin: 0 }}
         useNativeDriver
       >
-        <View style={[globalStyles.modalContainer, { paddingBottom: 24 }]}>
+        {/* No iPhone, paddingBottom soma a barrinha de gesto; no Android o
+            modal já termina acima da barra de navegação (mesma regra do
+            AreaFormulario). */}
+        <View
+          style={[
+            globalStyles.modalContainer,
+            { paddingBottom: 24 + (Platform.OS === 'ios' ? insets.bottom : 0) },
+          ]}
+        >
           <View style={globalStyles.modalHeader}>
             <Text style={globalStyles.modalTitle}>{getNomeExibicao(profile)}</Text>
             <TouchableOpacity onPress={close}>
@@ -98,7 +108,10 @@ export default function UserMenu() {
           <FlatList
             data={CATEGORIAS}
             keyExtractor={(item) => item.route}
-            scrollEnabled={false}
+            // 🔹 Rolagem ligada: com fonte grande / tela pequena os itens
+            // passam do maxHeight do modal (90%) e os últimos ficavam
+            // inalcançáveis. "Sair" fica fora da lista, sempre visível.
+            showsVerticalScrollIndicator={false}
             renderItem={({ item }) => {
               const indisponivel = item.disponivel === false;
               return (

@@ -5,6 +5,10 @@
 // listar toda mudança interna/técnica).
 export const CHANGELOG = [
   {
+    data: '2026-10-09',
+    texto: 'O teclado não cobre mais o que você está digitando nos formulários, e o menu do usuário passa a rolar quando a fonte do celular está grande.',
+  },
+  {
     data: '2026-09-25',
     texto: '"Gerar do Mês" agora gera só os modelos que faltam (dá para escolher quais), novo modelo pode ser lançado no mês na hora, e gastos em porcentagem não vêm mais zerados nos meses novos.',
   },
