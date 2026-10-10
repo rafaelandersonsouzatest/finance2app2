@@ -1007,3 +1007,7 @@ teclado cobria os modais e não dava para ver o que era digitado.
   (não o `start:dev`) deixa de receber atualizações publicadas.
 - Junto: título "Categoria" removido do formulário de modelos (o botão já diz "Selecionar
   categoria").
+- **APK novo gerado** (2026-10-10, commit `e42ceea`, etiqueta `aeb2a2760c24c2c2230c6633dc13ac54efd0d861`
+  — conferida: a calculada localmente bate com a do build, então o APK recebe as próximas
+  atualizações): `https://expo.dev/accounts/rafael.anderson.souza/projects/meu-app/builds/987f94d7-1ef0-4523-b17b-d1eeb60b2297`.
+  Publicação para `christian`/`rafael` aguardando o teste no APK.
