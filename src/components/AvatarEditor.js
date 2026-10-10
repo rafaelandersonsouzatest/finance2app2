@@ -9,6 +9,7 @@
 // devolve.
 import React, { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Modal from "react-native-modal";
 import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { SvgXml } from "react-native-svg";
@@ -116,6 +117,9 @@ export default function AvatarEditor({
   nome,
   aoSalvar,
 }) {
+  // Recuo da barra de navegação do sistema: o modal é translúcido e vai até
+  // a borda de baixo da tela (mesma regra do AreaFormulario/UserMenu).
+  const insets = useSafeAreaInsets();
   const [avatarEmEdicao, setAvatarEmEdicao] = useState(null);
   const [secaoAtiva, setSecaoAtiva] = useState(null);
   const [salvando, setSalvando] = useState(false);
@@ -148,13 +152,13 @@ export default function AvatarEditor({
   };
 
   return (
-    <Modal
+    <Modal statusBarTranslucent navigationBarTranslucent
       isVisible={visivel}
       onBackdropPress={onFechar}
       onBackButtonPress={onFechar}
       style={{ justifyContent: "flex-end", margin: 0 }}
     >
-      <View style={[globalStyles.modalContainer, { maxHeight: "85%" }]}>
+      <View style={[globalStyles.modalContainer, { maxHeight: "85%" }, { paddingBottom: 20 + insets.bottom }]}>
         <View style={globalStyles.modalHeader}>
           <Text style={globalStyles.modalTitle}>Editar avatar{nome ? ` de ${nome}` : ""}</Text>
           <TouchableOpacity onPress={onFechar}>

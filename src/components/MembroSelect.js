@@ -6,6 +6,7 @@ import {
   FlatList,
   TextInput,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import Modal from "react-native-modal";
 import AreaFormulario from "./AreaFormulario";
@@ -45,6 +46,9 @@ export const MembroSelect = ({
   mostrarLabel = true,
   onBloquearFechamento,
 }) => {
+  // Recuo da barra de navegação do sistema: o modal é translúcido e vai até
+  // a borda de baixo da tela (mesma regra do AreaFormulario/UserMenu).
+  const insets = useSafeAreaInsets();
   // 🔹 Fonte única de membros (mesma usada pela tela de administração) —
   // MembroSelect não acessa o Firestore diretamente.
   const { membros } = useMembros();
@@ -171,7 +175,7 @@ export const MembroSelect = ({
         onBackdropPress={fecharModal}
         style={{ justifyContent: "flex-end", margin: 0 }}
       >
-        <View style={globalStyles.modalContainer}>
+        <View style={[globalStyles.modalContainer, { paddingBottom: 20 + insets.bottom }]}>
           <View style={globalStyles.modalHeader}>
             <Text style={globalStyles.modalTitle}>{label}</Text>
             <TouchableOpacity onPress={fecharModal}>

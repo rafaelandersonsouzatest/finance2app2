@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
@@ -41,6 +42,9 @@ export default function DetalhesInvestimentoModal({
   updateTransaction,     // ✅
   deleteTransaction,     // ✅
 }) {
+  // Recuo da barra de navegação do sistema: o modal é translúcido e vai até
+  // a borda de baixo da tela (mesma regra do AreaFormulario/UserMenu).
+  const insets = useSafeAreaInsets();
   const [modalMovVisible, setModalMovVisible] = useState(false);
   const [movimentoEmEdicao, setMovimentoEmEdicao] = useState(null);
   const [modalEdicaoVisible, setModalEdicaoVisible] = useState(false);
@@ -146,9 +150,9 @@ export default function DetalhesInvestimentoModal({
 
   return (
     <>
-      <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <Modal statusBarTranslucent navigationBarTranslucent visible={visible} animationType="slide" transparent onRequestClose={onClose}>
         <View style={globalStyles.modalOverlay}>
-          <View style={globalStyles.modalContainer}>
+          <View style={[globalStyles.modalContainer, { paddingBottom: 20 + insets.bottom }]}>
             {/* Header */}
             <View style={globalStyles.modalHeader}>
               <Text style={globalStyles.modalTitle}>{nome}</Text>

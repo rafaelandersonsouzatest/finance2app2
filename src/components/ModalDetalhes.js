@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
@@ -171,6 +172,9 @@ export default function ModalDetalhes({
   mostrarIconeCompartilhado = false,
   statusDivisaoTexto,
 }) {
+  // Recuo da barra de navegação do sistema: o modal é translúcido e vai até
+  // a borda de baixo da tela (mesma regra do AreaFormulario/UserMenu).
+  const insets = useSafeAreaInsets();
   const [totalReal, setTotalReal] = useState(0);
   const [totalPago, setTotalPago] = useState(0);
   const [parcelasPagas, setParcelasPagas] = useState(0);
@@ -600,14 +604,14 @@ export default function ModalDetalhes({
   // ------------------------------------------------------
   return (
     <>
-      <Modal
+      <Modal statusBarTranslucent navigationBarTranslucent
         visible={visible}
         animationType="slide"
         transparent
         onRequestClose={onClose}
       >
         <View style={globalStyles.modalOverlay}>
-          <View style={globalStyles.modalContainer}>
+          <View style={[globalStyles.modalContainer, { paddingBottom: 20 + insets.bottom }]}>
             <View style={globalStyles.modalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                 {/* `globalStyles.modalTitle` já tem `flex: 1` — sem

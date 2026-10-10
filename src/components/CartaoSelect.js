@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, FlatList, TextInput } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Modal from 'react-native-modal';
 import AreaFormulario from './AreaFormulario';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
@@ -28,6 +29,9 @@ export const CartaoSelect = ({
   mostrarLabel = true,
   onBloquearFechamento,
 }) => {
+  // Recuo da barra de navegação do sistema: o modal é translúcido e vai até
+  // a borda de baixo da tela (mesma regra do AreaFormulario/UserMenu).
+  const insets = useSafeAreaInsets();
   const { cartoesCadastrados } = useCarteira();
   const cartoesAtivos = cartoesCadastrados.filter((c) => c.ativo !== false);
 
@@ -123,7 +127,7 @@ export const CartaoSelect = ({
         onBackdropPress={fecharModal}
         style={{ justifyContent: 'flex-end', margin: 0 }}
       >
-        <View style={[globalStyles.modalContainer, { maxHeight: '80%' }]}>
+        <View style={[globalStyles.modalContainer, { maxHeight: '80%' }, { paddingBottom: 20 + insets.bottom }]}>
           <View style={globalStyles.modalHeader}>
             <Text style={globalStyles.modalTitle}>{label}</Text>
             <TouchableOpacity onPress={fecharModal}>

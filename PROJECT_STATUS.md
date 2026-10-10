@@ -1011,3 +1011,8 @@ teclado cobria os modais e não dava para ver o que era digitado.
   — conferida: a calculada localmente bate com a do build, então o APK recebe as próximas
   atualizações): `https://expo.dev/accounts/rafael.anderson.souza/projects/meu-app/builds/987f94d7-1ef0-4523-b17b-d1eeb60b2297`.
   Publicação para `christian`/`rafael` aguardando o teste no APK.
+- **Ajuste pós-teste no APK**: modais que vêm de baixo **sem campos** (detalhes, histórico de
+  parcelas, detalhes do investimento, resumo do cartão, editor de avatar, listas dos seletores de
+  cartão/membro) ficavam com o fim atrás da barra de navegação — ganharam o mesmo recuo
+  (`insets.bottom`) e barras translúcidas. Gerenciar cartões/categorias ficaram de fora de
+  propósito: o botão "+" deles (`useFabPosition`) já soma a barra.

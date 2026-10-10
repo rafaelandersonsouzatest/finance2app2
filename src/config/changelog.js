@@ -6,7 +6,7 @@
 export const CHANGELOG = [
   {
     data: '2026-10-10',
-    texto: 'Formulários agora sobem de verdade quando o teclado abre também no app instalado (APK) — é preciso instalar o APK novo uma vez.',
+    texto: 'Formulários agora sobem de verdade quando o teclado abre também no app instalado (APK), e o fim das janelas não fica mais atrás dos botões de navegação do celular. No Android, é preciso instalar o APK novo uma vez.',
   },
   {
     data: '2026-10-09',

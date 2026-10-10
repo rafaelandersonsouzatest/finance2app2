@@ -8,6 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -248,6 +249,9 @@ const TITULO_POR_ENTIDADE_AVULSA = {
 // 📦 MODAL PRINCIPAL COM RESUMO E HISTÓRICO
 // ==========================================================
 export default function ModalHistoricoParcelas({ visible, onClose, item }) {
+  // Recuo da barra de navegação do sistema: o modal é translúcido e vai até
+  // a borda de baixo da tela (mesma regra do AreaFormulario/UserMenu).
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { buscarEventosDaCompra, buscarEventosDoItem } = useLinhaDoTempo();
   // 🔹 Cartão/empréstimo são compras agrupadas (várias parcelas com o mesmo
@@ -418,7 +422,7 @@ export default function ModalHistoricoParcelas({ visible, onClose, item }) {
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal statusBarTranslucent navigationBarTranslucent visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={globalStyles.modalOverlay}>
         {/* 🔹 `height` fixo, não `maxHeight` (diferente de todo outro modal do
             app) — `ModernTabs` precisa de um pai com altura CONCRETA pra seu
@@ -426,7 +430,7 @@ export default function ModalHistoricoParcelas({ visible, onClose, item }) {
             conteúdo), o `flex:1` não tem espaço nenhum pra distribuir e a
             aba fica com ~0px de altura (achado real, ver ARQUITETURA.md
             seção 19.8). Não trocar de volta para `maxHeight`. */}
-        <View style={[globalStyles.modalContainer, { height: '85%' }]}>
+        <View style={[globalStyles.modalContainer, { height: '85%' }, { paddingBottom: 20 + insets.bottom }]}>
           <View style={globalStyles.modalHeader}>
             <Text style={globalStyles.modalTitle}>
               {ehAgrupado

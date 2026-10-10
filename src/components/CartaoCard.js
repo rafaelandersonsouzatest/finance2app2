@@ -10,6 +10,7 @@
 // atual (ver useCartoes.buscarParcelasDoCartao).
 import { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
@@ -89,6 +90,9 @@ function ItemCompraResumo({ item, onPress, onAdiantar }) {
 // duplica nada, é uma necessidade própria deste componente.
 // =========================================================
 export default function CartaoCard({ cartao = {}, gastos = [], onPressItem, onAdiantarParcelas, buscarParcelasDoCartao }) {
+  // Recuo da barra de navegação do sistema: o modal é translúcido e vai até
+  // a borda de baixo da tela (mesma regra do AreaFormulario/UserMenu).
+  const insets = useSafeAreaInsets();
   const [modalVisivel, setModalVisivel] = useState(false);
   const [carregando, setCarregando] = useState(false);
   const [historicoCompleto, setHistoricoCompleto] = useState(null);
@@ -181,9 +185,9 @@ export default function CartaoCard({ cartao = {}, gastos = [], onPressItem, onAd
         <CartaoVisual cartao={cartao} onPress={handlePress} resumoMes={resumoMesTexto} />
       </View>
 
-      <Modal visible={modalVisivel} animationType="slide" transparent onRequestClose={handleClose}>
+      <Modal statusBarTranslucent navigationBarTranslucent visible={modalVisivel} animationType="slide" transparent onRequestClose={handleClose}>
         <View style={globalStyles.modalOverlay}>
-          <View style={[globalStyles.modalContainer, { maxHeight: '88%' }]}>
+          <View style={[globalStyles.modalContainer, { maxHeight: '88%' }, { paddingBottom: 20 + insets.bottom }]}>
             <View style={globalStyles.modalHeader}>
               <Text style={globalStyles.modalTitle}>{cartao.nome || 'Cartão'}</Text>
               <TouchableOpacity onPress={handleClose}>
