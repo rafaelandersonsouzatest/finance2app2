@@ -981,3 +981,29 @@ teclado cobria os modais e não dava para ver o que era digitado.
   navegação — somar `insets.bottom` deixava um vão grande. O recuo fica só no iOS.
 - **Pendente (fora do escopo)**: 4 modais de Colaboração (atrás de flag) e telas com campos fora
   de modal (Login, Cadastro, Conta, Alterar senha) — verificar com fonte grande antes da loja.
+
+## 24. Teclado no APK: `react-native-keyboard-controller` + modais translúcidos (✅ testado no Expo Go em 2026-10-10; APK novo pendente)
+
+- **Problema**: a 0.7.1 (seção 23) funcionou no Expo Go mas **não no APK** — no APK o Android é de
+  borda a borda também dentro dos modais, a janela do modal não encolhe com o teclado e o
+  `KeyboardAvoidingView` não age. Lição registrada no `CLAUDE.md`: teste de teclado no Expo Go
+  não garante o APK.
+- **Correção**:
+  - `react-native-keyboard-controller` 1.21.9 (incluída no Expo Go desde o SDK 54) +
+    `KeyboardProvider` na raiz (`App.js`), com barras translúcidas — o Expo Go passa a se comportar
+    como o APK.
+  - Todos os modais com campos (13 + `UserMenu`) com `statusBarTranslucent
+    navigationBarTranslucent` (o `react-native-modal` vem com a barra de status sólida por padrão;
+    a biblioteca tem posições erradas nessa combinação).
+  - `AreaFormulario` calcula o quanto subir por conta própria (eventos de teclado da biblioteca +
+    `measureInWindow`) — diagnosticado no aparelho com números na tela: o KeyboardAvoidingView da
+    biblioteca não aplicava o deslocamento dentro do modal (campo "Meta" do novo investimento
+    terminava em y=750 com o teclado começando em y≈604 e a área sem mudar de tamanho).
+  - Recuo da barra de navegação volta a valer no Android (modais agora ocupam a tela inteira).
+- **APK novo obrigatório**: a biblioteca tem parte nativa. O ambiente `meu-app` passou a usar
+  `runtimeVersion: {policy: "fingerprint"}` (etiqueta automática) — o APK antigo para de receber
+  atualizações (fica na 0.7.1, sem quebrar) e só o APK novo recebe as próximas. `christian`/`rafael`
+  seguem com `sdkVersion` (Expo Go). Efeito colateral: o projeto `meu-app` aberto pelo Expo Go
+  (não o `start:dev`) deixa de receber atualizações publicadas.
+- Junto: título "Categoria" removido do formulário de modelos (o botão já diz "Selecionar
+  categoria").

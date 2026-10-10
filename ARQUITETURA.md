@@ -2066,5 +2066,17 @@ campo com o teclado aberto não dispara o evento de novo), mede o campo focado e
 `measureInWindow` e rola o que faltar para o campo ficar acima do fim visível da área (que pode
 ser o rodapé, não o teclado). Campo acima da área = de outro modal, ignorado.
 
-Recuo inferior (`insets.bottom`) **só no iOS**: no Android o modal já termina acima da barra de
-navegação. Telas (não modais) continuam somando o recuo no Android (`useFabPosition`).
+Recuo inferior (`insets.bottom`): **Android e iOS** — desde a 0.8.0 os modais com campos são
+translúcidos (`statusBarTranslucent navigationBarTranslucent`) e ocupam a tela inteira, inclusive
+atrás da barra de navegação. (Na 0.7.1 o recuo era só iOS, porque no Expo Go — ainda sem
+`KeyboardProvider` — os modais terminavam acima da barra; no APK não.)
+
+### 22.1 Como sobe com o teclado (0.8.0)
+Nem o `KeyboardAvoidingView` do React Native nem o da `react-native-keyboard-controller`
+funcionaram dentro dos modais no Android de borda a borda: o do RN não recebe o encolhimento da
+janela; o da biblioteca calcula pela posição relativa ao pai (e, mesmo com `automaticOffset`,
+não aplicou o padding — medido no aparelho). A casca faz a conta: nos eventos
+`keyboardWillShow`/`keyboardDidShow` da biblioteca, mede o próprio container com
+`measureInWindow`, compara com `altura da tela − altura do teclado` e aplica a diferença como
+`paddingBottom`. Funciona porque o modal é translúcido (coordenadas = tela inteira). Da
+biblioteca, usamos só os eventos (`KeyboardEvents`) e o `KeyboardProvider` (`App.js`).

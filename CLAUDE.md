@@ -158,9 +158,15 @@ Resumo rápido — regras práticas para não reintroduzir um bug já corrigido:
   dados devem vir por prop de quem já os busca (ver `ARQUITETURA.md` seção 19, princípio
   "um dono, vários apresentadores").
 - Modal com campo de digitação deve envolver o conteúdo em `AreaFormulario`
-  (`src/components/AreaFormulario.js`) — nunca `KeyboardAvoidingView`/`avoidKeyboard` próprios
-  nem `ScrollView` solta. Conteúdo que já é `FlatList` usa `rolavel={false}`. No Android o modal
-  já termina acima da barra de navegação: não somar `insets.bottom` lá (deixa um vão grande).
+  (`src/components/AreaFormulario.js`) e o `<Modal>` precisa de `statusBarTranslucent
+  navigationBarTranslucent` — nunca `KeyboardAvoidingView`/`avoidKeyboard` próprios nem
+  `ScrollView` solta. Conteúdo que já é `FlatList` usa `rolavel={false}`.
+- **Teste de teclado/modal no Expo Go não garante o APK** — já enganou uma vez (ver
+  `PROJECT_STATUS.md` seção 24). Mudança de layout com teclado se valida no APK.
+- O ambiente `meu-app` (APK) usa `runtimeVersion: {policy: "fingerprint"}` (`app.config.js`); os
+  demais usam `sdkVersion` (exigido pelo Expo Go). Entrou biblioteca com parte nativa → a
+  etiqueta do `meu-app` muda sozinha → **gerar APK novo antes de publicar**; o APK antigo para de
+  receber atualização (não quebra).
 - A pasta `android/` está commitada por engano (Sprint 6) e faz o Expo tratar o projeto como
   *bare workflow* — por isso `runtimeVersion` no `app.json` não pode usar
   `{"policy": "sdkVersion"}` (o Expo recusa), tem que ser um valor fixo no formato
