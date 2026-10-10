@@ -4,13 +4,9 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  TouchableWithoutFeedback,
-  Keyboard,
 } from 'react-native';
 import ModalRN from 'react-native-modal';
+import AreaFormulario from './AreaFormulario';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../styles/colors';
 import { globalStyles } from '../styles/globalStyles';
@@ -225,15 +221,8 @@ const CamposModal = memo(({ tipo, valores, atualizarCampo, marcarComoPago, parce
     }
   };
 
-  return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="always"
-      contentContainerStyle={{ paddingBottom: 24 }}
-    >
-      {renderCamposPorTipo()}
-    </ScrollView>
-  );
+  // A rolagem e o teclado ficam com o AreaFormulario, no render final.
+  return renderCamposPorTipo();
 });
 
 // ==========================================================
@@ -430,7 +419,6 @@ return (
     isVisible={visivel}
     onBackdropPress={aoFechar}
     onBackButtonPress={aoFechar}
-    avoidKeyboard
     animationIn="slideInUp"
     animationOut="slideOutDown"
     hideModalContentWhileAnimating
@@ -438,32 +426,57 @@ return (
     propagateSwipe={true}
     style={{ margin: 0, justifyContent: 'flex-end' }} // fixa na base
   >
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ flex: 1, justifyContent: 'flex-end' }}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        {/* Container “sheet” (mantém o visual anterior) */}
-        <View
-          style={{
-            backgroundColor: colors.background,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            paddingHorizontal: 16,
-            paddingTop: 12,
-            paddingBottom: 20,
-            maxHeight: '90%',
-          }}
-        >
-          {/* Cabeçalho (mesmo que você já tinha) */}
-          <View style={globalStyles.modalHeader}>
-            <Text style={globalStyles.modalTitle}>{titulo || 'Editar Item'}</Text>
-            <TouchableOpacity onPress={aoFechar}>
-              <MaterialCommunityIcons name="close" size={28} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
+    {/* Teclado tratado só pelo AreaFormulario — antes, no Android, a
+        proteção estava desligada (behavior undefined) e o `avoidKeyboard`
+        da lib não bastava. */}
+    <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+      {/* Container “sheet” (mantém o visual anterior) */}
+      <View
+        style={{
+          backgroundColor: colors.background,
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          paddingHorizontal: 16,
+          paddingTop: 12,
+          paddingBottom: 20,
+          maxHeight: '90%',
+        }}
+      >
+        <View style={globalStyles.modalHeader}>
+          <Text style={globalStyles.modalTitle}>{titulo || 'Editar Item'}</Text>
+          <TouchableOpacity onPress={aoFechar}>
+            <MaterialCommunityIcons name="close" size={28} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
 
-          {/* Campos (mantém exatamente como antes) */}
+        <AreaFormulario
+          estiloConteudo={{ paddingBottom: 24 }}
+          rodape={
+            <View style={[globalStyles.buttonRow, { marginTop: 20 }]}>
+              {aoExcluir && (
+                <TouchableOpacity
+                  style={globalStyles.deleteButton}
+                  onPress={() => {
+                    aoExcluir(valores);
+                    aoFechar();
+                  }}
+                >
+                  <MaterialCommunityIcons name="trash-can" size={12} color="#fff" />
+                  <Text style={globalStyles.deleteButtonText}>Excluir</Text>
+                </TouchableOpacity>
+              )}
+
+              <View style={globalStyles.rightButtons}>
+                <TouchableOpacity style={globalStyles.cancelButton} onPress={aoFechar}>
+                  <Text style={globalStyles.cancelButtonText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={globalStyles.saveButton} onPress={handleSalvar}>
+                  <Text style={globalStyles.saveButtonText}>Salvar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          }
+        >
           <CamposModal
             tipo={tipo}
             valores={valores}
@@ -472,34 +485,9 @@ return (
             parcelasExistentes={parcelasExistentes}
             parcelasBloqueadas={parcelasBloqueadas}
           />
-
-          {/* Botões (mantém) */}
-          <View style={[globalStyles.buttonRow, { marginTop: 20 }]}>
-            {aoExcluir && (
-              <TouchableOpacity
-                style={globalStyles.deleteButton}
-                onPress={() => {
-                  aoExcluir(valores);
-                  aoFechar();
-                }}
-              >
-                <MaterialCommunityIcons name="trash-can" size={12} color="#fff" />
-                <Text style={globalStyles.deleteButtonText}>Excluir</Text>
-              </TouchableOpacity>
-            )}
-
-            <View style={globalStyles.rightButtons}>
-              <TouchableOpacity style={globalStyles.cancelButton} onPress={aoFechar}>
-                <Text style={globalStyles.cancelButtonText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={globalStyles.saveButton} onPress={handleSalvar}>
-                <Text style={globalStyles.saveButtonText}>Salvar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+        </AreaFormulario>
+      </View>
+    </View>
   </ModalRN>
 );
 }

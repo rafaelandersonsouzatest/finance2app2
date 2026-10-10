@@ -4,11 +4,9 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import ModalRN from 'react-native-modal';
+import AreaFormulario from './AreaFormulario';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../styles/colors';
 import { globalStyles } from '../styles/globalStyles';
@@ -851,12 +849,11 @@ return (
       hideModalContentWhileAnimating
       propagateSwipe={false}
       style={{ justifyContent: 'flex-end', margin: 0 }}
-      avoidKeyboard
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={globalStyles.modalOverlay}
-      >
+      {/* Teclado tratado só pelo AreaFormulario — antes havia duas proteções
+          ao mesmo tempo (`avoidKeyboard` da lib + KeyboardAvoidingView
+          "height"), que no Android calculavam o espaço errado. */}
+      <View style={globalStyles.modalOverlay}>
         <View style={globalStyles.modalContainer}>
           <View style={globalStyles.modalHeader}>
             <Text style={globalStyles.modalTitle}>{titulo || `Novo ${tipo}`}</Text>
@@ -868,29 +865,31 @@ return (
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <AreaFormulario
+            rodape={
+              <View style={globalStyles.buttonRow}>
+                <View style={globalStyles.rightButtons}>
+                  <TouchableOpacity
+                    style={globalStyles.cancelButton}
+                    onPress={() => {
+                      if (bloquearFechamento) return;
+                      aoFechar();
+                    }}
+                  >
+                    <Text style={globalStyles.cancelButtonText}>Cancelar</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={globalStyles.saveButton} onPress={handleSalvar}>
+                    <Text style={globalStyles.saveButtonText}>Salvar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            }
+          >
             {renderCamposPorTipo()}
-          </ScrollView>
-
-          <View style={globalStyles.buttonRow}>
-            <View style={globalStyles.rightButtons}>
-              <TouchableOpacity
-                style={globalStyles.cancelButton}
-                onPress={() => {
-                  if (bloquearFechamento) return;
-                  aoFechar();
-                }}
-              >
-                <Text style={globalStyles.cancelButtonText}>Cancelar</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={globalStyles.saveButton} onPress={handleSalvar}>
-                <Text style={globalStyles.saveButtonText}>Salvar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          </AreaFormulario>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </ModalRN>
 
     <AlertaModal

@@ -17,6 +17,7 @@ import { colors } from "../styles/colors";
 import ModernTabs from "./ModernTabs";
 import AlertaModal from "./AlertaModal";
 import CategoriaSelect from "./CategoriaSelect";
+import AreaFormulario from "./AreaFormulario";
 import { useCategorias } from "../hooks/useCategorias";
 import { useModelos } from "../hooks/useModelos";
 import { useMembros } from "../hooks/useMembros";
@@ -234,10 +235,13 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
   };
 
   return (
-    <ScrollView
-      style={globalStyles.formContainer}
-      keyboardShouldPersistTaps="handled"
-      contentContainerStyle={{ paddingBottom: 40 }}
+    // 🔹 Modal centralizado, de altura fixa: a área ocupa o espaço restante
+    // (flex: 1) e não encosta na barra de navegação.
+    <AreaFormulario
+      style={{ flex: 1 }}
+      descontarNavegacao={false}
+      estiloScroll={globalStyles.formContainer}
+      estiloConteudo={{ paddingBottom: 40 }}
     >
       {/* Descrição */}
       <TextInput
@@ -662,7 +666,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
           <Text style={{ color: colors.textSecondary }}>Cancelar Edição</Text>
         </TouchableOpacity>
       )}
-    </ScrollView>
+    </AreaFormulario>
   );
 };
 
