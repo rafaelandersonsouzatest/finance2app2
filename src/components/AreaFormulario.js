@@ -3,24 +3,38 @@
 // CONTEÚDO do modal (cada modal mantém seu próprio visual — de baixo,
 // centralizado etc.) e resolve num lugar só o que antes cada modal fazia de
 // um jeito (ou não fazia):
-//   1. sobe o conteúdo quando o teclado abre (KeyboardAvoidingView);
+//   1. sobe o conteúdo quando o teclado abre;
 //   2. conteúdo sempre rolável — com fonte grande / tela pequena, todo campo
 //      continua alcançável;
 //   3. rola até o campo que está sendo digitado quando o teclado cobriria ele
 //      (no Android o ScrollView não faz isso sozinho);
-//   4. no iPhone, desconta a barrinha de gesto da parte de baixo. No Android
-//      não: lá o modal já termina acima da barra de navegação (testado em
-//      aparelho com botões — somar o recuo deixava um vão grande).
+//   4. desconta a barra de navegação do sistema (botões ou gestos) / a
+//      barrinha de gesto do iPhone.
 //
-// Feito só com React Native puro (sem dependência nativa nova). Se um dia
-// trocarmos por `react-native-keyboard-controller` (KeyboardAwareScrollView),
-// a troca acontece só aqui.
-import { useCallback, useEffect, useRef } from 'react';
-import { KeyboardAvoidingView, ScrollView, View, Keyboard, TextInput, Platform } from 'react-native';
+// 🔹 Como sobe: o app é de borda a borda (Expo SDK 57) e, com o
+// KeyboardProvider da react-native-keyboard-controller (App.js), os modais
+// também — a janela do modal NÃO encolhe com o teclado. Nem o
+// KeyboardAvoidingView do React Native nem o da biblioteca funcionaram aqui
+// dentro (medido no aparelho, ver PROJECT_STATUS.md seção 24), então a casca
+// calcula sozinha: mede onde ela termina na tela, compara com o topo do
+// teclado e coloca a diferença como espaço extra embaixo — como os modais são
+// ancorados embaixo (ou têm altura fixa), isso empurra o conteúdo para cima.
+// Da biblioteca usamos só os eventos do teclado, que são iguais em
+// Android/iOS e funcionam dentro de Modal.
+//
+// Requisito: o Modal que contém esta área precisa de `statusBarTranslucent`
+// e `navigationBarTranslucent` — assim ocupa a tela inteira e as medidas
+// (measureInWindow) ficam nas mesmas coordenadas da tela, usadas para o
+// topo do teclado.
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ScrollView, View, TextInput, Dimensions } from 'react-native';
+import { KeyboardEvents } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Folga entre o campo e o topo do teclado, para o texto não ficar colado.
 const FOLGA_TECLADO = 24;
+
+const topoDoTeclado = (alturaTeclado) => Dimensions.get('screen').height - alturaTeclado;
 
 export default function AreaFormulario({
   children,
@@ -39,9 +53,12 @@ export default function AreaFormulario({
   estiloConteudo,
 }) {
   const insets = useSafeAreaInsets();
+  const containerRef = useRef(null);
   const scrollRef = useRef(null);
   const offsetRef = useRef(0);
   const topoTecladoRef = useRef(null);
+  // Espaço extra embaixo = quanto da área ficaria atrás do teclado.
+  const [espacoTeclado, setEspacoTeclado] = useState(0);
 
   // Se o campo focado (dentro desta área) ficaria atrás do teclado, rola o
   // suficiente para ele aparecer.
@@ -66,24 +83,43 @@ export default function AreaFormulario({
   }, []);
 
   useEffect(() => {
-    const aoMostrar = Keyboard.addListener('keyboardDidShow', (e) => {
-      topoTecladoRef.current = e.endCoordinates.screenY;
-      // Espera o KeyboardAvoidingView terminar de reposicionar o conteúdo.
-      setTimeout(garantirCampoVisivel, 100);
+    // O espaço fica DENTRO do container, então o fundo dele continua no mesmo
+    // lugar — recalcular (ex.: troca do teclado de letras para o numérico)
+    // dá o mesmo resultado, sem acumular.
+    const subirConteudo = (alturaTeclado) => {
+      const topoTeclado = topoDoTeclado(alturaTeclado);
+      containerRef.current?.measureInWindow((_x, y, _w, altura) => {
+        setEspacoTeclado(Math.max(0, y + altura - topoTeclado));
+      });
+    };
+
+    // "Will": sobe junto com o teclado (o evento já traz a altura final).
+    const aoComecarAMostrar = KeyboardEvents.addListener('keyboardWillShow', (e) =>
+      subirConteudo(e.height)
+    );
+    // "Did": teclado terminou de abrir — repete o cálculo (caso o "Will" não
+    // chegue em algum aparelho) e só então confere o campo focado, já com o
+    // layout novo.
+    const aoMostrar = KeyboardEvents.addListener('keyboardDidShow', (e) => {
+      topoTecladoRef.current = topoDoTeclado(e.height);
+      subirConteudo(e.height);
+      setTimeout(garantirCampoVisivel, 150);
     });
-    const aoEsconder = Keyboard.addListener('keyboardDidHide', () => {
+    const aoEsconder = KeyboardEvents.addListener('keyboardDidHide', () => {
       topoTecladoRef.current = null;
+      setEspacoTeclado(0);
     });
     return () => {
+      aoComecarAMostrar.remove();
       aoMostrar.remove();
       aoEsconder.remove();
     };
   }, [garantirCampoVisivel]);
 
   return (
-    <KeyboardAvoidingView
-      behavior="padding"
-      style={[{ flexShrink: 1 }, style]}
+    <View
+      ref={containerRef}
+      style={[{ flexShrink: 1 }, style, { paddingBottom: espacoTeclado }]}
     >
       {rolavel ? (
         <ScrollView
@@ -106,7 +142,7 @@ export default function AreaFormulario({
         <View style={[{ flexShrink: 1 }, estiloScroll]}>{children}</View>
       )}
       {rodape}
-      {descontarNavegacao && Platform.OS === 'ios' && <View style={{ height: insets.bottom }} />}
-    </KeyboardAvoidingView>
+      {descontarNavegacao && <View style={{ height: insets.bottom }} />}
+    </View>
   );
 }

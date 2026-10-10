@@ -112,7 +112,7 @@ export default function FormularioCartaoModal({ visivel, onFechar, cartao = null
   };
 
   return (
-    <Modal
+    <Modal statusBarTranslucent navigationBarTranslucent
       isVisible={visivel}
       onBackdropPress={onFechar}
       onBackButtonPress={onFechar}

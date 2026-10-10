@@ -38,6 +38,7 @@
 import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import MainStack from "./src/navigation/MainStack";
@@ -185,15 +186,21 @@ export default function App() {
           componentes fora deles (ex.: UserMenu, irmão do MainStack) quebravam
           ao chamar useSafeAreaInsets. */}
       <SafeAreaProvider>
-        <AuthProvider>
-          <VisibilityProvider>
-            <DateFilterProvider>
-              <DivisaoDespesaProvider>
-                <AppContent />
-              </DivisaoDespesaProvider>
-            </DateFilterProvider>
-          </VisibilityProvider>
-        </AuthProvider>
+        {/* 🔹 Teclado tratado pela react-native-keyboard-controller (ver
+            AreaFormulario.js). App de borda a borda (Expo SDK 57): barras
+            de status/navegação translúcidas também dentro dos modais, para
+            o Expo Go se comportar igual ao APK. */}
+        <KeyboardProvider statusBarTranslucent navigationBarTranslucent preserveEdgeToEdge>
+          <AuthProvider>
+            <VisibilityProvider>
+              <DateFilterProvider>
+                <DivisaoDespesaProvider>
+                  <AppContent />
+                </DivisaoDespesaProvider>
+              </DateFilterProvider>
+            </VisibilityProvider>
+          </AuthProvider>
+        </KeyboardProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

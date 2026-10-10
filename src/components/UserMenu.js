@@ -4,7 +4,7 @@
 // em vários outros modais do app (ContaCriadaModal, GerenciarMembrosModal,
 // MembroSelect, ModalCriacao, ModalEdicao) — nenhuma dependência nova.
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, FlatList, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList } from 'react-native';
 import Modal from 'react-native-modal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -66,22 +66,16 @@ export default function UserMenu() {
 
   return (
     <>
-      <Modal
+      <Modal statusBarTranslucent navigationBarTranslucent
         isVisible={isOpen}
         onBackdropPress={close}
         onBackButtonPress={close}
         style={{ justifyContent: 'flex-end', margin: 0 }}
         useNativeDriver
       >
-        {/* No iPhone, paddingBottom soma a barrinha de gesto; no Android o
-            modal já termina acima da barra de navegação (mesma regra do
-            AreaFormulario). */}
-        <View
-          style={[
-            globalStyles.modalContainer,
-            { paddingBottom: 24 + (Platform.OS === 'ios' ? insets.bottom : 0) },
-          ]}
-        >
+        {/* paddingBottom soma a barra de navegação do sistema (botões ou
+            gestos) — mesma regra do AreaFormulario. */}
+        <View style={[globalStyles.modalContainer, { paddingBottom: 24 + insets.bottom }]}>
           <View style={globalStyles.modalHeader}>
             <Text style={globalStyles.modalTitle}>{getNomeExibicao(profile)}</Text>
             <TouchableOpacity onPress={close}>

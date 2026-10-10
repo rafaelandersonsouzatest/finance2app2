@@ -440,7 +440,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
           </View>
 
           {/* 🪟 Mini-Modal de Seleção de Entradas */}
-          <Modal
+          <Modal statusBarTranslucent navigationBarTranslucent
             visible={miniModalEntradas}
             transparent
             animationType="fade"
@@ -618,6 +618,9 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
           categoria={categoria}
           onSelecionar={setCategoria}
           tipoTransacao={tipo === "gasto" ? "despesa" : "receita"}
+          // Sem título: o botão já diz "Selecionar categoria" (mesmo padrão
+          // do MembroSelect logo abaixo).
+          mostrarLabel={false}
         />
       </View>
 
@@ -782,7 +785,7 @@ export default function GerenciarModelosModal({
   };
 
   return (
-    <Modal
+    <Modal statusBarTranslucent navigationBarTranslucent
       visible={visible}
       animationType="slide"
       transparent

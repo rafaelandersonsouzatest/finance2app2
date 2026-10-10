@@ -118,7 +118,7 @@ export const CartaoSelect = ({
       </TouchableOpacity>
 
       {/* Modal principal — lista de cartões cadastrados + "Outro cartão..." */}
-      <Modal
+      <Modal statusBarTranslucent navigationBarTranslucent
         isVisible={modalVisivel}
         onBackdropPress={fecharModal}
         style={{ justifyContent: 'flex-end', margin: 0 }}
@@ -174,7 +174,7 @@ export const CartaoSelect = ({
       {/* Modal pequeno — só pede o nome, para o caso pontual de um cartão
           não cadastrado (mesmo tratamento de "Outra pessoa..." em
           MembroSelect.js). */}
-      <Modal
+      <Modal statusBarTranslucent navigationBarTranslucent
         isVisible={modalOutroVisivel}
         onBackdropPress={fecharOutro}
         style={{ justifyContent: 'flex-end', margin: 0 }}

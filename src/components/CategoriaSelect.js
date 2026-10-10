@@ -175,7 +175,7 @@ export default function CategoriaSelect({
         <MaterialCommunityIcons name="chevron-down" size={22} color={colors.textSecondary} />
       </TouchableOpacity>
 
-      <Modal
+      <Modal statusBarTranslucent navigationBarTranslucent
         isVisible={visivel}
         onBackdropPress={fechar}
         onBackButtonPress={fechar}

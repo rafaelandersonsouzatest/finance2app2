@@ -31,6 +31,13 @@ export default ({ config }) => {
       owner: "rafael.anderson.souza",
       googleWebClientId:
         "235824014044-5jri4robn2smlpaf6q46g4hin7bv8rlq.apps.googleusercontent.com",
+      // 🔹 Ambiente do APK: "etiqueta" de compatibilidade automática — o Expo
+      // calcula a partir das peças nativas instaladas. Entrou biblioteca
+      // nativa nova → etiqueta muda sozinha → APK antigo para de receber
+      // atualização (em vez de receber uma que fecharia o app) e é preciso
+      // gerar APK novo. Só aqui: os demais ambientes rodam no Expo Go, que
+      // exige o formato "exposdk:X" (policy sdkVersion, no app.json).
+      runtimeVersion: { policy: "fingerprint" },
     },
     rafael: {
       name: "Financeiro Rafael",
@@ -98,5 +105,6 @@ export default ({ config }) => {
       eas: { projectId: selected.projectId },
     },
     updates: { url: selected.updatesUrl },
+    runtimeVersion: selected.runtimeVersion || config.runtimeVersion,
   };
 };

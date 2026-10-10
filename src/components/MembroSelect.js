@@ -166,7 +166,7 @@ export const MembroSelect = ({
       </TouchableOpacity>
 
       {/* Modal principal — só a lista de Membros + "Outra pessoa..." */}
-      <Modal
+      <Modal statusBarTranslucent navigationBarTranslucent
         isVisible={modalVisivel}
         onBackdropPress={fecharModal}
         style={{ justifyContent: "flex-end", margin: 0 }}
@@ -240,7 +240,7 @@ export const MembroSelect = ({
       {/* Modal pequeno — só pede o nome, para o caso raro de alguém fora
           da família (~10% dos lançamentos, ver decisão registrada em
           SPRINT5_DISCOVERY.md). */}
-      <Modal
+      <Modal statusBarTranslucent navigationBarTranslucent
         isVisible={modalOutraPessoaVisivel}
         onBackdropPress={fecharOutraPessoa}
         style={{ justifyContent: "flex-end", margin: 0 }}

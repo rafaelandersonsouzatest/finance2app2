@@ -96,7 +96,7 @@ export const GerenciarMembrosModal = ({ visivel, onFechar }) => {
   // 🔹 Render principal
   // ======================================================
   return (
-    <Modal
+    <Modal statusBarTranslucent navigationBarTranslucent
       isVisible={visivel}
       onBackdropPress={onFechar}
       onBackButtonPress={onFechar}

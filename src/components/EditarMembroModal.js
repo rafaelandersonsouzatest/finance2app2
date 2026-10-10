@@ -66,7 +66,7 @@ export default function EditarMembroModal({
   };
 
   return (
-    <Modal
+    <Modal statusBarTranslucent navigationBarTranslucent
       isVisible={visivel}
       onBackdropPress={onFechar}
       onBackButtonPress={onFechar}

@@ -5,6 +5,10 @@
 // listar toda mudança interna/técnica).
 export const CHANGELOG = [
   {
+    data: '2026-10-10',
+    texto: 'Formulários agora sobem de verdade quando o teclado abre também no app instalado (APK) — é preciso instalar o APK novo uma vez.',
+  },
+  {
     data: '2026-10-09',
     texto: 'O teclado não cobre mais o que você está digitando nos formulários, e o menu do usuário passa a rolar quando a fonte do celular está grande.',
   },

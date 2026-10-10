@@ -127,7 +127,7 @@ export default function ModalEditorParcelas({
   };
 
   return (
-    <Modal visible={!!visivel} transparent animationType="slide" onRequestClose={aoFechar}>
+    <Modal statusBarTranslucent navigationBarTranslucent visible={!!visivel} transparent animationType="slide" onRequestClose={aoFechar}>
       <View style={globalStyles.fullScreenModalOverlay}>
         <View style={[globalStyles.managementModalContainer, { maxHeight: '90%' }]}>
           <View style={globalStyles.managementModalHeader}>

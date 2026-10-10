@@ -415,7 +415,7 @@ const handleSalvar = () => {
   // 🔹 RENDER FINAL
   // ==========================================================
 return (
-  <ModalRN
+  <ModalRN statusBarTranslucent navigationBarTranslucent
     isVisible={visivel}
     onBackdropPress={aoFechar}
     onBackButtonPress={aoFechar}

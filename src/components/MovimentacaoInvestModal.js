@@ -104,7 +104,7 @@ export default function MovimentacaoInvestModal({
 
   return (
     <>
-      <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+      <Modal statusBarTranslucent navigationBarTranslucent visible={visible} animationType="fade" transparent onRequestClose={onClose}>
         {/* Teclado tratado pelo AreaFormulario (mesmo padrão dos demais
             modais com campos). */}
         <View style={globalStyles.modalOverlay}>

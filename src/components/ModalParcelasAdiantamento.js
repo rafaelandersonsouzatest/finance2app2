@@ -105,7 +105,7 @@ export default function ModalParcelasAdiantamento({
   };
 
   return (
-    <Modal visible={!!visivel} transparent animationType="fade" onRequestClose={aoFechar}>
+    <Modal statusBarTranslucent navigationBarTranslucent visible={!!visivel} transparent animationType="fade" onRequestClose={aoFechar}>
       <View style={globalStyles.fullScreenModalOverlay}>
         <View style={[globalStyles.managementModalContainer, { maxHeight: '85%' }]}>
           <View style={globalStyles.managementModalHeader}>

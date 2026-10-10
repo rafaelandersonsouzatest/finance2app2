@@ -841,7 +841,7 @@ case 'investimento':
 
 return (
   <>
-    <ModalRN
+    <ModalRN statusBarTranslucent navigationBarTranslucent
       isVisible={visivel}
       onBackdropPress={() => { if (!bloquearFechamento) aoFechar(); }}
       onBackButtonPress={() => { if (!bloquearFechamento) aoFechar(); }} // Android
