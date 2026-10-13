@@ -77,6 +77,12 @@ Conforme `git status` no momento desta análise:
 - Blocos grandes de código comentado em `App.js` e `src/components/MonthYearPicker.js` (duas versões antigas completas).
 - ~~Dependências instaladas e nunca usadas~~ ✅ Removidas do `package.json` e `package-lock.json` (Sprint 1 / D1, 2026-07-24): `react-native-chart-kit`, `victory-native`, `@shopify/react-native-skia`, `d3-shape`, `react-native-vector-icons`, entrada corrompida `"undefined"`. `npm install` removeu 39 pacotes (diretos + transitivos). `npm audit` aponta 30 vulnerabilidades pré-existentes (1 baixa, 16 médias, 9 altas, 4 críticas) nas dependências restantes — não corrigidas nesta sprint (nenhuma ação de `npm audit fix` foi executada, para não trocar versões de dependência sem avaliação própria); candidato a item de segurança para revisar antes da publicação.
 - Entrada corrompida no `package.json`: `"undefined": "\\"`.
+- `ConteudoAba` em `src/screens/SaidasScreen.js` — componente definido e nunca usado (achado em
+  2026-10-09; confirmado por busca: nenhum `<ConteudoAba` no projeto). Remoção combinada para
+  depois de a 0.8.0 se mostrar estável — remover direto (não comentar; o histórico do git guarda).
+- **Modais de Colaboração** (`ModalAdicionarParticipante`, `ModalCompartilharDespesa`,
+  `ModalEditarCotaMembro`, `ModalProporAlteracao`): não é código morto, mas ainda sem
+  `AreaFormulario`/barras translúcidas (seção 24) — aplicar quando `colaboracaoDisponivel` for ligada.
 
 ## 5. Bugs conhecidos / riscos identificados
 

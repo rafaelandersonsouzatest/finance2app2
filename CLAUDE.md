@@ -167,9 +167,7 @@ Resumo rápido — regras práticas para não reintroduzir um bug já corrigido:
   demais usam `sdkVersion` (exigido pelo Expo Go). Entrou biblioteca com parte nativa → a
   etiqueta do `meu-app` muda sozinha → **gerar APK novo antes de publicar**; o APK antigo para de
   receber atualização (não quebra).
-- A pasta `android/` está commitada por engano (Sprint 6) e faz o Expo tratar o projeto como
-  *bare workflow* — por isso `runtimeVersion` no `app.json` não pode usar
-  `{"policy": "sdkVersion"}` (o Expo recusa), tem que ser um valor fixo no formato
-  `exposdk:X.Y.Z`, atualizado manualmente a cada upgrade de SDK do Expo. Se esquecer de
-  atualizar depois de um upgrade de SDK, o Expo Go mostra "not compatible" mesmo com o
-  bundle certo (ver `PROJECT_STATUS.md` seção 19.1).
+- As pastas `android/` e `ios/` **não** são versionadas (estão no `.gitignore` desde a remoção
+  em `PROJECT_STATUS.md` seção 20) — o projeto é *managed workflow* e o `runtimeVersion` usa
+  política automática. Não commitar essas pastas de novo (gerar build nativo local as cria): com
+  elas o Expo volta a tratar o projeto como *bare* e recusa `{"policy": "sdkVersion"}`.
