@@ -6,13 +6,14 @@
 // valor total enviado quando `origemLancamentoId` está presente, ver
 // functions/divisaoDespesa.js).
 import { useEffect, useState } from 'react';
-import { Modal, View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import { vibrarLeve } from '../utils/haptics';
 import SeletorConexoes from './SeletorConexoes';
 import CampoMonetario from './CampoMonetario';
+import AreaFormulario from './AreaFormulario';
 
 export default function ModalCompartilharDespesa({
   visible,
@@ -111,7 +112,7 @@ export default function ModalCompartilharDespesa({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal statusBarTranslucent navigationBarTranslucent visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={globalStyles.modalOverlay}>
         <View style={globalStyles.modalContainer}>
           <View style={globalStyles.modalHeader}>
@@ -120,15 +121,15 @@ export default function ModalCompartilharDespesa({
               <MaterialCommunityIcons name="close-circle" size={32} color={colors.textTertiary} />
             </TouchableOpacity>
           </View>
+          <AreaFormulario>
 
-          <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
-            {gasto.descricao || 'Gasto'}
-          </Text>
-          <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 16 }}>
-            R$ {(valorTotalCentavos / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </Text>
+            <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
+              {gasto.descricao || 'Gasto'}
+            </Text>
+            <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: '700', marginBottom: 16 }}>
+              R$ {(valorTotalCentavos / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </Text>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
             <SeletorConexoes
               conexoes={conexoesAceitas}
               selecionados={selecionados}
@@ -156,44 +157,44 @@ export default function ModalCompartilharDespesa({
                 />
               )}
             />
-          </ScrollView>
 
-          <View style={{ marginTop: 8, marginBottom: 8 }}>
-            <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-              Sua cota: R$ {(Math.max(minhaCotaCentavos, 0) / 100).toLocaleString('pt-BR', {
-                minimumFractionDigits: 2,
-              })}
-            </Text>
-            {minhaCotaCentavos < 0 && (
-              <Text style={{ color: colors.error, fontSize: 13, marginTop: 4 }}>
-                A soma das cotas não pode passar do valor total.
+            <View style={{ marginTop: 8, marginBottom: 8 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+                Sua cota: R$ {(Math.max(minhaCotaCentavos, 0) / 100).toLocaleString('pt-BR', {
+                  minimumFractionDigits: 2,
+                })}
               </Text>
-            )}
-          </View>
+              {minhaCotaCentavos < 0 && (
+                <Text style={{ color: colors.error, fontSize: 13, marginTop: 4 }}>
+                  A soma das cotas não pode passar do valor total.
+                </Text>
+              )}
+            </View>
 
-          {!!errorCompartilhar && (
-            <Text style={{ color: colors.error, marginBottom: 8 }}>{errorCompartilhar}</Text>
-          )}
-
-          <TouchableOpacity
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'center',
-              alignItems: 'center',
-              backgroundColor: colors.primary,
-              paddingVertical: 12,
-              borderRadius: 8,
-              opacity: podeConfirmar ? 1 : 0.5,
-            }}
-            onPress={handleConfirmar}
-            disabled={!podeConfirmar}
-          >
-            {compartilhando ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Compartilhar</Text>
+            {!!errorCompartilhar && (
+              <Text style={{ color: colors.error, marginBottom: 8 }}>{errorCompartilhar}</Text>
             )}
-          </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center',
+                backgroundColor: colors.primary,
+                paddingVertical: 12,
+                borderRadius: 8,
+                opacity: podeConfirmar ? 1 : 0.5,
+              }}
+              onPress={handleConfirmar}
+              disabled={!podeConfirmar}
+            >
+              {compartilhando ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Compartilhar</Text>
+              )}
+            </TouchableOpacity>
+          </AreaFormulario>
         </View>
       </View>
     </Modal>

@@ -12,6 +12,7 @@ import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import { useVisibility } from '../contexts/VisibilityContext';
 import CampoMonetario from './CampoMonetario';
+import AreaFormulario from './AreaFormulario';
 
 export default function ModalEditarCotaMembro({
   visible,
@@ -39,7 +40,7 @@ export default function ModalEditarCotaMembro({
   const podeConfirmar = valorCentavos > 0 && delta !== 0 && !excedeMinhaCota && !editando;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal statusBarTranslucent navigationBarTranslucent visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={globalStyles.modalOverlay}>
         <View style={globalStyles.modalContainer}>
           <View style={globalStyles.modalHeader}>
@@ -48,49 +49,51 @@ export default function ModalEditarCotaMembro({
               <MaterialCommunityIcons name="close-circle" size={32} color={colors.textTertiary} />
             </TouchableOpacity>
           </View>
+          <AreaFormulario>
 
-          <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>{participante.nomeExibicao}</Text>
-          <Text style={{ color: colors.textPrimary, marginBottom: 16 }}>
-            Cota atual: {formatValue((participante.valorCentavos || 0) / 100)}
-          </Text>
-
-          <CampoMonetario label="Nova cota" valor={valor} onChange={setValor} />
-
-          <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 8 }}>
-            {delta > 0
-              ? `${formatValue(delta / 100)} sai da sua própria cota.`
-              : delta < 0
-                ? `${formatValue(-delta / 100)} volta pra sua própria cota.`
-                : 'Escolha um valor diferente do atual.'}
-          </Text>
-          {excedeMinhaCota && (
-            <Text style={{ color: colors.error, fontSize: 13, marginTop: 4 }}>
-              Você não tem essa cota disponível.
+            <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>{participante.nomeExibicao}</Text>
+            <Text style={{ color: colors.textPrimary, marginBottom: 16 }}>
+              Cota atual: {formatValue((participante.valorCentavos || 0) / 100)}
             </Text>
-          )}
 
-          {!!errorEditar && <Text style={{ color: colors.error, marginTop: 8 }}>{errorEditar}</Text>}
+            <CampoMonetario label="Nova cota" valor={valor} onChange={setValor} />
 
-          <TouchableOpacity
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'center',
-              alignItems: 'center',
-              backgroundColor: colors.primary,
-              paddingVertical: 12,
-              borderRadius: 8,
-              marginTop: 16,
-              opacity: podeConfirmar ? 1 : 0.5,
-            }}
-            onPress={() => podeConfirmar && onConfirmar(valorCentavos)}
-            disabled={!podeConfirmar}
-          >
-            {editando ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Salvar</Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 8 }}>
+              {delta > 0
+                ? `${formatValue(delta / 100)} sai da sua própria cota.`
+                : delta < 0
+                  ? `${formatValue(-delta / 100)} volta pra sua própria cota.`
+                  : 'Escolha um valor diferente do atual.'}
+            </Text>
+            {excedeMinhaCota && (
+              <Text style={{ color: colors.error, fontSize: 13, marginTop: 4 }}>
+                Você não tem essa cota disponível.
+              </Text>
             )}
-          </TouchableOpacity>
+
+            {!!errorEditar && <Text style={{ color: colors.error, marginTop: 8 }}>{errorEditar}</Text>}
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center',
+                backgroundColor: colors.primary,
+                paddingVertical: 12,
+                borderRadius: 8,
+                marginTop: 16,
+                opacity: podeConfirmar ? 1 : 0.5,
+              }}
+              onPress={() => podeConfirmar && onConfirmar(valorCentavos)}
+              disabled={!podeConfirmar}
+            >
+              {editando ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Salvar</Text>
+              )}
+            </TouchableOpacity>
+          </AreaFormulario>
         </View>
       </View>
     </Modal>

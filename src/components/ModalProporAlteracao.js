@@ -12,6 +12,7 @@ import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import { useVisibility } from '../contexts/VisibilityContext';
 import CampoMonetario from './CampoMonetario';
+import AreaFormulario from './AreaFormulario';
 import ModalDecidirDestino from './ModalDecidirDestino';
 
 export default function ModalProporAlteracao({
@@ -66,7 +67,7 @@ export default function ModalProporAlteracao({
 
   return (
     <>
-      <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <Modal statusBarTranslucent navigationBarTranslucent visible={visible} animationType="slide" transparent onRequestClose={onClose}>
         <View style={globalStyles.modalOverlay}>
           <View style={globalStyles.modalContainer}>
             <View style={globalStyles.modalHeader}>
@@ -77,66 +78,68 @@ export default function ModalProporAlteracao({
                 <MaterialCommunityIcons name="close-circle" size={32} color={colors.textTertiary} />
               </TouchableOpacity>
             </View>
+            <AreaFormulario>
 
-            <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
-              {participante.nomeExibicao}
-            </Text>
-            <Text style={{ color: colors.textPrimary, marginBottom: 16 }}>
-              Cota atual: {formatValue((participante.valorCentavos || 0) / 100)}
-            </Text>
-
-            {modoRemover ? (
-              <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-                Isso envia um pedido pra {participante.nomeExibicao} sair da divisão, liberando a
-                cota de {formatValue((participante.valorCentavos || 0) / 100)} — ele(a) precisa
-                concordar antes de valer (mesmo fluxo de qualquer alteração de cota).
+              <Text style={{ color: colors.textSecondary, marginBottom: 4 }}>
+                {participante.nomeExibicao}
               </Text>
-            ) : (
-              <>
-                <CampoMonetario label="Nova cota" valor={novoValor} onChange={setNovoValor} />
-
-                {delta < 0 && (
-                  <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 8 }}>
-                    O acréscimo de {formatValue(-delta / 100)} sai da sua própria cota.
-                  </Text>
-                )}
-                {delta === 0 && (
-                  <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 8 }}>
-                    Escolha um valor diferente do atual.
-                  </Text>
-                )}
-              </>
-            )}
-            {acrescimoExcedeCota && (
-              <Text style={{ color: colors.error, fontSize: 13, marginTop: 4 }}>
-                Você não tem essa cota disponível.
+              <Text style={{ color: colors.textPrimary, marginBottom: 16 }}>
+                Cota atual: {formatValue((participante.valorCentavos || 0) / 100)}
               </Text>
-            )}
 
-            {!!errorPropor && <Text style={{ color: colors.error, marginTop: 8 }}>{errorPropor}</Text>}
-
-            <TouchableOpacity
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'center',
-                alignItems: 'center',
-                backgroundColor: modoRemover ? colors.error : colors.primary,
-                paddingVertical: 12,
-                borderRadius: 8,
-                marginTop: 16,
-                opacity: podeConfirmar ? 1 : 0.5,
-              }}
-              onPress={handlePropor}
-              disabled={!podeConfirmar}
-            >
-              {propondo ? (
-                <ActivityIndicator color="#fff" />
+              {modoRemover ? (
+                <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+                  Isso envia um pedido pra {participante.nomeExibicao} sair da divisão, liberando a
+                  cota de {formatValue((participante.valorCentavos || 0) / 100)} — ele(a) precisa
+                  concordar antes de valer (mesmo fluxo de qualquer alteração de cota).
+                </Text>
               ) : (
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
-                  {modoRemover ? 'Enviar pedido de remoção' : 'Propor'}
+                <>
+                  <CampoMonetario label="Nova cota" valor={novoValor} onChange={setNovoValor} />
+
+                  {delta < 0 && (
+                    <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 8 }}>
+                      O acréscimo de {formatValue(-delta / 100)} sai da sua própria cota.
+                    </Text>
+                  )}
+                  {delta === 0 && (
+                    <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 8 }}>
+                      Escolha um valor diferente do atual.
+                    </Text>
+                  )}
+                </>
+              )}
+              {acrescimoExcedeCota && (
+                <Text style={{ color: colors.error, fontSize: 13, marginTop: 4 }}>
+                  Você não tem essa cota disponível.
                 </Text>
               )}
-            </TouchableOpacity>
+
+              {!!errorPropor && <Text style={{ color: colors.error, marginTop: 8 }}>{errorPropor}</Text>}
+
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  backgroundColor: modoRemover ? colors.error : colors.primary,
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  marginTop: 16,
+                  opacity: podeConfirmar ? 1 : 0.5,
+                }}
+                onPress={handlePropor}
+                disabled={!podeConfirmar}
+              >
+                {propondo ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
+                    {modoRemover ? 'Enviar pedido de remoção' : 'Propor'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </AreaFormulario>
           </View>
         </View>
       </Modal>

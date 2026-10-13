@@ -81,8 +81,11 @@ Conforme `git status` no momento desta análise:
   2026-10-09; confirmado por busca: nenhum `<ConteudoAba` no projeto). Remoção combinada para
   depois de a 0.8.0 se mostrar estável — remover direto (não comentar; o histórico do git guarda).
 - **Modais de Colaboração** (`ModalAdicionarParticipante`, `ModalCompartilharDespesa`,
-  `ModalEditarCotaMembro`, `ModalProporAlteracao`): não é código morto, mas ainda sem
-  `AreaFormulario`/barras translúcidas (seção 24) — aplicar quando `colaboracaoDisponivel` for ligada.
+  `ModalEditarCotaMembro`, `ModalProporAlteracao`): ✅ receberam `AreaFormulario` e barras
+  translúcidas em 2026-10-13 (seção 24). **Não testados no aparelho** — só ficam acessíveis com
+  `colaboracaoDisponivel` ligada (emulador local); testar o teclado neles quando a Colaboração for
+  liberada. `ModalDecidirDestino`/`ModalGerenciarDivisao` (sem campos) ainda sem o recuo da barra
+  de navegação.
 
 ## 5. Bugs conhecidos / riscos identificados
 

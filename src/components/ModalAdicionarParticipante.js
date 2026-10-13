@@ -4,13 +4,14 @@
 // sem conta), mas só permite escolher UMA pessoa por vez (o valor sempre sai
 // da própria cota do criador, então cada adição é uma decisão isolada).
 import { useEffect, useState } from 'react';
-import { Modal, View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import { useVisibility } from '../contexts/VisibilityContext';
 import SeletorConexoes from './SeletorConexoes';
 import CampoMonetario from './CampoMonetario';
+import AreaFormulario from './AreaFormulario';
 
 export default function ModalAdicionarParticipante({
   visible,
@@ -58,7 +59,7 @@ export default function ModalAdicionarParticipante({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal statusBarTranslucent navigationBarTranslucent visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={globalStyles.modalOverlay}>
         <View style={globalStyles.modalContainer}>
           <View style={globalStyles.modalHeader}>
@@ -67,12 +68,12 @@ export default function ModalAdicionarParticipante({
               <MaterialCommunityIcons name="close-circle" size={32} color={colors.textTertiary} />
             </TouchableOpacity>
           </View>
+          <AreaFormulario>
 
-          <Text style={{ color: colors.textSecondary, marginBottom: 16 }}>
-            Disponível na sua cota: {formatValue((minhaCotaDisponivelCentavos || 0) / 100)}
-          </Text>
+            <Text style={{ color: colors.textSecondary, marginBottom: 16 }}>
+              Disponível na sua cota: {formatValue((minhaCotaDisponivelCentavos || 0) / 100)}
+            </Text>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
             <SeletorConexoes
               conexoes={conexoesAceitas}
               selecionados={uidSelecionado ? new Set([uidSelecionado]) : new Set()}
@@ -88,47 +89,47 @@ export default function ModalAdicionarParticipante({
                 setMembroSelecionado((atual) => (atual === id ? null : id));
               }}
             />
-          </ScrollView>
 
-          {(uidSelecionado || membroSelecionado) && (
-            <CampoMonetario
-              label="Cota desta pessoa"
-              valor={valor}
-              onChange={setValor}
-              style={{ marginTop: 8 }}
-            />
-          )}
-
-          {valorCentavos > minhaCotaDisponivelCentavos && (
-            <Text style={{ color: colors.error, fontSize: 13, marginTop: 8 }}>
-              Você não tem essa cota disponível.
-            </Text>
-          )}
-
-          {!!errorAdicionar && (
-            <Text style={{ color: colors.error, marginTop: 8 }}>{errorAdicionar}</Text>
-          )}
-
-          <TouchableOpacity
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'center',
-              alignItems: 'center',
-              backgroundColor: colors.primary,
-              paddingVertical: 12,
-              borderRadius: 8,
-              marginTop: 16,
-              opacity: podeConfirmar ? 1 : 0.5,
-            }}
-            onPress={handleConfirmar}
-            disabled={!podeConfirmar}
-          >
-            {adicionando ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Adicionar</Text>
+            {(uidSelecionado || membroSelecionado) && (
+              <CampoMonetario
+                label="Cota desta pessoa"
+                valor={valor}
+                onChange={setValor}
+                style={{ marginTop: 8 }}
+              />
             )}
-          </TouchableOpacity>
+
+            {valorCentavos > minhaCotaDisponivelCentavos && (
+              <Text style={{ color: colors.error, fontSize: 13, marginTop: 8 }}>
+                Você não tem essa cota disponível.
+              </Text>
+            )}
+
+            {!!errorAdicionar && (
+              <Text style={{ color: colors.error, marginTop: 8 }}>{errorAdicionar}</Text>
+            )}
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center',
+                backgroundColor: colors.primary,
+                paddingVertical: 12,
+                borderRadius: 8,
+                marginTop: 16,
+                opacity: podeConfirmar ? 1 : 0.5,
+              }}
+              onPress={handleConfirmar}
+              disabled={!podeConfirmar}
+            >
+              {adicionando ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Adicionar</Text>
+              )}
+            </TouchableOpacity>
+          </AreaFormulario>
         </View>
       </View>
     </Modal>
