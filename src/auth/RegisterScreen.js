@@ -190,10 +190,10 @@ export default function RegisterScreen({ navigation }) {
     if (/\d/.test(senha)) score++;
     if (/[!@#$%^&*(),.?":{}|<>]/.test(senha)) score++;
 
-    const cores = [colors.gasto, colors.forcaSenhaFraca, colors.forcaSenhaMedia, colors.balance, colors.forcaSenhaExcelente];
+    const cores = [colors.expense, colors.passwordWeak, colors.passwordMedium, colors.balance, colors.passwordExcellent];
     const niveis = ["Muito fraca", "Fraca", "Média", "Forte", "Excelente"];
 
-    return { score, cor: cores[score - 1] || colors.forcaSenhaVazia, nivel: niveis[score - 1] || "" };
+    return { score, cor: cores[score - 1] || colors.passwordEmpty, nivel: niveis[score - 1] || "" };
   };
 
   const forca = forcaSenha(senha);
@@ -232,7 +232,7 @@ export default function RegisterScreen({ navigation }) {
           email.length > 0 && {
             borderColor: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
               ? colors.balance
-              : colors.gasto,
+              : colors.expense,
           },
         ]}
         placeholder="E-mail"
@@ -247,7 +247,7 @@ export default function RegisterScreen({ navigation }) {
           style={{
             color: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
               ? colors.balance
-              : colors.gasto,
+              : colors.expense,
             textAlign: "right",
             fontSize: 12,
             marginTop: 4,
@@ -299,7 +299,7 @@ export default function RegisterScreen({ navigation }) {
               height: 6,
               borderRadius: 10,
               marginTop: 6,
-              backgroundColor: colors.forcaSenhaTrilho,
+              backgroundColor: colors.passwordTrack,
             }}
           >
             <View
@@ -360,7 +360,7 @@ export default function RegisterScreen({ navigation }) {
             globalStyles.input,
             confirmarSenha.length > 0 && {
               borderColor:
-                confirmarSenha === senha ? colors.balance : colors.gasto,
+                confirmarSenha === senha ? colors.balance : colors.expense,
             },
             { paddingRight: 44 },
           ]}
@@ -393,7 +393,7 @@ export default function RegisterScreen({ navigation }) {
         <Text
           style={{
             color:
-              confirmarSenha === senha ? colors.balance : colors.gasto,
+              confirmarSenha === senha ? colors.balance : colors.expense,
             textAlign: "right",
             fontSize: 12,
             marginTop: 4,
@@ -416,7 +416,7 @@ export default function RegisterScreen({ navigation }) {
                 ? globalStyles.input.borderColor
                 : docValido
                 ? colors.balance
-                : colors.gasto,
+                : colors.expense,
           },
         ]}
         placeholder="CPF ou CNPJ"
@@ -446,7 +446,7 @@ export default function RegisterScreen({ navigation }) {
                 ? colors.textSecondary
                 : docValido
                 ? colors.balance
-                : colors.gasto,
+                : colors.expense,
             textAlign: "right",
             marginTop: 4,
           }}
@@ -462,7 +462,7 @@ export default function RegisterScreen({ navigation }) {
         style={[globalStyles.saveButton, { marginTop: 24 }]}
       >
         {loading ? (
-          <ActivityIndicator color={colors.textoSobreCor} />
+          <ActivityIndicator color={colors.textOnColor} />
         ) : (
           <Text style={globalStyles.saveButtonText}>Registrar</Text>
         )}

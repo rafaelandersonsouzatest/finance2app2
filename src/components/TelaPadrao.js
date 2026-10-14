@@ -218,7 +218,7 @@ export default function TelaPadrao({
 
       return (
         <>
-          <InfoRow icon="cash" label="Valor" value={item.valor} color={colors.entrada} isMonetary={true} />
+          <InfoRow icon="cash" label="Valor" value={item.valor} color={colors.income} isMonetary={true} />
           <InfoRow icon="shape-outline" label="Categoria" value={item.categoria || 'Não informada'} />
           <InfoRow icon="calendar-arrow-left" label="Data do Recebimento" value={dataExibicao} />
           <InfoRow icon={item.pago ? "check-circle-outline" : "alert-circle-outline"} label="Status" value={item.pago ? "Recebido" : "Pendente"} color={statusCor} />
@@ -233,7 +233,7 @@ export default function TelaPadrao({
 
       return (
         <>
-          <InfoRow icon="cash" label="Valor" value={item.valor} color={colors.gasto} isMonetary={true} />
+          <InfoRow icon="cash" label="Valor" value={item.valor} color={colors.expense} isMonetary={true} />
           <InfoRow icon="shape-outline" label="Categoria" value={item.categoria || 'Não informada'} />
           <InfoRow icon="calendar-arrow-right" label="Data de Vencimento" value={dataExibicao} />
           <InfoRow icon={item.pago ? "check-circle-outline" : "alert-circle-outline"} label="Status" value={item.pago ? "Pago" : "Pendente"} color={statusCor} />
@@ -248,7 +248,7 @@ export default function TelaPadrao({
 
       return (
         <>
-          <InfoRow icon="cash" label="Valor da Parcela" value={item.valor} color={colors.gasto} isMonetary={true} />
+          <InfoRow icon="cash" label="Valor da Parcela" value={item.valor} color={colors.expense} isMonetary={true} />
           <InfoRow icon="account-group-outline" label="Pessoa/Instituição" value={item.credor || 'Não informada'} />
           <InfoRow icon="calendar-arrow-right" label="Vencimento da Parcela" value={dataExibicao} />
           <InfoRow
@@ -269,7 +269,7 @@ export default function TelaPadrao({
 
       return (
         <>
-          <InfoRow icon="cash" label="Valor da Parcela" value={item.valor} color={colors.gasto} isMonetary={true} />
+          <InfoRow icon="cash" label="Valor da Parcela" value={item.valor} color={colors.expense} isMonetary={true} />
           <InfoRow icon="credit-card-outline" label="Cartão" value={item.cartao || 'Não informado'} />
           <InfoRow icon="account-group-outline" label="Pessoa" value={item.pessoa || 'Não informada'} />
           <InfoRow
@@ -350,7 +350,7 @@ const renderHeader = () => (
               justifyContent: 'center',
             }}
           >
-            <Text style={{ color: colors.textoSobreCor, fontSize: 9, fontWeight: '700' }}>
+            <Text style={{ color: colors.textOnColor, fontSize: 9, fontWeight: '700' }}>
               {totalPendencias > 9 ? '9+' : totalPendencias}
             </Text>
           </View>
@@ -442,7 +442,7 @@ const renderHeader = () => (
               setModalCriacaoVisivel(true);
             }}
           >
-            <MaterialCommunityIcons name="plus" size={30} color={colors.textoSobreCor} />
+            <MaterialCommunityIcons name="plus" size={30} color={colors.textOnColor} />
           </TouchableOpacity>
         ) : null}
 
@@ -538,9 +538,9 @@ const renderHeader = () => (
                         globalStyles.listItemStatus,
                         {
                           color: item.adiantada
-                            ? colors.warning
+                            ? colors.earlyPayment
                             : item.pago
-                            ? colors.entrada
+                            ? colors.income
                             : colors.pending,
                         },
                       ]}
@@ -597,7 +597,7 @@ const renderHeader = () => (
           ))
         ) : (
           <View style={globalStyles.emptyContainer}>
-            <MaterialCommunityIcons name="receipt" size={48} color={colors.textoVazioSecundario} />
+            <MaterialCommunityIcons name="receipt" size={48} color={colors.textEmptySecondary} />
             <Text style={globalStyles.noDataText}>Nenhum registro para este mês.</Text>
             <Text style={globalStyles.emptySubtext}>
               Clique no '+' para adicionar seu primeiro {tipo}.
@@ -618,7 +618,7 @@ const renderHeader = () => (
     setModalCriacaoVisivel(true);
   }}
 >
-  <MaterialCommunityIcons name="plus" size={30} color={colors.textoSobreCor} />
+  <MaterialCommunityIcons name="plus" size={30} color={colors.textOnColor} />
 </TouchableOpacity>
       ) : null}
 

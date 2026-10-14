@@ -14,7 +14,7 @@ const FabMenuItem = ({ icon, label, onPress, style }) => (
       onPress={onPress}
       activeOpacity={0.8}
     >
-      <MaterialCommunityIcons name="plus" size={24} color={colors.textoSobreCor} />
+      <MaterialCommunityIcons name="plus" size={24} color={colors.textOnColor} />
     </TouchableOpacity>
   </Animated.View>
 );
@@ -107,7 +107,7 @@ export default function FabMenu({ actions }) {
         activeOpacity={1}
       >
         <Animated.View style={rotation}>
-          <MaterialCommunityIcons name="plus" size={30} color={colors.textoSobreCor} />
+          <MaterialCommunityIcons name="plus" size={30} color={colors.textOnColor} />
         </Animated.View>
       </TouchableOpacity>
     </View>

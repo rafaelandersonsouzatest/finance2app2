@@ -124,9 +124,9 @@ export default function ModalAdicionarParticipante({
               disabled={!podeConfirmar}
             >
               {adicionando ? (
-                <ActivityIndicator color={colors.textoSobreCor} />
+                <ActivityIndicator color={colors.textOnColor} />
               ) : (
-                <Text style={{ color: colors.textoSobreCor, fontSize: 16, fontWeight: '600' }}>Adicionar</Text>
+                <Text style={{ color: colors.textOnColor, fontSize: 16, fontWeight: '600' }}>Adicionar</Text>
               )}
             </TouchableOpacity>
           </AreaFormulario>

@@ -740,7 +740,7 @@
 //   option: {
 //     paddingVertical: 10,
 //     borderBottomWidth: 1,
-//     borderBottomColor: colors.border,
+//     borderBottomColor: colors.borderLight,
 //   },
 //   selectedOption: {
 //     backgroundColor: colors.primary + '25',

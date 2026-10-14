@@ -223,7 +223,7 @@ export const useEmprestimos = (mes, ano) => {
               mensagem:
                 "Esta parcela foi antecipada. Deseja desfazer a antecipação e restaurar os dados originais?",
               icone: "history",
-              corIcone: colors.warning,
+              corIcone: colors.earlyPayment,
               botoes: [
                 { texto: "Cancelar", onPress: () => reject("Reversão cancelada.") },
                 {

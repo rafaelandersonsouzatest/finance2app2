@@ -202,7 +202,7 @@ export const CartaoSelect = ({
               autoFocus
             />
             <TouchableOpacity style={globalStyles.modalBotaoAdd} onPress={confirmarOutro}>
-              <MaterialIcons name="check" size={20} color={colors.textoSobreCor} />
+              <MaterialIcons name="check" size={20} color={colors.textOnColor} />
               <Text style={globalStyles.modalBotaoAddTexto}>Confirmar</Text>
             </TouchableOpacity>
           </AreaFormulario>

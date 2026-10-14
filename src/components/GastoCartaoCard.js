@@ -97,17 +97,17 @@ const GastoCartaoCard = ({
             )}
 
             {transacao.adiantada ? (
-              <View style={[styles.statusButton, { backgroundColor: colors.chartPurple + '20' }]}>
-                <MaterialCommunityIcons name="rocket-launch-outline" size={18} color={colors.chartPurple} />
-                <Text style={[styles.statusButtonText, { color: colors.chartPurple }]}>Antecipada</Text>
+              <View style={[styles.statusButton, { backgroundColor: colors.decorativePurple + '20' }]}>
+                <MaterialCommunityIcons name="rocket-launch-outline" size={18} color={colors.decorativePurple} />
+                <Text style={[styles.statusButtonText, { color: colors.decorativePurple }]}>Antecipada</Text>
               </View>
             ) : (
               <TouchableOpacity
-                style={[styles.statusButton, { backgroundColor: transacao.pago ? colors.entrada + '20' : colors.pending + '20' }]}
+                style={[styles.statusButton, { backgroundColor: transacao.pago ? colors.income + '20' : colors.pending + '20' }]}
                 onPress={(e) => { e.stopPropagation(); vibrarSucesso(); onToggleStatus?.(transacao.id, transacao.pago); }}
               >
-                <MaterialCommunityIcons name={transacao.pago ? 'check-circle' : 'calendar-clock-outline'} size={16} color={transacao.pago ? colors.entrada : colors.pending} />
-                <Text style={[styles.statusButtonText, { color: transacao.pago ? colors.entrada : colors.pending }]}>{transacao.pago ? 'Pago' : 'Aguardando'}</Text>
+                <MaterialCommunityIcons name={transacao.pago ? 'check-circle' : 'calendar-clock-outline'} size={16} color={transacao.pago ? colors.income : colors.pending} />
+                <Text style={[styles.statusButtonText, { color: transacao.pago ? colors.income : colors.pending }]}>{transacao.pago ? 'Pago' : 'Aguardando'}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
   valorParcelaInfo: { flexDirection: 'row', alignItems: 'center' },
   valorParcelaLabel: { color: colors.primary, fontSize: 14, fontWeight: '500', marginLeft: 6 },
   valorParcelaValor: { color: colors.primary, fontSize: 16, fontWeight: 'bold' },
-  footerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.divisoria, paddingTop: 12, marginTop: 4 },
+  footerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.divider, paddingTop: 12, marginTop: 4 },
   dataCompraContainer: { flexDirection: 'row', alignItems: 'center' },
   dataCompraTexto: { color: colors.textTertiary, fontSize: 12, marginLeft: 6 },
   statusButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20 },

@@ -74,7 +74,7 @@ export default function ItemValorSemDestino({
                   setModalAberto(true);
                 }}
               >
-                <Text style={{ color: colors.textoSobreCor, fontWeight: '600' }}>Decidir agora</Text>
+                <Text style={{ color: colors.textOnColor, fontWeight: '600' }}>Decidir agora</Text>
               </TouchableOpacity>
             </View>
           )}

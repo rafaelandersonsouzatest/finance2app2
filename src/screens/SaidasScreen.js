@@ -224,7 +224,7 @@ const ConteudoAba = ({ titulo, dados, renderItem, tipo, estatisticas }) => {
         scrollEnabled={false}
         ListEmptyComponent={() => (
           <View style={globalStyles.emptyContainer}>
-            <MaterialCommunityIcons name="receipt" size={48} color={colors.textoVazioSecundario} />
+            <MaterialCommunityIcons name="receipt" size={48} color={colors.textEmptySecondary} />
             <Text style={globalStyles.noDataText}>Nenhum registro para este mês.</Text>
             <Text style={globalStyles.emptySubtext}>
               Clique no '+' para adicionar seu primeiro {tipo}.

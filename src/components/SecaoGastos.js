@@ -9,14 +9,14 @@ const SecaoGastos = ({ gastos = [] }) => {
 
   const getIconColor = (iconType) => {
     switch (iconType) {
-      case 'heart': return colors.iconRed;
-      case 'droplet': return colors.iconBlue;
-      case 'home': return colors.iconBlue;
-      case 'wifi': return colors.iconBlue;
-      case 'zap': return colors.iconBlue;
+      case 'heart': return colors.decorativeRed;
+      case 'droplet': return colors.decorativeBlue;
+      case 'home': return colors.decorativeBlue;
+      case 'wifi': return colors.decorativeBlue;
+      case 'zap': return colors.decorativeBlue;
       case 'shield': return colors.balance;
-      case 'credit-card': return colors.iconPurple;
-      default: return colors.iconBlue;
+      case 'credit-card': return colors.decorativePurple;
+      default: return colors.decorativeBlue;
     }
   };
 

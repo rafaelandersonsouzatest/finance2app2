@@ -135,7 +135,7 @@ export default function CartoesManager() {
       />
 
       <TouchableOpacity style={[globalStyles.fabPrimary, fabPosition]} onPress={abrirCriacao}>
-        <MaterialCommunityIcons name="plus" size={30} color={colors.textoSobreCor} />
+        <MaterialCommunityIcons name="plus" size={30} color={colors.textOnColor} />
       </TouchableOpacity>
 
       <FormularioCartaoModal

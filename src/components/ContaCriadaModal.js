@@ -19,9 +19,9 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const CONFETTI_COLORS = [
   colors.primary,
   colors.balance,
-  colors.chartPurple,
-  colors.gasto,
-  colors.confeteAmarelo,
+  colors.decorativePurple,
+  colors.expense,
+  colors.confettiYellow,
 ];
 
 export const ContaCriadaModal = ({
@@ -247,7 +247,7 @@ export const ContaCriadaModal = ({
                 }}
 
           >
-            <MaterialIcons name="school" size={20} color={colors.textoSobreCor} />
+            <MaterialIcons name="school" size={20} color={colors.textOnColor} />
             <Text style={globalStyles.saveButtonText}> Conhecer Funcionalidades</Text>
           </TouchableOpacity>
 
@@ -262,7 +262,7 @@ export const ContaCriadaModal = ({
                 }}
 
           >
-            <MaterialIcons name="login" size={20} color={colors.textoSobreCor} />
+            <MaterialIcons name="login" size={20} color={colors.textOnColor} />
             <Text style={globalStyles.cancelButtonText}> Conhecer Depois</Text>
           </TouchableOpacity>
         </Animated.View>

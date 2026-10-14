@@ -14,15 +14,15 @@ const MiniResumo = ({
   const { formatValue } = useVisibility(); // <-- Usar função do contexto
 
   // A cor do balanço é baseada no valor REALIZADO
-  const balanceColor = finalBalanceRealizado >= 0 ? colors.balance : colors.gasto;
+  const balanceColor = finalBalanceRealizado >= 0 ? colors.balance : colors.expense;
 
   return (
     <View style={globalStyles.miniResumoContainer}>
       {/* Card de Entradas */}
-      <View style={[globalStyles.miniCard, { borderLeftColor: colors.entrada }]}>
+      <View style={[globalStyles.miniCard, { borderLeftColor: colors.income }]}>
         <Text style={globalStyles.miniCardTitle}>Entradas</Text>
         {/* Valor Realizado */}
-        <Text style={[globalStyles.miniCardValue, { color: colors.entrada }]}>
+        <Text style={[globalStyles.miniCardValue, { color: colors.income }]}>
           {formatValue(totalEntradaRealizado)}
         </Text>
         {/* Valor Previsto */}
@@ -32,9 +32,9 @@ const MiniResumo = ({
       </View>
 
       {/* Card de Saídas */}
-      <View style={[globalStyles.miniCard, { borderLeftColor: colors.gasto }]}>
+      <View style={[globalStyles.miniCard, { borderLeftColor: colors.expense }]}>
         <Text style={globalStyles.miniCardTitle}>Saídas</Text>
-        <Text style={[globalStyles.miniCardValue, { color: colors.gasto }]}>
+        <Text style={[globalStyles.miniCardValue, { color: colors.expense }]}>
           {formatValue(totalGastosRealizado)}
         </Text>
         <Text style={globalStyles.miniCardNote}>

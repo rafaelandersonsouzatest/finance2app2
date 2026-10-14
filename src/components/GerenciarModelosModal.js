@@ -351,12 +351,12 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "space-between",
-                backgroundColor: colors.card,
+                backgroundColor: colors.cardBackground,
                 borderRadius: 10,
                 paddingVertical: 10,
                 paddingHorizontal: 14,
                 borderWidth: 1,
-                borderColor: colors.border,
+                borderColor: colors.borderLight,
               }}
             >
               <View
@@ -570,7 +570,7 @@ const FormularioModelo = ({ tipo, onSave, initialData, onCancel }) => {
                         paddingVertical: 6,
                         marginTop: 4,
                         borderTopWidth: 1,
-                        borderTopColor: colors.border,
+                        borderTopColor: colors.borderLight,
                         paddingTop: 10,
                       }}
                     >

@@ -111,7 +111,7 @@ const formatarDataSegura = (dataString) => {
           <Text
             style={[
               globalStyles.listItemStatus,
-              { color: item.pago ? colors.entrada : colors.pending },
+              { color: item.pago ? colors.income : colors.pending },
             ]}
           >
             {item.pago ? '✓ Pago' : '⏳ Aguardando'}
@@ -125,7 +125,7 @@ const formatarDataSegura = (dataString) => {
         <TouchableOpacity
           style={[
             globalStyles.statusButton,
-            { backgroundColor: item.pago ? colors.entrada + '20' : colors.pending + '20' },
+            { backgroundColor: item.pago ? colors.income + '20' : colors.pending + '20' },
           ]}
           onPress={(e) => {
             e.stopPropagation();
@@ -136,7 +136,7 @@ const formatarDataSegura = (dataString) => {
           <MaterialCommunityIcons
             name={item.pago ? 'check-circle' : 'calendar-clock-outline'}
             size={16}
-            color={item.pago ? colors.entrada : colors.pending}
+            color={item.pago ? colors.income : colors.pending}
           />
         </TouchableOpacity>
       </View>

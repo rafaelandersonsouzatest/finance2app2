@@ -174,9 +174,9 @@ export default function LoginScreen({ navigation }) {
         style={[
           globalStyles.input,
           email.length > 0 && {
-            borderColor: emailValido ? colors.balance : colors.gasto,
+            borderColor: emailValido ? colors.balance : colors.expense,
           },
-          erroLogin && { borderColor: colors.gasto },
+          erroLogin && { borderColor: colors.expense },
         ]}
         placeholder="E-mail"
         placeholderTextColor={colors.textSecondary}
@@ -195,7 +195,7 @@ export default function LoginScreen({ navigation }) {
             fontSize: 12,
             marginTop: 4,
             textAlign: "right",
-            color: emailValido ? colors.balance : colors.gasto,
+            color: emailValido ? colors.balance : colors.expense,
           }}
         >
           {emailValido ? "E-mail válido" : "E-mail inválido"}
@@ -207,7 +207,7 @@ export default function LoginScreen({ navigation }) {
         <TextInput
           style={[
             globalStyles.input,
-            erroLogin && { borderColor: colors.gasto },
+            erroLogin && { borderColor: colors.expense },
             { paddingRight: 44 },
           ]}
           placeholder="Senha"
@@ -241,7 +241,7 @@ export default function LoginScreen({ navigation }) {
       {erroLogin && (
         <Text
           style={{
-            color: colors.gasto,
+            color: colors.expense,
             textAlign: "right",
             fontSize: 12,
             marginTop: 4,
@@ -258,7 +258,7 @@ export default function LoginScreen({ navigation }) {
         style={[globalStyles.saveButton, { marginTop: 24 }]}
       >
         {loading ? (
-          <ActivityIndicator color={colors.textoSobreCor} />
+          <ActivityIndicator color={colors.textOnColor} />
         ) : (
           <Text style={globalStyles.saveButtonText}>Entrar</Text>
         )}
@@ -272,9 +272,9 @@ export default function LoginScreen({ navigation }) {
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: colors.googleFundo,
+          backgroundColor: colors.googleBackground,
           borderWidth: 1,
-          borderColor: colors.googleBorda,
+          borderColor: colors.googleBorder,
           borderRadius: 10,
           paddingVertical: 12,
           marginTop: 20,

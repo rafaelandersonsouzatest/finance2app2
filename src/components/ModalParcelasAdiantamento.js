@@ -97,7 +97,7 @@ export default function ModalParcelasAdiantamento({
             </Text>
           </View>
         </View>
-        <Text style={[globalStyles.listItemAmount, { color: colors.gasto }]}>
+        <Text style={[globalStyles.listItemAmount, { color: colors.expense }]}>
           R$ {item.valor.toFixed(2)}
         </Text>
       </TouchableOpacity>
@@ -208,7 +208,7 @@ export default function ModalParcelasAdiantamento({
                 <MaterialCommunityIcons
                   name="rocket-launch-outline"
                   size={18}
-                  color={colors.textoSobreCor}
+                  color={colors.textOnColor}
                   style={{ marginRight: 6 }}
                 />
                 <Text style={globalStyles.saveButtonText}>

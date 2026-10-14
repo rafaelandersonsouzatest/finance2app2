@@ -16,7 +16,7 @@ export default function BotaoStatusPagamento({ pago, onPress, style }) {
     <TouchableOpacity
       style={[
         globalStyles.statusButton,
-        { backgroundColor: pago ? colors.entrada + '20' : colors.pending + '20' },
+        { backgroundColor: pago ? colors.income + '20' : colors.pending + '20' },
         style,
       ]}
       onPress={(e) => {
@@ -28,7 +28,7 @@ export default function BotaoStatusPagamento({ pago, onPress, style }) {
       <MaterialCommunityIcons
         name={pago ? 'check-circle' : 'calendar-clock-outline'}
         size={16}
-        color={pago ? colors.entrada : colors.pending}
+        color={pago ? colors.income : colors.pending}
       />
     </TouchableOpacity>
   );

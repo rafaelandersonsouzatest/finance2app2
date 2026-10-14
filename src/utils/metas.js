@@ -19,7 +19,7 @@ export function calcularProgressoMeta(valorAtual, valorMeta) {
 // Cor "semáforo" por faixa de progresso — mesmos limiares que
 // SecaoInvestimentos.js já usava.
 export function corProgressoMeta(percentual) {
-  if (percentual < 33) return colors.gasto;
+  if (percentual < 33) return colors.expense;
   if (percentual < 66) return colors.pending;
   return colors.balance;
 }

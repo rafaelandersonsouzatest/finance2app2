@@ -55,7 +55,7 @@ export default function DetalhesInvestimentoModal({
     titulo: '',
     mensagem: '',
     icone: 'alert-circle-outline',
-    corIcone: colors.gasto,
+    corIcone: colors.expense,
     botoes: [],
   });
 
@@ -80,7 +80,7 @@ export default function DetalhesInvestimentoModal({
       titulo,
       mensagem: err?.message || 'Ocorreu um erro inesperado.',
       icone: 'alert-circle-outline',
-      corIcone: colors.gasto,
+      corIcone: colors.expense,
       botoes: [
         { texto: 'Entendi', onPress: () => setAlerta((a) => ({ ...a, visible: false })) },
       ],
@@ -242,7 +242,7 @@ export default function DetalhesInvestimentoModal({
                           color={
                             item.tipo === 'Aporte'
                               ? colors.balance
-                              : colors.iconRed
+                              : colors.decorativeRed
                           }
                           style={globalStyles.listItemIcon}
                         />
@@ -265,8 +265,8 @@ export default function DetalhesInvestimentoModal({
                             {
                               color:
                                 item.tipo === 'Aporte'
-                                  ? colors.entrada
-                                  : colors.gasto,
+                                  ? colors.income
+                                  : colors.expense,
                             },
                           ]}
                         >
@@ -294,7 +294,7 @@ export default function DetalhesInvestimentoModal({
                 setModalMovVisible(true);
               }}
             >
-              <MaterialCommunityIcons name="plus" size={20} color={colors.textoSobreCor} />
+              <MaterialCommunityIcons name="plus" size={20} color={colors.textOnColor} />
               <Text style={globalStyles.modalBotaoAddTexto}>
                 {' '}
                 Adicionar Movimentação

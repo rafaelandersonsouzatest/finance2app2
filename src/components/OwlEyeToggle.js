@@ -55,10 +55,10 @@ export default function OwlEyeToggle({ onModeChange }) {
         style={{
           width: 28,
           height: 28,
-          backgroundColor: colors.olhoCoruja,
+          backgroundColor: colors.owlEye,
           borderRadius: 14,
           borderWidth: 2,
-          borderColor: colors.olhoCorujaBorda,
+          borderColor: colors.owlEyeBorder,
           justifyContent: "center",
           alignItems: "center",
           overflow: "hidden",
@@ -68,7 +68,7 @@ export default function OwlEyeToggle({ onModeChange }) {
           style={{
             width: 10,
             height: interpolateEye(leftEye),
-            backgroundColor: colors.olhoCorujaBrilho,
+            backgroundColor: colors.owlEyeShine,
             borderRadius: 5,
           }}
         />
@@ -79,10 +79,10 @@ export default function OwlEyeToggle({ onModeChange }) {
         style={{
           width: 28,
           height: 28,
-          backgroundColor: colors.olhoCoruja,
+          backgroundColor: colors.owlEye,
           borderRadius: 14,
           borderWidth: 2,
-          borderColor: colors.olhoCorujaBorda,
+          borderColor: colors.owlEyeBorder,
           justifyContent: "center",
           alignItems: "center",
           overflow: "hidden",
@@ -92,7 +92,7 @@ export default function OwlEyeToggle({ onModeChange }) {
           style={{
             width: 10,
             height: interpolateEye(rightEye),
-            backgroundColor: colors.olhoCorujaBrilho,
+            backgroundColor: colors.owlEyeShine,
             borderRadius: 5,
           }}
         />

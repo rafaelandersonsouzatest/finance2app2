@@ -36,7 +36,7 @@ export const GerenciarMembrosModal = ({ visivel, onFechar }) => {
     titulo: "",
     mensagem: "",
     icone: "alert-circle-outline",
-    corIcone: colors.gasto,
+    corIcone: colors.expense,
     botoes: [],
   });
 
@@ -56,7 +56,7 @@ export const GerenciarMembrosModal = ({ visivel, onFechar }) => {
         titulo: "Não foi possível adicionar",
         mensagem: e?.message || "Não foi possível adicionar o membro.",
         icone: "alert-circle-outline",
-        corIcone: colors.gasto,
+        corIcone: colors.expense,
       });
     } finally {
       setCarregando(false);
@@ -74,7 +74,7 @@ export const GerenciarMembrosModal = ({ visivel, onFechar }) => {
       style={[
         globalStyles.listItem,
         {
-          borderLeftColor: colors.entrada,
+          borderLeftColor: colors.income,
           borderLeftWidth: 4,
           flexDirection: "row",
           alignItems: "center",
@@ -147,7 +147,7 @@ export const GerenciarMembrosModal = ({ visivel, onFechar }) => {
               <MaterialCommunityIcons
                 name="plus-circle"
                 size={28}
-                color={colors.entrada}
+                color={colors.income}
               />
             </TouchableOpacity>
           </View>

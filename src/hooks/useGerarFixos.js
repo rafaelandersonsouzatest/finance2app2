@@ -35,7 +35,7 @@ export function useGerarFixos(listarModelosPendentes, gerarFixosDoMes, setAlerta
       titulo: 'Erro',
       mensagem: `❌ Ocorreu um problema ao tentar gerar os ${textoTipo} do mês. Verifique sua conexão e tente novamente.`,
       icone: 'alert-circle-outline',
-      corIcone: colors.gasto,
+      corIcone: colors.expense,
     });
 
   const alertaNadaPendente = () =>

@@ -132,9 +132,9 @@ export default function ModalProporAlteracao({
                 disabled={!podeConfirmar}
               >
                 {propondo ? (
-                  <ActivityIndicator color={colors.textoSobreCor} />
+                  <ActivityIndicator color={colors.textOnColor} />
                 ) : (
-                  <Text style={{ color: colors.textoSobreCor, fontSize: 16, fontWeight: '600' }}>
+                  <Text style={{ color: colors.textOnColor, fontSize: 16, fontWeight: '600' }}>
                     {modoRemover ? 'Enviar pedido de remoção' : 'Propor'}
                   </Text>
                 )}

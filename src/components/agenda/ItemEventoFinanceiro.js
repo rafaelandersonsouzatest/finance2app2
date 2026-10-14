@@ -29,10 +29,10 @@ const ICONE_POR_TIPO = {
 };
 
 const COR_POR_TIPO = {
-  gasto: colors.gasto,
-  entrada: colors.entrada,
-  cartao: colors.iconPurple,
-  emprestimo: colors.warning,
+  gasto: colors.expense,
+  entrada: colors.income,
+  cartao: colors.decorativePurple,
+  emprestimo: colors.earlyPayment,
 };
 
 const TITULO_EDICAO_POR_TIPO = {
@@ -70,7 +70,7 @@ export default function ItemEventoFinanceiro({
   const hojeISO = normalizarParaISO(new Date());
   const vencido = !evento.pago && evento.data < hojeISO;
   const statusLabel = evento.pago ? 'Pago' : vencido ? 'Vencido' : 'Pendente';
-  const statusColor = evento.pago ? colors.paid : vencido ? colors.error : colors.pending;
+  const statusColor = evento.pago ? colors.primary : vencido ? colors.error : colors.pending;
 
   const card = (
     <View style={globalStyles.listItem}>

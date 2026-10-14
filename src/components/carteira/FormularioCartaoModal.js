@@ -16,7 +16,7 @@ import CartaoVisual from '../CartaoVisual';
 // 🔹 Paleta própria de cores de cartão — diferente da paleta de categorias
 // (FormularioCategoriaModal.js, decorativa) porque aqui precisa cobrir as
 // Cores reais de cartão (ver comentário em src/styles/colors.js).
-const CORES_DISPONIVEIS = colors.paletaCartao;
+const CORES_DISPONIVEIS = colors.cardPalette;
 
 export default function FormularioCartaoModal({ visivel, onFechar, cartao = null }) {
   const { adicionarCartao, atualizarCartao } = useCarteira();

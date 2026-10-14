@@ -110,7 +110,7 @@ export default function SecaoEntradas({ entradas = [] }) {
   const INNER_R = 55;
   const AVATAR_RADIUS = (OUTER_R + INNER_R) / 2;
   const AVATAR_SIZE = 36;
-  const PALETTE = [colors.chartBlue, colors.chartPurple, colors.balance, colors.iconRed];
+  const PALETTE = [colors.decorativeBlue, colors.decorativePurple, colors.balance, colors.decorativeRed];
 
   const { segments, avatarData } = useMemo(() => {
     if (!hasEntries) return { segments: [], avatarData: [] };
@@ -147,7 +147,7 @@ export default function SecaoEntradas({ entradas = [] }) {
     const totalAguardando = totalPrevisto - totalRealizado;
     if (totalAguardando > 0) {
       const pendingPath = createDonutSegmentPath(CX, CY, OUTER_R, INNER_R, angleStart, 360);
-      segs.push({ key: 'pending-bg', path: pendingPath, fill: colors.border, opacity: 0.3 });
+      segs.push({ key: 'pending-bg', path: pendingPath, fill: colors.borderLight, opacity: 0.3 });
       segs.push({ key: 'pending-pattern', path: pendingPath, fill: 'url(#dotted)', opacity: 1 });
     }
     return { segments: segs, avatarData: avatars };
@@ -166,14 +166,14 @@ export default function SecaoEntradas({ entradas = [] }) {
         <Svg width={SIZE} height={SIZE}>
           <Defs>
             <Pattern id="dotted" patternUnits="userSpaceOnUse" width="10" height="10">
-              <Circle cx="2" cy="2" r="1.5" fill={colors.border} />
+              <Circle cx="2" cy="2" r="1.5" fill={colors.borderLight} />
             </Pattern>
           </Defs>
 
           {!hasEntries ? (
             <Path
               d={createDonutSegmentPath(CX, CY, OUTER_R, INNER_R, 0, 360)}
-              fill={colors.border}
+              fill={colors.borderLight}
               opacity={0.3}
             />
           ) : (

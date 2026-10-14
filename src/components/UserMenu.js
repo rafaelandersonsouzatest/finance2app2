@@ -135,7 +135,7 @@ export default function UserMenu() {
                           marginLeft: 8,
                         }}
                       >
-                        <Text style={{ color: colors.textoSobreCor, fontSize: 10, fontWeight: '700' }}>
+                        <Text style={{ color: colors.textOnColor, fontSize: 10, fontWeight: '700' }}>
                           EM BREVE
                         </Text>
                       </View>

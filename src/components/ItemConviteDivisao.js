@@ -50,7 +50,7 @@ export default function ItemConviteDivisao({ convite, respondendo, onAceitar, on
             {convite.deNome || 'Alguém'} quer dividir com você
           </Text>
         </View>
-        <Text style={{ color: colors.gasto, fontSize: 15, fontWeight: '600' }}>
+        <Text style={{ color: colors.expense, fontSize: 15, fontWeight: '600' }}>
           {formatValue((convite.minhaCotaCentavos || 0) / 100)}
         </Text>
       </View>
@@ -75,7 +75,7 @@ export default function ItemConviteDivisao({ convite, respondendo, onAceitar, on
               }}
               onPress={handleAceitar}
             >
-              <Text style={{ color: colors.textoSobreCor, fontWeight: '600' }}>Aceitar</Text>
+              <Text style={{ color: colors.textOnColor, fontWeight: '600' }}>Aceitar</Text>
             </TouchableOpacity>
           </View>
         )}

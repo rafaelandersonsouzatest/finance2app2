@@ -20,7 +20,7 @@ const ICONES_DISPONIVEIS = [
   'airplane', 'gift-outline', 'dumbbell', 'paw', 'baby-face-outline', 'tshirt-crew-outline',
 ];
 
-const CORES_DISPONIVEIS = colors.paletaCategoria;
+const CORES_DISPONIVEIS = colors.categoryPalette;
 
 export default function FormularioCategoriaModal({
   visivel,

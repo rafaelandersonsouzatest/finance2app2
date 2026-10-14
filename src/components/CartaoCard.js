@@ -33,11 +33,11 @@ function ItemCompraResumo({ item, onPress, onAdiantar }) {
   const nomeCategoria = typeof item.categoria === 'object' ? item.categoria?.nome : item.categoria;
   const statusTexto = item.quitada ? 'Quitada' : item.adiantada ? 'Antecipada' : item.pago ? 'Paga' : 'Pendente';
   const statusCor = item.quitada
-    ? colors.entrada
+    ? colors.income
     : item.adiantada
-    ? colors.chartPurple
+    ? colors.decorativePurple
     : item.pago
-    ? colors.entrada
+    ? colors.income
     : colors.pending;
   // 🔹 Mesma condição de GastoCartaoCard.js para mostrar o atalho de
   // antecipar — não remove essa ação, só reorganiza onde ela aparece.
@@ -217,7 +217,7 @@ export default function CartaoCard({ cartao = {}, gastos = [], onPressItem, onAd
                     <Indicador label="Quantidade de compras" valor={resumo.quantidadeCompras} />
                     <Indicador label="Maior compra" valor={formatarMoeda(resumo.maiorCompra)} />
                     <Indicador label="Parcelas futuras" valor={resumo.parcelasFuturas} />
-                    <Indicador label="Parcelas pagas" valor={resumo.parcelasPagas} cor={colors.entrada} />
+                    <Indicador label="Parcelas pagas" valor={resumo.parcelasPagas} cor={colors.income} />
                     <Indicador label="Parcelas pendentes" valor={resumo.parcelasPendentes} cor={colors.pending} />
                     <Indicador label="Próximo vencimento" valor={resumo.proximoVencimento} />
                   </View>

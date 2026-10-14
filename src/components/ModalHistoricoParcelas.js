@@ -38,7 +38,7 @@ const ParcelaItem = ({ item }) => {
 
   if (isAdiantada) {
     statusIcon = 'rocket-launch-outline';
-    statusColor = colors.chartPurple;
+    statusColor = colors.decorativePurple;
     statusText = 'Antecipada';
     dateText = `Paga em: ${
       item.dataPagamento

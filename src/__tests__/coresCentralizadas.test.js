@@ -4,7 +4,7 @@
 //
 // Se este teste falhar num arquivo seu: troque a cor por `colors.<nome>`; se
 // a cor não existir, crie o nome em src/styles/colors.js (com significado:
-// `colors.gasto`, não `colors.laranja`).
+// `colors.expense`, não `colors.laranja`).
 const fs = require('fs');
 const path = require('path');
 
@@ -72,6 +72,27 @@ describe('cores centralizadas em src/styles/colors.js', () => {
       })
       .map(({ rel }) => rel);
     expect(semImport).toEqual([]);
+  });
+
+  // Nome errado (`colors.expence`) não quebra a compilação: vira `undefined`
+  // e o elemento fica sem cor, sem aviso nenhum.
+  it('todo `colors.<nome>` usado existe em colors.js', () => {
+    const { colors } = require('../styles/colors');
+    const inexistentes = todos
+      .filter(({ rel }) => rel !== 'styles/colors.js')
+      .flatMap(({ rel, abs }) =>
+        fs
+          .readFileSync(abs, 'utf8')
+          .split(/\r?\n/)
+          .flatMap((linha, i) => {
+            const t = linha.trim();
+            if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*') || t.startsWith('{/*')) return [];
+            return [...linha.matchAll(/(?<![.\w])colors\.(\w+)/g)]
+              .filter((m) => !(m[1] in colors))
+              .map((m) => `${rel} linha ${i + 1}: colors.${m[1]}`);
+          })
+      );
+    expect(inexistentes).toEqual([]);
   });
 
   it('a lista de pendentes não tem arquivo já corrigido (tire-o da lista)', () => {

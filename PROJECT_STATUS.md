@@ -179,7 +179,18 @@ Registrado em 2026-07-28, por decisão explícita do usuário: o produto ainda e
   toda cor vem de `colors`. Decisões do usuário: vermelhos unificados no `#EF5350`; azul forte
   `#2196F3` → principal; azul médio `#42A5F5` mantido (gráficos/ícones); verdes `#4CAF50`/`#66BB6A`
   → `#81C784` (balance); escala do medidor de senha mantida (Forte = verde-claro, Excelente = verde
-  intenso); branco sobre fundo colorido com nome próprio (`textoSobreCor`, para o tema claro).
+  intenso); branco sobre fundo colorido com nome próprio (`textOnColor`, para o tema claro).
+- ✅ **Nomes padronizados em inglês e repetições removidas** (2026-10-14): `entrada`/`gasto` →
+  `income`/`expense`, `warning` (roxo de antecipação/desconto) → `earlyPayment`, `chart*`/`icon*` →
+  `decorative*`, `paid`/`progressFill` → `primary`, `tabIcon` → `inactiveIcon`; `fundoCard` removido;
+  `border` (`#161616`, quase invisível) unificado em `borderLight` (`#333333`) — bordas da base de
+  cálculo, da lista de investimentos e do "aguardando" do gráfico de entradas ficam visíveis.
+  Mantidos separados por função (mesmo valor por coincidência): `primary`×`income`,
+  `textPrimary`×`textOnColor`, `borderLight`×`owlEye`×`cardFallback`. Guardião ganhou a checagem
+  "todo `colors.<nome>` existe", que achou 3 bugs antigos: `colors.surface`/`colors.card` (caixas da
+  base de cálculo e faixa "Valor Total / Valor da Parcela" de empréstimo/cartão, sem fundo) →
+  `surface` `#303030` (o botão "Selecionar Entradas", dentro da caixa, usa `cardBackground` para contrastar);
+  `colors.success` ("Desconto Aplicado") → `earlyPayment` (roxo, como o resto do desconto).
   Paletas de escolha de cartão/categoria movidas para `colors.js`. **Teste guardião**
   (`src/__tests__/coresCentralizadas.test.js`): falha com cor escrita à mão fora de `colors.js`
   ou com `colors.` usado sem import. Exceções permanentes: `utils/avatar.js`,

@@ -107,7 +107,7 @@ export default function ModalGerarPendentes({
             ]}
           >
             {gerando ? (
-              <ActivityIndicator color={colors.textoSobreCor} />
+              <ActivityIndicator color={colors.textOnColor} />
             ) : (
               <Text style={globalStyles.saveButtonText}>
                 {selecionados.length === 0

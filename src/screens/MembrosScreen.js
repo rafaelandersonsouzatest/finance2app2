@@ -40,7 +40,7 @@ export default function MembrosScreen() {
     titulo: "",
     mensagem: "",
     icone: "alert-circle-outline",
-    corIcone: colors.gasto,
+    corIcone: colors.expense,
     botoes: [],
   });
 
@@ -56,7 +56,7 @@ export default function MembrosScreen() {
         titulo: "Não foi possível adicionar",
         mensagem: e?.message || "Não foi possível adicionar o membro.",
         icone: "alert-circle-outline",
-        corIcone: colors.gasto,
+        corIcone: colors.expense,
       });
     }
   };
@@ -71,7 +71,7 @@ export default function MembrosScreen() {
       style={[
         globalStyles.listItem,
         {
-          borderLeftColor: colors.entrada,
+          borderLeftColor: colors.income,
           borderLeftWidth: 4,
           flexDirection: "row",
           alignItems: "center",
@@ -124,7 +124,7 @@ export default function MembrosScreen() {
           <MaterialCommunityIcons
             name="plus-circle"
             size={28}
-            color={colors.entrada}
+            color={colors.income}
           />
         </TouchableOpacity>
       </View>

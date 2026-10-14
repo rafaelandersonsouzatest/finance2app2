@@ -189,9 +189,9 @@ export default function ModalCompartilharDespesa({
               disabled={!podeConfirmar}
             >
               {compartilhando ? (
-                <ActivityIndicator color={colors.textoSobreCor} />
+                <ActivityIndicator color={colors.textOnColor} />
               ) : (
-                <Text style={{ color: colors.textoSobreCor, fontSize: 16, fontWeight: '600' }}>Compartilhar</Text>
+                <Text style={{ color: colors.textOnColor, fontSize: 16, fontWeight: '600' }}>Compartilhar</Text>
               )}
             </TouchableOpacity>
           </AreaFormulario>

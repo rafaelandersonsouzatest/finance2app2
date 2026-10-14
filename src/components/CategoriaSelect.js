@@ -225,7 +225,7 @@ export default function CategoriaSelect({
                       disabled={criando}
                       onPress={() => handleCriarCategoria(busca.trim())}
                     >
-                      <MaterialCommunityIcons name="plus-circle-outline" size={20} color={colors.textoSobreCor} />
+                      <MaterialCommunityIcons name="plus-circle-outline" size={20} color={colors.textOnColor} />
                       <Text style={globalStyles.modalBotaoAddTexto}>
                         Criar categoria "{busca.trim()}"
                       </Text>

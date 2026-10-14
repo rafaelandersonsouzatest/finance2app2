@@ -144,7 +144,7 @@ const EstatisticasComponent = ({ estatisticas = {} }) => {
       valor: formatValue(calc.total), // 👈 aplica visibilidade
       sub: `${calc.totalItens} itens`,
       icone: 'credit-card-outline',
-      cor: colors.chartBlue,
+      cor: colors.decorativeBlue,
     },
     {
       label: 'Aguardando',
@@ -173,13 +173,13 @@ const EstatisticasComponent = ({ estatisticas = {} }) => {
       label: 'Último pagamento',
       valor: formatDate(calc.ultimoPagamento),
       icone: 'calendar-check-outline',
-      cor: colors.iconPurple,
+      cor: colors.decorativePurple,
     },
     {
       label: todosPagos ? 'Tudo pago ✅' : 'Próx. vencimento',
       valor: todosPagos ? '' : formatDate(calc.proximoVencimento),
       icone: todosPagos ? 'check-decagram' : 'calendar-month-outline',
-      cor: todosPagos ? colors.balance : colors.chartBlue,
+      cor: todosPagos ? colors.balance : colors.decorativeBlue,
     },
   ];
 

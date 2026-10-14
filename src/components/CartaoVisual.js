@@ -13,7 +13,7 @@ import { colors } from '../styles/colors';
 // 🔹 Escurece uma cor hex para compor o gradiente — sem dependência nova,
 // só aritmética simples sobre o RGB.
 function escurecerCor(hex, fator = 0.35) {
-  if (typeof hex !== 'string') return colors.cartaoSemCor;
+  if (typeof hex !== 'string') return colors.cardFallback;
   const limpo = hex.replace('#', '');
   const normalizado =
     limpo.length === 3 ? limpo.split('').map((c) => c + c).join('') : limpo;
@@ -54,7 +54,7 @@ export default function CartaoVisual({ cartao, tamanho = 'normal', onPress, arqu
         <MaterialCommunityIcons
           name="credit-card-wireless-outline"
           size={compacto ? 20 : 26}
-          color={colors.textoSobreCor + 'D9'}
+          color={colors.textOnColor + 'D9'}
         />
       </View>
 
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   nome: {
-    color: colors.textoSobreCor,
+    color: colors.textOnColor,
     fontSize: 18,
     fontWeight: '700',
   },
@@ -124,12 +124,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   banco: {
-    color: colors.textoSobreCor + 'BF',
+    color: colors.textOnColor + 'BF',
     fontSize: 13,
     marginTop: 2,
   },
   resumoMes: {
-    color: colors.textoSobreCor + 'D9',
+    color: colors.textOnColor + 'D9',
     fontSize: 13,
     marginTop: 10,
   },
@@ -139,13 +139,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   digitos: {
-    color: colors.textoSobreCor,
+    color: colors.textOnColor,
     fontSize: 15,
     letterSpacing: 1,
     fontWeight: '600',
   },
   vencimento: {
-    color: colors.textoSobreCor + 'CC',
+    color: colors.textOnColor + 'CC',
     fontSize: 12,
   },
   selo: {
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   seloTexto: {
-    color: colors.textoSobreCor,
+    color: colors.textOnColor,
     fontSize: 11,
     fontWeight: '600',
   },

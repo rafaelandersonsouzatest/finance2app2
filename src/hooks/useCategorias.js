@@ -143,7 +143,7 @@ export const useCategorias = () => {
         tipoOrigem: 'personalizada',
         tipoTransacao: dados.tipoTransacao || 'despesa',
         icone: dados.icone || 'shape-outline',
-        cor: dados.cor || colors.categoriaSemCor,
+        cor: dados.cor || colors.categoryFallback,
         ordem: dados.ordem ?? categorias.length,
         ativa: true,
         criadoEm: serverTimestamp(),

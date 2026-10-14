@@ -83,7 +83,7 @@ export const globalStyles = StyleSheet.create({
   totalAmount: {
     fontSize: 24,
     fontWeight: '700',
-    color: colors.gasto,
+    color: colors.expense,
     letterSpacing: -0.3,
   },
 
@@ -169,13 +169,13 @@ statusButtonText: {
     paddingVertical: 40,
   },
   noDataText: {
-    color: colors.textoVazio,
+    color: colors.textEmpty,
     marginTop: 16,
     fontSize: 16,
     textAlign: 'center',
   },
   emptySubtext: {
-    color: colors.textoVazioSecundario,
+    color: colors.textEmptySecondary,
     marginTop: 8,
     fontSize: 14,
     textAlign: 'center',
@@ -245,7 +245,7 @@ statusButtonText: {
     color: colors.balance,
   },
   valueGasto: {
-    color: colors.gasto,
+    color: colors.expense,
   },
   italic: {
     fontStyle: 'italic',
@@ -358,7 +358,7 @@ statusButtonText: {
     gap: 5,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.borderLight,
   },
   investmentName: {
     fontSize: 15,
@@ -413,7 +413,7 @@ statusButtonText: {
 //   height: 40,
 //   borderRadius: 20,
 //   borderWidth: 2,
-//   bordercolor: colors.textoSobreCor,
+//   bordercolor: colors.textOnColor,
 // },
 // avatarPercent: {
 //   fontSize: 10,
@@ -481,7 +481,7 @@ donutWrapper: {
   progressFill: {
     height: '100%',
     borderRadius: 4,
-    backgroundColor: colors.progressFill,
+    backgroundColor: colors.primary,
     elevation: 0,
   },
 
@@ -658,7 +658,7 @@ donutWrapper: {
     backgroundColor: colors.balance,
   },
   tipoBotaoAtivoVermelho: {
-    backgroundColor: colors.gasto,
+    backgroundColor: colors.expense,
   },
   tipoTextoAtivo: {
     color: colors.textPrimary,
@@ -849,7 +849,7 @@ fabItemsWrapper: {
   // =================================================
   fullScreenModalOverlay: {
     flex: 1,
-    backgroundColor: colors.overlayForte,
+    backgroundColor: colors.overlayStrong,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -955,7 +955,7 @@ deleteButton: {
   marginRight: 10, // espaço antes do grupo da direita
 },
 deleteButtonText: {
-  color: colors.textoSobreCor,
+  color: colors.textOnColor,
   fontSize: 16,
   fontWeight: '600',
   marginLeft: 6,
@@ -981,7 +981,7 @@ saveButton: {
   marginLeft: 10,
 },
 saveButtonText: {
-  color: colors.textoSobreCor,
+  color: colors.textOnColor,
   fontSize: 16,
   fontWeight: '600',
 },
@@ -1070,7 +1070,7 @@ dataModalCloseButton: {
   backgroundColor: colors.primary,
 },
 dataModalCloseText: {
-  color: colors.textoSobreCor,
+  color: colors.textOnColor,
   fontWeight: '600',
 },
 
@@ -1203,7 +1203,7 @@ modernTabTextActive: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.overlaySuave,
+    backgroundColor: colors.overlaySoft,
   },
   modalBox: {
     width: '90%',
@@ -1264,7 +1264,7 @@ modernTabTextActive: {
     paddingHorizontal: 14,
   },
   modalConfirmText: {
-    color: colors.textoSobreCor,
+    color: colors.textOnColor,
     fontWeight: 'bold',
     textAlign: 'center',
   },

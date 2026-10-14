@@ -305,7 +305,7 @@ export default function ModalDetalhes({
 
     const desconto = item?.descontoAplicado ? Number(item.descontoAplicado) : 0;
     const valorIcon = desconto > 0 ? 'cash-minus' : 'cash';
-    const valorColor = desconto > 0 ? colors.warning : colors.gasto;
+    const valorColor = desconto > 0 ? colors.earlyPayment : colors.expense;
 
     switch (tipo) {
       case 'entrada':
@@ -317,7 +317,7 @@ export default function ModalDetalhes({
               value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', {
                 minimumFractionDigits: 2,
               })}`}
-              color={colors.entrada}
+              color={colors.income}
             />
             <InfoRow
               icon="shape-outline"
@@ -371,7 +371,7 @@ export default function ModalDetalhes({
               value={`R$ ${(Number(item.valor) || 0).toLocaleString('pt-BR', {
                 minimumFractionDigits: 2,
               })}`}
-              color={colors.gasto}
+              color={colors.expense}
             />
             <InfoRow
               icon="shape-outline"
@@ -489,7 +489,7 @@ export default function ModalDetalhes({
                 value={`- R$ ${desconto.toLocaleString('pt-BR', {
                   minimumFractionDigits: 2,
                 })}`}
-                color={colors.success}
+                color={colors.earlyPayment}
               />
             )}
 
@@ -549,7 +549,7 @@ export default function ModalDetalhes({
                 value={`- R$ ${desconto.toLocaleString('pt-BR', {
                   minimumFractionDigits: 2,
                 })}`}
-                color={colors.success}
+                color={colors.earlyPayment}
               />
             )}
 
