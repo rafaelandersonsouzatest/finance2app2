@@ -268,7 +268,7 @@ export const MembroSelect = ({
               autoFocus
             />
             <TouchableOpacity style={globalStyles.modalBotaoAdd} onPress={confirmarOutraPessoa}>
-              <MaterialIcons name="check" size={20} color="#fff" />
+              <MaterialIcons name="check" size={20} color={colors.textoSobreCor} />
               <Text style={globalStyles.modalBotaoAddTexto}>Confirmar</Text>
             </TouchableOpacity>
 

@@ -110,10 +110,10 @@ export default function EditarMembroModal({
             disabled={salvandoNome}
           >
             {salvandoNome ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.textoSobreCor} />
             ) : (
               <>
-                <MaterialIcons name="check" size={20} color="#fff" />
+                <MaterialIcons name="check" size={20} color={colors.textoSobreCor} />
                 <Text style={globalStyles.modalBotaoAddTexto}>Salvar nome</Text>
               </>
             )}
@@ -126,7 +126,7 @@ export default function EditarMembroModal({
               style={[globalStyles.modalBotaoAdd, { marginTop: 24, backgroundColor: colors.error }]}
               onPress={() => setConfirmarExclusao(true)}
             >
-              <MaterialIcons name="delete-outline" size={20} color="#fff" />
+              <MaterialIcons name="delete-outline" size={20} color={colors.textoSobreCor} />
               <Text style={globalStyles.modalBotaoAddTexto}>Excluir membro</Text>
             </TouchableOpacity>
           )}

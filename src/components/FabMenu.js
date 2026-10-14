@@ -3,6 +3,7 @@ import { View, TouchableOpacity, Animated, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { globalStyles } from '../styles/globalStyles';
 import { useFabPosition } from '../hooks/useFabPosition';
+import { colors } from '../styles/colors';
 
 // O componente FabMenuItem não precisa de alterações
 const FabMenuItem = ({ icon, label, onPress, style }) => (
@@ -13,7 +14,7 @@ const FabMenuItem = ({ icon, label, onPress, style }) => (
       onPress={onPress}
       activeOpacity={0.8}
     >
-      <MaterialCommunityIcons name="plus" size={24} color="#FFF" />
+      <MaterialCommunityIcons name="plus" size={24} color={colors.textoSobreCor} />
     </TouchableOpacity>
   </Animated.View>
 );
@@ -106,7 +107,7 @@ export default function FabMenu({ actions }) {
         activeOpacity={1}
       >
         <Animated.View style={rotation}>
-          <MaterialCommunityIcons name="plus" size={30} color="#FFF" />
+          <MaterialCommunityIcons name="plus" size={30} color={colors.textoSobreCor} />
         </Animated.View>
       </TouchableOpacity>
     </View>

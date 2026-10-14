@@ -175,10 +175,17 @@ Registrado em 2026-07-28, por decisão explícita do usuário: o produto ainda e
 
 ### Backlog — Estilos e temas (levantamento de 2026-10-13)
 - Regra para código novo registrada no `CLAUDE.md` (seção "Estilos e cores").
-- **Limpar cores escritas à mão** (baixa dificuldade, fazer aos poucos ao mexer nos arquivos):
-  maiores concentrações em `MonthYearPicker` (boa parte em código comentado), `GastoCartaoCard`,
-  `FiltroComponent`, `LoginScreen`/`RegisterScreen`, `ContaCriadaModal`; um `#FFFFFF` no
-  `ModalGerarPendentes`. Paletas de dados (cartão, categoria, avatar) são legítimas.
+- ✅ **Cores escritas à mão eliminadas** (2026-10-13/14, lotes 0 a 3, ~160 cores em ~46 arquivos):
+  toda cor vem de `colors`. Decisões do usuário: vermelhos unificados no `#EF5350`; azul forte
+  `#2196F3` → principal; azul médio `#42A5F5` mantido (gráficos/ícones); verdes `#4CAF50`/`#66BB6A`
+  → `#81C784` (balance); escala do medidor de senha mantida (Forte = verde-claro, Excelente = verde
+  intenso); branco sobre fundo colorido com nome próprio (`textoSobreCor`, para o tema claro).
+  Paletas de escolha de cartão/categoria movidas para `colors.js`. **Teste guardião**
+  (`src/__tests__/coresCentralizadas.test.js`): falha com cor escrita à mão fora de `colors.js`
+  ou com `colors.` usado sem import. Exceções permanentes: `utils/avatar.js`,
+  `utils/categoriasPadrao.js` (dado). Código comentado ficou de fora (limpeza separada).
+- **Fase 2 (pendente)**: estilos repetidos escritos direto nos componentes (`style={{...}}`, ~510)
+  que valeria mover para `globalStyles` — trabalho de julgamento, arquivo a arquivo.
 - **Tema de verdade (claro/escuro/automático)**: provedor de tema + estilos recalculados ao trocar;
   mexe em ~86 arquivos que usam `colors` e nos 73 que usam `globalStyles`. Alta dificuldade —
   depois da publicação, quando o tema virar prioridade.

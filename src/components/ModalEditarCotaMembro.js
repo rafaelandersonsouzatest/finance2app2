@@ -88,9 +88,9 @@ export default function ModalEditarCotaMembro({
               disabled={!podeConfirmar}
             >
               {editando ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={colors.textoSobreCor} />
               ) : (
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Salvar</Text>
+                <Text style={{ color: colors.textoSobreCor, fontSize: 16, fontWeight: '600' }}>Salvar</Text>
               )}
             </TouchableOpacity>
           </AreaFormulario>

@@ -17,44 +17,10 @@ const PERMANENTES = {
   'utils/categoriasPadrao.js': 'cor inicial de cada categoria padrão é dado (o usuário pode trocar)',
 };
 
-// Arquivos ainda não migrados (levantamento de 2026-10-13). A lista só
-// encolhe: ao corrigir um arquivo, tire-o daqui — o segundo teste abaixo
-// avisa se um arquivo daqui já estiver limpo e esquecido na lista.
-const PENDENTES = [
-  'components/AlertaModal.js',
-  'components/AvatarEditor.js',
-  'components/AvatarRenderer.js',
-  'components/CartaoSelect.js',
-  'components/CategoriaSelect.js',
-  'components/CustomTabBar.js',
-  'components/DetalhesInvestimentoModal.js',
-  'components/EditarMembroModal.js',
-  'components/FabMenu.js',
-  'components/GerenciarModelosModal.js',
-  'components/ItemConviteDivisao.js',
-  'components/ItemPropostaAlteracao.js',
-  'components/ItemValorSemDestino.js',
-  'components/MembroSelect.js',
-  'components/ModalAdicionarParticipante.js',
-  'components/ModalCompartilharDespesa.js',
-  'components/ModalDecidirDestino.js',
-  'components/ModalEdicao.js',
-  'components/ModalEditarCotaMembro.js',
-  'components/ModalGerarPendentes.js',
-  'components/ModalParcelasAdiantamento.js',
-  'components/ModalProporAlteracao.js',
-  'components/TelaPadrao.js',
-  'components/UserMenu.js',
-  'components/carteira/CartoesManager.js',
-  'components/planejamento/CategoriasManager.js',
-  'hooks/useAdiantamento.js',
-  'hooks/useCarteira.js',
-  'hooks/useCartoes.js',
-  'hooks/useCategorias.js',
-  'screens/AlterarSenhaScreen.js',
-  'screens/ConexoesScreen.js',
-  'screens/SaidasScreen.js',
-];
+// Arquivos ainda não migrados — zerada em 2026-10-14 (lotes 0 a 3). Mantida
+// para o caso de uma exceção TEMPORÁRIA futura: ao corrigir, tire daqui — o
+// teste abaixo avisa se um arquivo daqui já estiver limpo.
+const PENDENTES = [];
 
 // Cor hexadecimal entre aspas, ou rgb()/rgba() com números (uma cor
 // CALCULADA, como `rgb(${r}, ...)` em CartaoVisual, não conta).

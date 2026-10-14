@@ -23,6 +23,7 @@ import { db } from '../config/firebase';
 import { useAuth } from '../auth/useAuth';
 import { getBasePath } from '../utils/firestorePaths';
 import { CATEGORIAS_PADRAO_SEED } from '../utils/categoriasPadrao';
+import { colors } from '../styles/colors';
 
 // Coleções de lançamento onde uma categoria pode estar em uso — checadas
 // antes de permitir exclusão definitiva (ver seção 10 do discovery).
@@ -142,7 +143,7 @@ export const useCategorias = () => {
         tipoOrigem: 'personalizada',
         tipoTransacao: dados.tipoTransacao || 'despesa',
         icone: dados.icone || 'shape-outline',
-        cor: dados.cor || '#888888',
+        cor: dados.cor || colors.categoriaSemCor,
         ordem: dados.ordem ?? categorias.length,
         ativa: true,
         criadoEm: serverTimestamp(),

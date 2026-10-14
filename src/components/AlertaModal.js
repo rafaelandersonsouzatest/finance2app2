@@ -79,7 +79,7 @@ export default function AlertaModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     elevation: 10,
-    shadowColor: '#000',
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.error,
   },
   textoBotao: {
-    color: '#FFFFFF',
+    color: colors.textoSobreCor,
     fontSize: 15,
     fontWeight: 'bold',
     textAlign: 'center', // ✅ garante centralização horizontal

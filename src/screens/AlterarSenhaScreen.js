@@ -114,7 +114,7 @@ export default function AlterarSenhaScreen({ navigation }) {
         style={[globalStyles.saveButton, { marginTop: 24 }]}
       >
         {loading ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={colors.textoSobreCor} />
         ) : (
           <Text style={globalStyles.saveButtonText}>Salvar nova senha</Text>
         )}

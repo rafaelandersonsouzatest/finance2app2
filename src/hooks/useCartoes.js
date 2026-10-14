@@ -118,7 +118,7 @@ export const useCartoes = (month, year) => {
     if (colors.byInstitution && colors.byInstitution[nomeLimpo]) {
       return colors.byInstitution[nomeLimpo];
     }
-    return colors.byInstitution?.Default || '#888888';
+    return colors.byInstitution.Default;
   };
 
   // ➕ Adicionar nova compra parcelada

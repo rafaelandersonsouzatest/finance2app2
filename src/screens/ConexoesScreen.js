@@ -114,7 +114,7 @@ function CardSolicitacaoRecebida({ conexao, respondendo, onResponder }) {
               }}
               onPress={() => onResponder(conexao.id, true)}
             >
-              <Text style={{ color: '#fff', fontWeight: '600' }}>Aceitar</Text>
+              <Text style={{ color: colors.textoSobreCor, fontWeight: '600' }}>Aceitar</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -233,10 +233,10 @@ function AbaConexoes({
         <MaterialCommunityIcons
           name="share-variant-outline"
           size={20}
-          color="#fff"
+          color={colors.textoSobreCor}
           style={{ marginRight: 8 }}
         />
-        <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
+        <Text style={{ color: colors.textoSobreCor, fontSize: 16, fontWeight: '600' }}>
           Compartilhar código
         </Text>
       </TouchableOpacity>
@@ -376,9 +376,9 @@ function AbaSolicitacoes({
         disabled={!codigo.trim() || enviando}
       >
         {enviando ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={colors.textoSobreCor} />
         ) : (
-          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Solicitar conexão</Text>
+          <Text style={{ color: colors.textoSobreCor, fontSize: 16, fontWeight: '600' }}>Solicitar conexão</Text>
         )}
       </TouchableOpacity>
 

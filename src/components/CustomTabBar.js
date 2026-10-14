@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: colors.tabBarBackground,
     borderRadius: 32,
-    shadowColor: '#000',
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 6,

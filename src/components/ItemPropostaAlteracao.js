@@ -70,7 +70,7 @@ export default function ItemPropostaAlteracao({ proposta, respondendo, onAceitar
               }}
               onPress={handleAceitar}
             >
-              <Text style={{ color: '#fff', fontWeight: '600' }}>Aceitar</Text>
+              <Text style={{ color: colors.textoSobreCor, fontWeight: '600' }}>Aceitar</Text>
             </TouchableOpacity>
           </View>
         )}

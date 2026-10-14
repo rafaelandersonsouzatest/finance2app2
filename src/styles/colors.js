@@ -102,6 +102,7 @@ export const colors = {
   // --- Cartões ---
   divisoria: '#2C2C2E', // linha que separa o rodapé do card de compra no cartão
   cartaoSemCor: '#333333', // cor reserva do degradê do CartaoVisual (cartão sem cor válida)
+  categoriaSemCor: '#888888', // categoria gravada sem cor (dado antigo)
 
   // --- Paletas de escolha (DADO: o usuário escolhe uma; não seguem o tema) ---
   // Cores reais de cartão disponíveis no mercado (preto, grafite, dourado,

@@ -208,7 +208,7 @@ export default function ModalParcelasAdiantamento({
                 <MaterialCommunityIcons
                   name="rocket-launch-outline"
                   size={18}
-                  color="#fff"
+                  color={colors.textoSobreCor}
                   style={{ marginRight: 6 }}
                 />
                 <Text style={globalStyles.saveButtonText}>

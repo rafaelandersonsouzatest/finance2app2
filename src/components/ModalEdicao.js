@@ -461,7 +461,7 @@ return (
                     aoFechar();
                   }}
                 >
-                  <MaterialCommunityIcons name="trash-can" size={12} color="#fff" />
+                  <MaterialCommunityIcons name="trash-can" size={12} color={colors.textoSobreCor} />
                   <Text style={globalStyles.deleteButtonText}>Excluir</Text>
                 </TouchableOpacity>
               )}

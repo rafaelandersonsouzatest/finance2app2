@@ -4,6 +4,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../auth/useAuth';
 import { getBasePath } from '../utils/firestorePaths';
+import { colors } from '../styles/colors';
 
 // =========================================================
 // 🔹 Recebe as funções de antecipação já prontas (`anteciparParcelasCartao`/
@@ -36,7 +37,7 @@ export const useAdiantamento = (collectionName, { anteciparParcelasCartao, antec
         titulo: 'Erro',
         mensagem: 'Este item não pode ser antecipado, pois não possui um identificador de compra (idCompra).',
         icone: 'alert-circle-outline',
-        corIcone: '#E53935',
+        corIcone: colors.error,
         botoes: [{ texto: 'Entendi', onPress: () => setAlerta({ visivel: false }) }],
       });
       return;
@@ -69,7 +70,7 @@ export const useAdiantamento = (collectionName, { anteciparParcelasCartao, antec
         titulo: 'Erro ao buscar parcelas',
         mensagem: 'Não foi possível carregar as parcelas futuras. Tente novamente.',
         icone: 'alert-circle-outline',
-        corIcone: '#E53935',
+        corIcone: colors.error,
         botoes: [{ texto: 'OK', onPress: () => setAlerta({ visivel: false }) }],
       });
     } finally {
@@ -94,7 +95,7 @@ export const useAdiantamento = (collectionName, { anteciparParcelasCartao, antec
         titulo: 'Parcelas Antecipadas',
         mensagem: 'As parcelas selecionadas foram antecipadas com sucesso!',
         icone: 'check-circle-outline',
-        corIcone: '#4CAF50',
+        corIcone: colors.balance,
         botoes: [
           {
             texto: 'OK',
@@ -112,7 +113,7 @@ export const useAdiantamento = (collectionName, { anteciparParcelasCartao, antec
         titulo: 'Erro',
         mensagem: 'Não foi possível antecipar as parcelas. Tente novamente.',
         icone: 'alert-circle-outline',
-        corIcone: '#E53935',
+        corIcone: colors.error,
         botoes: [{ texto: 'OK', onPress: () => setAlerta({ visivel: false }) }],
       });
     } finally {

@@ -294,7 +294,7 @@ export default function DetalhesInvestimentoModal({
                 setModalMovVisible(true);
               }}
             >
-              <MaterialCommunityIcons name="plus" size={20} color="#fff" />
+              <MaterialCommunityIcons name="plus" size={20} color={colors.textoSobreCor} />
               <Text style={globalStyles.modalBotaoAddTexto}>
                 {' '}
                 Adicionar Movimentação

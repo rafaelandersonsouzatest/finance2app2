@@ -107,7 +107,7 @@ export default function ModalGerarPendentes({
             ]}
           >
             {gerando ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={colors.textoSobreCor} />
             ) : (
               <Text style={globalStyles.saveButtonText}>
                 {selecionados.length === 0
@@ -125,7 +125,7 @@ export default function ModalGerarPendentes({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,

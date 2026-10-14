@@ -228,7 +228,7 @@ export default function AvatarEditor({
               style={[globalStyles.modalBotaoAdd, { flex: 1, marginRight: 8 }]}
               onPress={() => setAvatarEmEdicao(gerarAvatarAleatorio())}
             >
-              <MaterialIcons name="shuffle" size={18} color="#fff" />
+              <MaterialIcons name="shuffle" size={18} color={colors.textoSobreCor} />
               <Text style={globalStyles.modalBotaoAddTexto}>Gerar aleatório</Text>
             </TouchableOpacity>
 
@@ -236,7 +236,7 @@ export default function AvatarEditor({
               style={[globalStyles.modalBotaoAdd, { flex: 1, backgroundColor: colors.textSecondary }]}
               onPress={() => setAvatarEmEdicao(gerarAvatarPadrao(seedPadrao))}
             >
-              <MaterialIcons name="restore" size={18} color="#fff" />
+              <MaterialIcons name="restore" size={18} color={colors.textoSobreCor} />
               <Text style={globalStyles.modalBotaoAddTexto}>Restaurar padrão</Text>
             </TouchableOpacity>
           </View>
@@ -247,10 +247,10 @@ export default function AvatarEditor({
             disabled={salvando}
           >
             {salvando ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.textoSobreCor} />
             ) : (
               <>
-                <MaterialIcons name="check" size={20} color="#fff" />
+                <MaterialIcons name="check" size={20} color={colors.textoSobreCor} />
                 <Text style={globalStyles.modalBotaoAddTexto}>Salvar</Text>
               </>
             )}

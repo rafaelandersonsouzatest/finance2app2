@@ -23,6 +23,7 @@ import {
 import { db } from '../config/firebase';
 import { useAuth } from '../auth/useAuth';
 import { getBasePath } from '../utils/firestorePaths';
+import { colors } from '../styles/colors';
 
 export const useCarteira = () => {
   const { user } = useAuth();
@@ -79,7 +80,7 @@ export const useCarteira = () => {
         nome: nomeTrim,
         banco: (dados.banco || '').trim() || null,
         ultimos4Digitos: (dados.ultimos4Digitos || '').trim() || null,
-        cor: dados.cor || '#4FC3F7',
+        cor: dados.cor || colors.primary,
         diaVencimento: Number(dados.diaVencimento) || 1,
         diaFechamento: Number(dados.diaFechamento) || 1,
         ativo: true,

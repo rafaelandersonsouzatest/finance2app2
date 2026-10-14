@@ -130,7 +130,7 @@ export default function ModalDecidirDestino({
                 }
                 disabled={!podeConfirmarNovo}
               >
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Confirmar</Text>
+                <Text style={{ color: colors.textoSobreCor, fontSize: 16, fontWeight: '600' }}>Confirmar</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={{ marginTop: 12 }} onPress={() => setEscolhendoNovo(false)}>

@@ -224,7 +224,7 @@ export default function CategoriasManager() {
         style={[globalStyles.fabPrimary, fabPosition]}
         onPress={() => abrirCriacao(null)}
       >
-        <MaterialCommunityIcons name="plus" size={30} color="#FFF" />
+        <MaterialCommunityIcons name="plus" size={30} color={colors.textoSobreCor} />
       </TouchableOpacity>
 
       <FormularioCategoriaModal

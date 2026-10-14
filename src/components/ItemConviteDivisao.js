@@ -75,7 +75,7 @@ export default function ItemConviteDivisao({ convite, respondendo, onAceitar, on
               }}
               onPress={handleAceitar}
             >
-              <Text style={{ color: '#fff', fontWeight: '600' }}>Aceitar</Text>
+              <Text style={{ color: colors.textoSobreCor, fontWeight: '600' }}>Aceitar</Text>
             </TouchableOpacity>
           </View>
         )}

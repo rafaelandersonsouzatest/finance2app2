@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   iniciais: {
-    color: "#fff",
+    color: colors.textoSobreCor,
     fontWeight: "700",
   },
 });
