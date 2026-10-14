@@ -166,6 +166,16 @@ Registrado em 2026-07-28, por decisão explícita do usuário: o produto ainda e
 - Limpeza de código morto já identificada (seção 4).
 - Reavaliação geral dos riscos de prioridade 🟡/🟢 ainda em aberto nas seções 5 e 6.
 
+### Backlog — Estilos e temas (levantamento de 2026-10-13)
+- Regra para código novo registrada no `CLAUDE.md` (seção "Estilos e cores").
+- **Limpar cores escritas à mão** (baixa dificuldade, fazer aos poucos ao mexer nos arquivos):
+  maiores concentrações em `MonthYearPicker` (boa parte em código comentado), `GastoCartaoCard`,
+  `FiltroComponent`, `LoginScreen`/`RegisterScreen`, `ContaCriadaModal`; um `#FFFFFF` no
+  `ModalGerarPendentes`. Paletas de dados (cartão, categoria, avatar) são legítimas.
+- **Tema de verdade (claro/escuro/automático)**: provedor de tema + estilos recalculados ao trocar;
+  mexe em ~86 arquivos que usam `colors` e nos 73 que usam `globalStyles`. Alta dificuldade —
+  depois da publicação, quando o tema virar prioridade.
+
 ## 7. Próximos passos sugeridos (não iniciar sem alinhar antes)
 
 1. Decidir explicitamente o destino do Modo Família neste ciclo: terminar a integração (contexto de membro real) ou remover o scaffolding morto até a fase "Modo Família" do roadmap.

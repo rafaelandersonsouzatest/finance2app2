@@ -60,6 +60,22 @@ Leia os arquivos (não resuma de memória):
   padrão comum de listener + CRUD — ver `ARQUITETURA.md`).
 - Evitar duplicação de código.
 
+## Estilos e cores
+
+Cores e estilos são centralizados em `src/styles/` — base para os temas claro/escuro previstos
+(Menu → Aparência). Em código novo ou alterado:
+- **Nunca escrever cor à mão** (`'#FF8A65'`, `rgba(...)`) num componente: usar `colors.*`
+  (`src/styles/colors.js`). Se a cor não existir, criar o nome lá, com significado (`colors.gasto`,
+  não `colors.laranja`). Exceção: paletas que são dado (cores escolhíveis de cartão/categoria,
+  avatares).
+- **Estilo que se repete** em mais de um lugar vai para `globalStyles`; reaproveitar o que já
+  existe (`modalContainer`, `modalHeader`, `saveButton`, `input`...) antes de criar.
+- **Estilo direto no componente** (`style={{...}}`) só para ajuste pontual de layout (uma margem,
+  um `flex`), sempre com cores vindas de `colors`.
+- Hoje `colors` é fixo e `globalStyles` congela as cores ao abrir o app — trocar de tema com o
+  app aberto vai exigir um provedor de tema (`useTheme()`). Essa refatoração está no backlog
+  (`PROJECT_STATUS.md` seção 6); não antecipar sem alinhar.
+
 ## Dependências
 
 - Antes de sugerir uma nova biblioteca, verificar se alguma dependência já instalada
