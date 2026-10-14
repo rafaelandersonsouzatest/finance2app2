@@ -25,11 +25,12 @@ export const colors = {
   pending: '#FFB74D',
 
   // --- Gráficos e ícones ---
+  // (o verde dos ícones/gráficos foi unificado com `balance` — ver
+  // PROJECT_STATUS.md, backlog de estilos)
   chartBlue: '#42A5F5',
   chartPurple: '#AB47BC',
   iconRed: '#EF5350',
   iconBlue: '#42A5F5',
-  iconGreen: '#66BB6A',
   iconPurple: '#AB47BC',
 
   // --- Barras de progresso ---
@@ -55,4 +56,28 @@ export const colors = {
   inactiveIcon: '#888888',
   borderLight: '#333333',
   border: '#161616ff',
+
+  // --- Texto/ícone sobre fundo colorido (botões) ---
+  // Separado de `textPrimary`: num tema claro o texto comum escurece, mas o
+  // texto em cima de um botão colorido continua branco.
+  textoSobreCor: '#ffffff',
+
+  // --- Estados vazios ("Nenhum registro...") ---
+  textoVazio: '#999999',
+  textoVazioSecundario: '#666666',
+
+  // --- Fundo escurecido atrás de modais ---
+  overlay: 'rgba(0, 0, 0, 0.6)',
+  overlayForte: 'rgba(0, 0, 0, 0.7)',
+  overlaySuave: 'rgba(0, 0, 0, 0.45)',
+
+  // --- Escala do medidor de força da senha (Cadastro) ---
+  // Cores diferentes entre si de propósito: vermelho (gasto) → laranja →
+  // amarelo → verde → verde-claro (balance).
+  forcaSenhaFraca: '#f39c12',
+  forcaSenhaMedia: '#f1c40f',
+  forcaSenhaForte: '#2ecc71',
+
+  // --- Marcas de terceiros ---
+  google: '#DB4437',
 };

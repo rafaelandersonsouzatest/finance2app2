@@ -241,7 +241,7 @@ export default function DetalhesInvestimentoModal({
                           size={28}
                           color={
                             item.tipo === 'Aporte'
-                              ? colors.iconGreen
+                              ? colors.balance
                               : colors.iconRed
                           }
                           style={globalStyles.listItemIcon}

@@ -14,7 +14,7 @@ const SecaoGastos = ({ gastos = [] }) => {
       case 'home': return colors.iconBlue;
       case 'wifi': return colors.iconBlue;
       case 'zap': return colors.iconBlue;
-      case 'shield': return colors.iconGreen;
+      case 'shield': return colors.balance;
       case 'credit-card': return colors.iconPurple;
       default: return colors.iconBlue;
     }

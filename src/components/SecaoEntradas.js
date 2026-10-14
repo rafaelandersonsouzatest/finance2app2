@@ -110,7 +110,7 @@ export default function SecaoEntradas({ entradas = [] }) {
   const INNER_R = 55;
   const AVATAR_RADIUS = (OUTER_R + INNER_R) / 2;
   const AVATAR_SIZE = 36;
-  const PALETTE = [colors.chartBlue, colors.chartPurple, colors.iconGreen, colors.iconRed];
+  const PALETTE = [colors.chartBlue, colors.chartPurple, colors.balance, colors.iconRed];
 
   const { segments, avatarData } = useMemo(() => {
     if (!hasEntries) return { segments: [], avatarData: [] };
