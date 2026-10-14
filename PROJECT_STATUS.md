@@ -201,6 +201,21 @@ Registrado em 2026-07-28, por decisão explícita do usuário: o produto ainda e
   mexe em ~86 arquivos que usam `colors` e nos 73 que usam `globalStyles`. Alta dificuldade —
   depois da publicação, quando o tema virar prioridade.
 
+### Backlog — avisos do modo de desenvolvimento (levantamento de 2026-10-14)
+- **ProgressBarAndroid / Clipboard / SafeAreaView / PushNotificationIOS "extracted/deprecated"**:
+  o app não usa nenhum (o `SafeAreaView` em uso já é do `react-native-safe-area-context`). Quem
+  dispara é o Expo (`metroImportAll` em carregamento dinâmico/recarga copia o `react-native`
+  inteiro e passa pelos getters descontinuados) — problema conhecido desde o SDK 54
+  (expo/expo#39544). Só em dev. Opção pendente: `LogBox.ignoreLogs` para essas 4 mensagens
+  (paliativo) + checagem no guardião de que nenhum arquivo importa esses componentes do
+  `react-native`.
+- **"Cannot read property reload of undefined"**: o Fast Refresh do Expo chama
+  `location.reload()` (só existe no navegador) quando precisa recarregar o app inteiro — ex.:
+  depois de editar `colors.js`. Só em dev; a recarga falha e o app fica com o código antigo até
+  apertar `r` no Metro.
+- **"InteractionManager has been deprecated"**: vem de `react-native-gesture-handler`/
+  `react-native-modal` (seção 23). Sem versão corrigida compatível hoje.
+
 ## 7. Próximos passos sugeridos (não iniciar sem alinhar antes)
 
 1. Decidir explicitamente o destino do Modo Família neste ciclo: terminar a integração (contexto de membro real) ou remover o scaffolding morto até a fase "Modo Família" do roadmap.
