@@ -13,7 +13,7 @@ import { colors } from '../styles/colors';
 // 🔹 Escurece uma cor hex para compor o gradiente — sem dependência nova,
 // só aritmética simples sobre o RGB.
 function escurecerCor(hex, fator = 0.35) {
-  if (typeof hex !== 'string') return '#333333';
+  if (typeof hex !== 'string') return colors.cartaoSemCor;
   const limpo = hex.replace('#', '');
   const normalizado =
     limpo.length === 3 ? limpo.split('').map((c) => c + c).join('') : limpo;
@@ -54,7 +54,7 @@ export default function CartaoVisual({ cartao, tamanho = 'normal', onPress, arqu
         <MaterialCommunityIcons
           name="credit-card-wireless-outline"
           size={compacto ? 20 : 26}
-          color="rgba(255,255,255,0.85)"
+          color={colors.textoSobreCor + 'D9'}
         />
       </View>
 
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
   gradiente: {
     borderRadius: 18,
     padding: 18,
-    shadowColor: '#000',
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   nome: {
-    color: '#fff',
+    color: colors.textoSobreCor,
     fontSize: 18,
     fontWeight: '700',
   },
@@ -124,12 +124,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   banco: {
-    color: 'rgba(255,255,255,0.75)',
+    color: colors.textoSobreCor + 'BF',
     fontSize: 13,
     marginTop: 2,
   },
   resumoMes: {
-    color: 'rgba(255,255,255,0.85)',
+    color: colors.textoSobreCor + 'D9',
     fontSize: 13,
     marginTop: 10,
   },
@@ -139,26 +139,26 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   digitos: {
-    color: '#fff',
+    color: colors.textoSobreCor,
     fontSize: 15,
     letterSpacing: 1,
     fontWeight: '600',
   },
   vencimento: {
-    color: 'rgba(255,255,255,0.8)',
+    color: colors.textoSobreCor + 'CC',
     fontSize: 12,
   },
   selo: {
     position: 'absolute',
     top: 12,
     right: 12,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: colors.shadowColor + '66',
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
   seloTexto: {
-    color: '#fff',
+    color: colors.textoSobreCor,
     fontSize: 11,
     fontWeight: '600',
   },

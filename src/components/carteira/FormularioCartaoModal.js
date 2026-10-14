@@ -15,26 +15,8 @@ import CartaoVisual from '../CartaoVisual';
 
 // 🔹 Paleta própria de cores de cartão — diferente da paleta de categorias
 // (FormularioCategoriaModal.js, decorativa) porque aqui precisa cobrir as
-// cores reais de cartão disponíveis no mercado (preto, grafite, dourado,
-// rosé gold, prata etc.), incluindo tons escuros o bastante para o texto
-// branco do CartaoVisual continuar legível por cima.
-const CORES_DISPONIVEIS = [
-  '#000000', // Preto
-  '#1C1C1E', // Grafite
-  '#5C5C5E', // Prata / Titânio
-  '#B8860B', // Dourado
-  '#B76E79', // Rosé Gold
-  '#820AD1', // Roxo
-  '#4A148C', // Roxo escuro
-  '#FF7A00', // Laranja
-  '#CC092F', // Vermelho
-  '#1B5E20', // Verde escuro
-  '#00695C', // Verde-azulado
-  '#0D47A1', // Azul marinho
-  '#1565C0', // Azul
-  '#37474F', // Azul-acinzentado
-  '#6D4C41', // Marrom / Bronze
-];
+// Cores reais de cartão (ver comentário em src/styles/colors.js).
+const CORES_DISPONIVEIS = colors.paletaCartao;
 
 export default function FormularioCartaoModal({ visivel, onFechar, cartao = null }) {
   const { adicionarCartao, atualizarCartao } = useCarteira();

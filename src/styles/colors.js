@@ -98,4 +98,34 @@ export const colors = {
   olhoCorujaBrilho: '#ffffff',
   // Confete do "Conta criada" (as outras cores do confete já são da paleta).
   confeteAmarelo: '#FFD93D',
+
+  // --- Cartões ---
+  divisoria: '#2C2C2E', // linha que separa o rodapé do card de compra no cartão
+  cartaoSemCor: '#333333', // cor reserva do degradê do CartaoVisual (cartão sem cor válida)
+
+  // --- Paletas de escolha (DADO: o usuário escolhe uma; não seguem o tema) ---
+  // Cores reais de cartão disponíveis no mercado (preto, grafite, dourado,
+  // rosé gold, prata etc.), incluindo tons escuros o bastante para o texto
+  // branco do CartaoVisual continuar legível por cima.
+  paletaCartao: [
+    '#000000', // Preto
+    '#1C1C1E', // Grafite
+    '#5C5C5E', // Prata / Titânio
+    '#B8860B', // Dourado
+    '#B76E79', // Rosé Gold
+    '#820AD1', // Roxo
+    '#4A148C', // Roxo escuro
+    '#FF7A00', // Laranja
+    '#CC092F', // Vermelho
+    '#1B5E20', // Verde escuro
+    '#00695C', // Verde-azulado
+    '#0D47A1', // Azul marinho
+    '#1565C0', // Azul
+    '#37474F', // Azul-acinzentado
+    '#6D4C41', // Marrom / Bronze
+  ],
+  paletaCategoria: [
+    '#EF5350', '#FF8A65', '#FFCA28', '#66BB6A', '#26A69A',
+    '#42A5F5', '#5C6BC0', '#AB47BC', '#EC407A', '#8D6E63', '#78909C',
+  ],
 };

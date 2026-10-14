@@ -80,6 +80,13 @@ Conforme `git status` no momento desta análise:
 - `ConteudoAba` em `src/screens/SaidasScreen.js` — componente definido e nunca usado (achado em
   2026-10-09; confirmado por busca: nenhum `<ConteudoAba` no projeto). Remoção combinada para
   depois de a 0.8.0 se mostrar estável — remover direto (não comentar; o histórico do git guarda).
+- `FiltroComponent` (`src/components/FiltroComponent.js`) — modal de filtro (lista de opções com
+  "selecionado" + Cancelar) que **nenhuma tela usa** (achado em 2026-10-14, na migração de cores). Já
+  segue a paleta (`colors`), então reaproveitar não traz dívida de estilo.
+- **A decidir para os dois acima** (`ConteudoAba` e `FiltroComponent`): entender por que ficaram sem
+  uso (sobra de uma versão antiga de Saídas? funcionalidade começada e abandonada?) e decidir entre
+  **apagar** ou **implementar de verdade** (ex.: filtro por categoria/status nas listas de Saídas pode
+  valer para o produto). Não apagar antes dessa conversa.
 - **Modais de Colaboração** (`ModalAdicionarParticipante`, `ModalCompartilharDespesa`,
   `ModalEditarCotaMembro`, `ModalProporAlteracao`): ✅ receberam `AreaFormulario` e barras
   translúcidas em 2026-10-13 (seção 24). **Não testados no aparelho** — só ficam acessíveis com

@@ -8,7 +8,7 @@ import { vibrarLeve, vibrarSucesso } from '../utils/haptics';
 
 const GastoCartaoCard = ({
   transacao,
-  corCartao = colors.byInstitution?.Default || '#888',
+  corCartao = colors.byInstitution.Default,
   onToggleStatus,
   onAdiantar,
   onPressItem,
@@ -46,7 +46,7 @@ const GastoCartaoCard = ({
 
         <View style={styles.pessoaValorContainer}>
           <View style={styles.pessoaContainer}>
-            <MaterialCommunityIcons name="face-man" size={16} color="#BBBBBB" />
+            <MaterialCommunityIcons name="face-man" size={16} color={colors.textTertiary} />
               <Text style={styles.pessoaNome}>
                 {transacao.pessoa && typeof transacao.pessoa === 'object'
                   ? transacao.pessoa?.nome
@@ -74,7 +74,7 @@ const GastoCartaoCard = ({
 
         <View style={styles.valorParcelaContainer}>
           <View style={styles.valorParcelaInfo}>
-            <MaterialCommunityIcons name="calendar-outline" size={16} color="#2196F3" />
+            <MaterialCommunityIcons name="calendar-outline" size={16} color={colors.primary} />
             <Text style={styles.valorParcelaLabel}>Vencimento desta parcela:</Text>
           </View>
           <Text style={styles.valorParcelaValor}>{dataVencimentoFormatada}</Text>
@@ -82,7 +82,7 @@ const GastoCartaoCard = ({
 
         <View style={styles.footerContainer}>
           <View style={styles.dataCompraContainer}>
-            <MaterialCommunityIcons name="shopping-outline" size={14} color="#BBBBBB" />
+            <MaterialCommunityIcons name="shopping-outline" size={14} color={colors.textTertiary} />
             <Text style={styles.dataCompraTexto}>Compra em {dataCompraFormatada}</Text>
           </View>
 
@@ -124,9 +124,9 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     borderRadius: 12,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: colors.cardBackground,
     borderLeftWidth: 4,
-    shadowColor: '#000',
+    shadowColor: colors.shadowColor,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
@@ -135,26 +135,26 @@ const styles = StyleSheet.create({
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   cartaoInfo: { flexDirection: 'row', alignItems: 'center' },
   cartaoNome: { fontSize: 14, fontWeight: '600', marginLeft: 6 },
-  descricao: { color: '#FFFFFF', fontSize: 16, fontWeight: '500', marginBottom: 12, lineHeight: 22 },
+  descricao: { color: colors.textPrimary, fontSize: 16, fontWeight: '500', marginBottom: 12, lineHeight: 22 },
   pessoaValorContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   pessoaContainer: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  pessoaNome: { color: '#BBBBBB', fontSize: 14, marginLeft: 6 },
+  pessoaNome: { color: colors.textTertiary, fontSize: 14, marginLeft: 6 },
   valorContainer: { alignItems: 'flex-end' },
-  valorTotal: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
-  valorLabel: { color: '#BBBBBB', fontSize: 12 },
+  valorTotal: { color: colors.textPrimary, fontSize: 16, fontWeight: 'bold' },
+  valorLabel: { color: colors.textTertiary, fontSize: 12 },
   parcelasContainer: { marginBottom: 12 },
   parcelasInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  parcelasTexto: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
-  parcelasProgresso: { color: '#BBBBBB', fontSize: 12 },
-  progressContainer: { height: 6, backgroundColor: '#333333', borderRadius: 3, overflow: 'hidden', marginBottom: 8 },
+  parcelasTexto: { color: colors.textPrimary, fontSize: 14, fontWeight: '600' },
+  parcelasProgresso: { color: colors.textTertiary, fontSize: 12 },
+  progressContainer: { height: 6, backgroundColor: colors.borderLight, borderRadius: 3, overflow: 'hidden', marginBottom: 8 },
   progressFill: { height: '100%', borderRadius: 3 },
-  valorParcelaContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(33,150,243,0.06)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginBottom: 12 },
+  valorParcelaContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.primary + '0F', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginBottom: 12 },
   valorParcelaInfo: { flexDirection: 'row', alignItems: 'center' },
-  valorParcelaLabel: { color: '#2196F3', fontSize: 14, fontWeight: '500', marginLeft: 6 },
-  valorParcelaValor: { color: '#2196F3', fontSize: 16, fontWeight: 'bold' },
-  footerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#2C2C2E', paddingTop: 12, marginTop: 4 },
+  valorParcelaLabel: { color: colors.primary, fontSize: 14, fontWeight: '500', marginLeft: 6 },
+  valorParcelaValor: { color: colors.primary, fontSize: 16, fontWeight: 'bold' },
+  footerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.divisoria, paddingTop: 12, marginTop: 4 },
   dataCompraContainer: { flexDirection: 'row', alignItems: 'center' },
-  dataCompraTexto: { color: '#BBBBBB', fontSize: 12, marginLeft: 6 },
+  dataCompraTexto: { color: colors.textTertiary, fontSize: 12, marginLeft: 6 },
   statusButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20 },
   statusButtonText: { marginLeft: 6, fontSize: 12, fontWeight: '600' },
 });

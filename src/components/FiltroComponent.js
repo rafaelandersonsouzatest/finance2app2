@@ -9,6 +9,7 @@ import {
   StyleSheet 
 } from 'react-native';
 import { MaterialCommunityIcons  } from '@expo/vector-icons';
+import { colors } from '../styles/colors';
 
 const FiltroComponent = ({ 
   visible, 
@@ -29,7 +30,7 @@ const FiltroComponent = ({
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <MaterialCommunityIcons  name={icone} size={24} color="#2196F3" />
+            <MaterialCommunityIcons  name={icone} size={24} color={colors.primary} />
             <Text style={styles.modalTitulo}>{titulo}</Text>
           </View>
           
@@ -53,7 +54,7 @@ const FiltroComponent = ({
                   {opcao}
                 </Text>
                 {valorAtual === opcao && (
-                  <MaterialCommunityIcons  name="check-circle-outline" size={20} color="#2196F3" />
+                  <MaterialCommunityIcons  name="check-circle-outline" size={20} color={colors.primary} />
                 )}
               </TouchableOpacity>
             ))}
@@ -64,7 +65,7 @@ const FiltroComponent = ({
               style={styles.modalBotaoCancelar}
               onPress={() => setVisible(false)}
             >
-              <MaterialCommunityIcons  name="close-outline" size={20} color="#FF5252" />
+              <MaterialCommunityIcons  name="close-outline" size={20} color={colors.error} />
               <Text style={styles.modalBotaoCancelarTexto}>Cancelar</Text>
             </TouchableOpacity>
           </View>
@@ -77,17 +78,17 @@ const FiltroComponent = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: colors.cardBackground,
     borderRadius: 16,
     padding: 0,
     width: '85%',
     maxHeight: '75%',
-    shadowColor: '#000',
+    shadowColor: colors.shadowColor,
     shadowOffset: {
       width: 0,
       height: 4,
@@ -103,12 +104,12 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#333333',
+    borderBottomColor: colors.borderLight,
   },
   modalTitulo: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     marginLeft: 12,
   },
   modalScrollView: {
@@ -126,24 +127,24 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   modalOpcaoSelecionada: {
-    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+    backgroundColor: colors.primary + '1A',
     borderWidth: 1,
-    borderColor: '#2196F3',
+    borderColor: colors.primary,
   },
   modalOpcaoTexto: {
     fontSize: 16,
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     flex: 1,
   },
   modalOpcaoTextoSelecionado: {
     fontWeight: '600',
-    color: '#2196F3',
+    color: colors.primary,
   },
   modalFooter: {
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: '#333333',
+    borderTopColor: colors.borderLight,
   },
   modalBotaoCancelar: {
     flexDirection: 'row',
@@ -151,11 +152,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: 'rgba(255, 82, 82, 0.1)',
+    backgroundColor: colors.error + '1A',
   },
   modalBotaoCancelarTexto: {
     fontSize: 16,
-    color: '#FF5252',
+    color: colors.error,
     fontWeight: '600',
     marginLeft: 8,
   },

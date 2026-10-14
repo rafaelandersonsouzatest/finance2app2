@@ -25,14 +25,11 @@ const PENDENTES = [
   'components/AvatarEditor.js',
   'components/AvatarRenderer.js',
   'components/CartaoSelect.js',
-  'components/CartaoVisual.js',
   'components/CategoriaSelect.js',
   'components/CustomTabBar.js',
   'components/DetalhesInvestimentoModal.js',
   'components/EditarMembroModal.js',
   'components/FabMenu.js',
-  'components/FiltroComponent.js',
-  'components/GastoCartaoCard.js',
   'components/GerenciarModelosModal.js',
   'components/ItemConviteDivisao.js',
   'components/ItemPropostaAlteracao.js',
@@ -49,15 +46,12 @@ const PENDENTES = [
   'components/TelaPadrao.js',
   'components/UserMenu.js',
   'components/carteira/CartoesManager.js',
-  'components/carteira/FormularioCartaoModal.js',
   'components/planejamento/CategoriasManager.js',
-  'components/planejamento/FormularioCategoriaModal.js',
   'hooks/useAdiantamento.js',
   'hooks/useCarteira.js',
   'hooks/useCartoes.js',
   'hooks/useCategorias.js',
   'screens/AlterarSenhaScreen.js',
-  'screens/CartoesScreen.js',
   'screens/ConexoesScreen.js',
   'screens/SaidasScreen.js',
 ];
@@ -98,6 +92,20 @@ describe('cores centralizadas em src/styles/colors.js', () => {
       .filter(({ rel }) => !PERMANENTES[rel] && !PENDENTES.includes(rel))
       .flatMap(({ rel, abs }) => coresEscritasAMao(abs).map((a) => `${rel} — ${a}`));
     expect(violacoes).toEqual([]);
+  });
+
+  // Ao trocar uma cor por `colors.<nome>` é fácil esquecer o import — o erro
+  // não aparece ao compilar, só ao abrir a tela ("colors is not defined").
+  it('todo arquivo que usa `colors.` importa o colors', () => {
+    const semImport = todos
+      .filter(({ rel }) => rel !== 'styles/colors.js')
+      .filter(({ abs }) => {
+        const codigo = fs.readFileSync(abs, 'utf8');
+        // `(^|[^.\w])`: ignora `outroObjeto.colors.x` (ex.: o JSON do DiceBear em utils/avatar.js).
+        return /(^|[^.\w])colors\./m.test(codigo) && !/import\s*\{[^}]*\bcolors\b[^}]*\}\s*from/.test(codigo);
+      })
+      .map(({ rel }) => rel);
+    expect(semImport).toEqual([]);
   });
 
   it('a lista de pendentes não tem arquivo já corrigido (tire-o da lista)', () => {

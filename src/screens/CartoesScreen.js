@@ -106,7 +106,7 @@ export default function CartoesScreen({
               <MaterialCommunityIcons
                 name="credit-card-off-outline"
                 size={48}
-                color="#666"
+                color={colors.textoVazioSecundario}
               />
               <Text style={globalStyles.noDataText}>
                 Nenhuma compra encontrada neste mês.
@@ -138,7 +138,7 @@ export default function CartoesScreen({
               <MaterialCommunityIcons
                 name="credit-card-multiple-outline"
                 size={48}
-                color="#666"
+                color={colors.textoVazioSecundario}
               />
               <Text style={globalStyles.noDataText}>
                 Nenhum cartão encontrado.
