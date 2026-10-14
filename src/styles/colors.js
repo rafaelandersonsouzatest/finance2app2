@@ -73,11 +73,29 @@ export const colors = {
 
   // --- Escala do medidor de força da senha (Cadastro) ---
   // Cores diferentes entre si de propósito: vermelho (gasto) → laranja →
-  // amarelo → verde → verde-claro (balance).
+  // amarelo → verde-claro (balance, "Forte") → verde intenso ("Excelente").
   forcaSenhaFraca: '#f39c12',
   forcaSenhaMedia: '#f1c40f',
-  forcaSenhaForte: '#2ecc71',
+  forcaSenhaExcelente: '#2ecc71',
+  forcaSenhaVazia: '#cccccc', // nenhum critério atendido ainda
+  forcaSenhaTrilho: '#eeeeee', // fundo da barra
 
   // --- Marcas de terceiros ---
+  // Botão "Entrar com Google": visual padrão do Google (claro), não segue o
+  // tema do app.
   google: '#DB4437',
+  googleFundo: '#ffffff',
+  googleBorda: '#dddddd',
+
+  // --- Onboarding (tela clara, diferente do resto do app) ---
+  onboardingFundo: '#ffffff',
+  onboardingPontoInativo: '#d0d0d0',
+
+  // --- Ilustrações ---
+  // Olhinho da coruja (mostrar/ocultar senha — OwlEyeToggle).
+  olhoCoruja: '#333333',
+  olhoCorujaBorda: '#000000',
+  olhoCorujaBrilho: '#ffffff',
+  // Confete do "Conta criada" (as outras cores do confete já são da paleta).
+  confeteAmarelo: '#FFD93D',
 };

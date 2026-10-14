@@ -45,7 +45,7 @@ export default function ForgotPasswordScreen({ navigation }) {
         disabled={loading}
         style={[globalStyles.saveButton, { marginTop: 24 }]}
       >
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={globalStyles.saveButtonText}>Enviar</Text>}
+        {loading ? <ActivityIndicator color={colors.textoSobreCor} /> : <Text style={globalStyles.saveButtonText}>Enviar</Text>}
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 16 }}>

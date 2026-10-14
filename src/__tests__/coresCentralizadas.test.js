@@ -21,18 +21,12 @@ const PERMANENTES = {
 // encolhe: ao corrigir um arquivo, tire-o daqui — o segundo teste abaixo
 // avisa se um arquivo daqui já estiver limpo e esquecido na lista.
 const PENDENTES = [
-  'auth/ForgotPasswordScreen.js',
-  'auth/LoginScreen.js',
-  'auth/OnboardingScreen.js',
-  'auth/RegisterScreen.js',
-  'auth/ResetPasswordScreen.js',
   'components/AlertaModal.js',
   'components/AvatarEditor.js',
   'components/AvatarRenderer.js',
   'components/CartaoSelect.js',
   'components/CartaoVisual.js',
   'components/CategoriaSelect.js',
-  'components/ContaCriadaModal.js',
   'components/CustomTabBar.js',
   'components/DetalhesInvestimentoModal.js',
   'components/EditarMembroModal.js',
@@ -52,7 +46,6 @@ const PENDENTES = [
   'components/ModalGerarPendentes.js',
   'components/ModalParcelasAdiantamento.js',
   'components/ModalProporAlteracao.js',
-  'components/OwlEyeToggle.js',
   'components/TelaPadrao.js',
   'components/UserMenu.js',
   'components/carteira/CartoesManager.js',

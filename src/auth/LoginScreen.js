@@ -258,7 +258,7 @@ export default function LoginScreen({ navigation }) {
         style={[globalStyles.saveButton, { marginTop: 24 }]}
       >
         {loading ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={colors.textoSobreCor} />
         ) : (
           <Text style={globalStyles.saveButtonText}>Entrar</Text>
         )}
@@ -272,9 +272,9 @@ export default function LoginScreen({ navigation }) {
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "#fff",
+          backgroundColor: colors.googleFundo,
           borderWidth: 1,
-          borderColor: "#ddd",
+          borderColor: colors.googleBorda,
           borderRadius: 10,
           paddingVertical: 12,
           marginTop: 20,
@@ -282,18 +282,18 @@ export default function LoginScreen({ navigation }) {
         }}
       >
         {googleLoading ? (
-          <ActivityIndicator color="#DB4437" />
+          <ActivityIndicator color={colors.google} />
         ) : (
           <>
             <MaterialCommunityIcons
               name="google"
               size={20}
-              color="#DB4437"
+              color={colors.google}
               style={{ marginRight: 10 }}
             />
             <Text
               style={{
-                color: "#DB4437",
+                color: colors.google,
                 fontWeight: "bold",
                 fontSize: 15,
               }}

@@ -190,10 +190,10 @@ export default function RegisterScreen({ navigation }) {
     if (/\d/.test(senha)) score++;
     if (/[!@#$%^&*(),.?":{}|<>]/.test(senha)) score++;
 
-    const cores = [colors.gasto, "#f39c12", "#f1c40f", "#2ecc71", colors.balance];
+    const cores = [colors.gasto, colors.forcaSenhaFraca, colors.forcaSenhaMedia, colors.balance, colors.forcaSenhaExcelente];
     const niveis = ["Muito fraca", "Fraca", "Média", "Forte", "Excelente"];
 
-    return { score, cor: cores[score - 1] || "#ccc", nivel: niveis[score - 1] || "" };
+    return { score, cor: cores[score - 1] || colors.forcaSenhaVazia, nivel: niveis[score - 1] || "" };
   };
 
   const forca = forcaSenha(senha);
@@ -299,7 +299,7 @@ export default function RegisterScreen({ navigation }) {
               height: 6,
               borderRadius: 10,
               marginTop: 6,
-              backgroundColor: "#eee",
+              backgroundColor: colors.forcaSenhaTrilho,
             }}
           >
             <View
@@ -462,7 +462,7 @@ export default function RegisterScreen({ navigation }) {
         style={[globalStyles.saveButton, { marginTop: 24 }]}
       >
         {loading ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={colors.textoSobreCor} />
         ) : (
           <Text style={globalStyles.saveButtonText}>Registrar</Text>
         )}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { TouchableOpacity, View, Animated, Easing } from "react-native";
+import { colors } from "../styles/colors";
 
 export default function OwlEyeToggle({ onModeChange }) {
   const [mode, setMode] = useState(0); 
@@ -54,10 +55,10 @@ export default function OwlEyeToggle({ onModeChange }) {
         style={{
           width: 28,
           height: 28,
-          backgroundColor: "#333",
+          backgroundColor: colors.olhoCoruja,
           borderRadius: 14,
           borderWidth: 2,
-          borderColor: "#000",
+          borderColor: colors.olhoCorujaBorda,
           justifyContent: "center",
           alignItems: "center",
           overflow: "hidden",
@@ -67,7 +68,7 @@ export default function OwlEyeToggle({ onModeChange }) {
           style={{
             width: 10,
             height: interpolateEye(leftEye),
-            backgroundColor: "#fff",
+            backgroundColor: colors.olhoCorujaBrilho,
             borderRadius: 5,
           }}
         />
@@ -78,10 +79,10 @@ export default function OwlEyeToggle({ onModeChange }) {
         style={{
           width: 28,
           height: 28,
-          backgroundColor: "#333",
+          backgroundColor: colors.olhoCoruja,
           borderRadius: 14,
           borderWidth: 2,
-          borderColor: "#000",
+          borderColor: colors.olhoCorujaBorda,
           justifyContent: "center",
           alignItems: "center",
           overflow: "hidden",
@@ -91,7 +92,7 @@ export default function OwlEyeToggle({ onModeChange }) {
           style={{
             width: 10,
             height: interpolateEye(rightEye),
-            backgroundColor: "#fff",
+            backgroundColor: colors.olhoCorujaBrilho,
             borderRadius: 5,
           }}
         />

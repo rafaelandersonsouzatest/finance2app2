@@ -17,11 +17,11 @@ import { globalStyles } from "../styles/globalStyles";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const CONFETTI_COLORS = [
-  "#4FC3F7",
-  "#81C784",
-  "#AB47BC",
-  "#FF8A65",
-  "#FFD93D",
+  colors.primary,
+  colors.balance,
+  colors.chartPurple,
+  colors.gasto,
+  colors.confeteAmarelo,
 ];
 
 export const ContaCriadaModal = ({
@@ -118,7 +118,7 @@ export const ContaCriadaModal = ({
   animationIn="zoomIn"
   animationOut="zoomOut"
   // usa o backdrop do próprio modal para escurecer o fundo
-  backdropColor={colors.cardBackground || "rgba(18,18,18,0.9)"} 
+  backdropColor={colors.cardBackground} 
   backdropOpacity={0.97} 
   style={{ margin: 0, justifyContent: "center", alignItems: "center" }}
   onBackdropPress={onFechar}
@@ -147,7 +147,7 @@ export const ContaCriadaModal = ({
             borderRadius: 22,
             backgroundColor: colors.background,
             // ⭐ SOMBRA 3D
-            shadowColor: "#000",
+            shadowColor: colors.shadowColor,
             shadowOffset: { width: 0, height: 6 },
             shadowOpacity: 0.25,
             shadowRadius: 12,
@@ -247,7 +247,7 @@ export const ContaCriadaModal = ({
                 }}
 
           >
-            <MaterialIcons name="school" size={20} color="#fff" />
+            <MaterialIcons name="school" size={20} color={colors.textoSobreCor} />
             <Text style={globalStyles.saveButtonText}> Conhecer Funcionalidades</Text>
           </TouchableOpacity>
 
@@ -262,7 +262,7 @@ export const ContaCriadaModal = ({
                 }}
 
           >
-            <MaterialIcons name="login" size={20} color="#fff" />
+            <MaterialIcons name="login" size={20} color={colors.textoSobreCor} />
             <Text style={globalStyles.cancelButtonText}> Conhecer Depois</Text>
           </TouchableOpacity>
         </Animated.View>

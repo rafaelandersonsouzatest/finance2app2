@@ -113,7 +113,7 @@ export default function ResetPasswordScreen({ navigation }) {
         style={[globalStyles.saveButton, { marginTop: 24 }]}
       >
         {loading ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={colors.textoSobreCor} />
         ) : (
           <Text style={globalStyles.saveButtonText}>Redefinir senha</Text>
         )}
