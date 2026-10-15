@@ -9,6 +9,7 @@ import { getNomeExibicao } from '../utils/perfil';
 import AlertaModal from '../components/AlertaModal';
 import AvatarRenderer from '../components/AvatarRenderer';
 import AvatarEditor from '../components/AvatarEditor';
+import ExcluirContaModal from '../components/ExcluirContaModal';
 
 export default function ContaScreen() {
   const { user, profile, logout, atualizarPerfil } = useAuth();
@@ -19,6 +20,7 @@ export default function ContaScreen() {
   const [erroNome, setErroNome] = useState(null);
   const [salvandoNome, setSalvandoNome] = useState(false);
   const [editorAvatarVisivel, setEditorAvatarVisivel] = useState(false);
+  const [excluirContaVisivel, setExcluirContaVisivel] = useState(false);
 
   const confirmarESair = async () => {
     setConfirmarSaida(false);
@@ -136,8 +138,8 @@ export default function ContaScreen() {
         <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textSecondary} />
       </TouchableOpacity>
 
-      {/* 🔹 Futuro (ver PROJECT_STATUS.md): vincular Google, excluir conta,
-          gerenciamento de plano. */}
+      {/* 🔹 Futuro (ver PROJECT_STATUS.md): vincular Google, gerenciamento de
+          plano. */}
 
       <TouchableOpacity
         style={[globalStyles.listItem, { marginTop: 8 }]}
@@ -155,6 +157,20 @@ export default function ContaScreen() {
           </Text>
         </View>
       </TouchableOpacity>
+
+      {/* Exclusão de conta — discreta, separada do resto (exigência do Google
+          Play / LGPD; fluxo em ExcluirContaModal). */}
+      <TouchableOpacity
+        style={{ marginTop: 32, alignItems: 'center', paddingVertical: 12 }}
+        onPress={() => setExcluirContaVisivel(true)}
+      >
+        <Text style={{ color: colors.error, fontSize: 13 }}>Excluir minha conta</Text>
+      </TouchableOpacity>
+
+      <ExcluirContaModal
+        visivel={excluirContaVisivel}
+        onFechar={() => setExcluirContaVisivel(false)}
+      />
 
       <AlertaModal
         visible={confirmarSaida}

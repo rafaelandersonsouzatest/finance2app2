@@ -38,7 +38,28 @@ service cloud.firestore {
                     && existsAfter(/databases/$(database)/documents/users/$(request.auth.uid))
                     && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.documento == docId
                     && request.resource.data.keys().hasOnly(['reservado']);
-      allow update, delete: if false;
+      // Exclusão: só o dono, ao excluir a própria conta — o CPF/CNPJ volta a
+      // ficar disponível (LGPD: a conta excluída não deixa o documento preso).
+      // Confere pelo próprio perfil, que ainda existe nesse momento
+      // (excluirDadosDoUsuario apaga a reserva antes do perfil).
+      allow delete: if request.auth != null
+                    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.documento == docId;
+      allow update: if false;
+    }
+
+    // Motivo informado (opcionalmente) ao excluir a conta. ANÔNIMO: só o
+    // motivo, um texto livre curto, a data e a versão/plataforma do app —
+    // nenhum dado que identifique a pessoa (a conta dela está sendo apagada).
+    // Só gravação; ninguém lê pelo app (leitura só pelo console do Firebase).
+    match /motivosExclusao/{id} {
+      allow create: if request.auth != null
+                    && request.resource.data.keys().hasOnly(['motivo', 'detalhe', 'criadoEm', 'versaoApp', 'plataforma'])
+                    && request.resource.data.motivo is string
+                    && request.resource.data.motivo.size() <= 60
+                    && (!('detalhe' in request.resource.data)
+                        || (request.resource.data.detalhe is string && request.resource.data.detalhe.size() <= 1000))
+                    && request.resource.data.criadoEm == request.time;
+      allow read, update, delete: if false;
     }
 
     // Código de conexão entre usuários (Colaboração — Etapa 2 de

@@ -17,6 +17,9 @@ const {
   collection,
   getDocs,
   writeBatch,
+  addDoc,
+  serverTimestamp,
+  Timestamp,
 } = require("firebase/firestore");
 
 const CPF = "12345678909";
@@ -117,12 +120,28 @@ describe("documentosCadastrados — reserva de CPF/CNPJ", () => {
     await assertSucceeds(getDoc(doc(semLogin(), `documentosCadastrados/${CPF}`)));
   });
 
-  it("ninguém lista as reservas, altera ou apaga", async () => {
+  it("ninguém lista nem altera as reservas", async () => {
     await prepararDados((db) => setDoc(doc(db, `documentosCadastrados/${CPF}`), { reservado: true }));
     const db = comoUsuario("ana");
     await assertFails(getDocs(collection(db, "documentosCadastrados")));
     await assertFails(updateDoc(doc(db, `documentosCadastrados/${CPF}`), { reservado: false }));
-    await assertFails(deleteDoc(doc(db, `documentosCadastrados/${CPF}`)));
+  });
+
+  it("ao excluir a conta, o dono apaga a reserva do PRÓPRIO CPF", async () => {
+    await prepararDados(async (db) => {
+      await setDoc(doc(db, "users/ana"), { documento: CPF });
+      await setDoc(doc(db, `documentosCadastrados/${CPF}`), { reservado: true });
+    });
+    await assertSucceeds(deleteDoc(doc(comoUsuario("ana"), `documentosCadastrados/${CPF}`)));
+  });
+
+  it("não apaga a reserva do CPF de outra pessoa", async () => {
+    await prepararDados(async (db) => {
+      await setDoc(doc(db, "users/ana"), { documento: CPF });
+      await setDoc(doc(db, `documentosCadastrados/${OUTRO_CPF}`), { reservado: true });
+    });
+    await assertFails(deleteDoc(doc(comoUsuario("ana"), `documentosCadastrados/${OUTRO_CPF}`)));
+    await assertFails(deleteDoc(doc(semLogin(), `documentosCadastrados/${OUTRO_CPF}`)));
   });
 });
 
@@ -143,6 +162,50 @@ describe("codigosConexao — código de conexão (Colaboração)", () => {
     await assertSucceeds(getDoc(doc(comoUsuario("bruno"), "codigosConexao/ABC123")));
     await assertFails(getDoc(doc(semLogin(), "codigosConexao/ABC123")));
     await assertFails(getDocs(collection(comoUsuario("bruno"), "codigosConexao")));
+  });
+});
+
+describe("motivosExclusao — motivo (anônimo) ao excluir a conta", () => {
+  const motivo = (extra = {}) => ({
+    motivo: "nao_uso_mais",
+    detalhe: "Faltou X",
+    criadoEm: serverTimestamp(),
+    versaoApp: "0.9.0",
+    plataforma: "ios",
+    ...extra,
+  });
+
+  it("usuário logado grava um motivo anônimo", async () => {
+    await assertSucceeds(addDoc(collection(comoUsuario("ana"), "motivosExclusao"), motivo()));
+  });
+
+  it("sem detalhe também vale", async () => {
+    const { detalhe, ...semDetalhe } = motivo();
+    await assertSucceeds(addDoc(collection(comoUsuario("ana"), "motivosExclusao"), semDetalhe));
+  });
+
+  it("não aceita dado que identifique a pessoa (campo extra)", async () => {
+    await assertFails(
+      addDoc(collection(comoUsuario("ana"), "motivosExclusao"), motivo({ email: "ana@x.com" }))
+    );
+  });
+
+  it("não aceita texto gigante nem data inventada pelo celular", async () => {
+    const db = comoUsuario("ana");
+    await assertFails(addDoc(collection(db, "motivosExclusao"), motivo({ detalhe: "x".repeat(1001) })));
+    await assertFails(
+      addDoc(collection(db, "motivosExclusao"), motivo({ criadoEm: Timestamp.fromDate(new Date(2020, 0, 1)) }))
+    );
+  });
+
+  it("sem login não grava; ninguém lê, altera ou apaga", async () => {
+    await assertFails(addDoc(collection(semLogin(), "motivosExclusao"), motivo()));
+    await prepararDados((db) => setDoc(doc(db, "motivosExclusao/m1"), { motivo: "outro" }));
+    const db = comoUsuario("ana");
+    await assertFails(getDoc(doc(db, "motivosExclusao/m1")));
+    await assertFails(getDocs(collection(db, "motivosExclusao")));
+    await assertFails(updateDoc(doc(db, "motivosExclusao/m1"), { motivo: "x" }));
+    await assertFails(deleteDoc(doc(db, "motivosExclusao/m1")));
   });
 });
 

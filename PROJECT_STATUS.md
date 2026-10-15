@@ -1100,3 +1100,26 @@ teclado cobria os modais e não dava para ver o que era digitado.
 - Mudança pequena de comportamento: o histórico (e a janela de "Outro cartão/pessoa") abre **no
   lugar** da janela anterior, não por cima — ao fechar, volta para a tela, não para os detalhes.
 - **A testar além dos 7 casos**: resumo do cartão (aba Cartões) → "Antecipar" de uma compra.
+
+## 26. Exclusão de conta pelo app (✅ testada em 2026-10-15 no ambiente de convidados)
+
+Exigência do Google Play (app com criação de conta) e da LGPD.
+- **Onde**: Menu → Conta → "Excluir minha conta" (link discreto no fim da tela).
+- **Fluxo** (`ExcluirContaModal`, um modal só em etapas — sem trocar de modal, regra do iPhone):
+  motivo **opcional** (8 opções + texto livre) → aviso do que será apagado + senha → "Excluindo…" →
+  volta para o login. Conta Google: exige login nos últimos 5 min (o fluxo OAuth só existe na tela de
+  login); senão oferece "Sair agora".
+- **Ordem** (`useAuth.excluirConta`): confirma a identidade ANTES de apagar (senha errada não apaga
+  nada) → grava o motivo anônimo → `excluirDadosDoUsuario` (reserva do CPF, 16 subcoleções, perfil)
+  → `deleteUser`.
+- **Decisões do usuário**: CPF **liberado** ao excluir (regra permite o dono apagar a própria
+  reserva); motivo gravado **anônimo** em `motivosExclusao` (só motivo, detalhe ≤ 1000 caracteres,
+  data do servidor, versão e plataforma; só gravação — leitura pelo console do Firebase).
+- **Guardiões**: `src/__tests__/exclusaoConta.test.js` falha se uma coleção usada em
+  `users/{uid}/...` não estiver em `SUBCOLECOES_DO_USUARIO`; 7 testes novos das regras
+  (`functions/regras`, total 21).
+- **Testado** (convidados): conta excluída some do Firestore; recadastro com o mesmo CPF funciona;
+  senha errada é recusada.
+- **Pendente para a loja**: página web de exclusão + política de privacidade (Firebase Hosting do
+  projeto), depois de definidos o e-mail de contato e o nome do app. Regras novas publicadas só no
+  `financeapp-christian` até aqui.

@@ -7,6 +7,9 @@ import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithCredential,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  deleteUser,
 } from "firebase/auth";
 import { auth, db } from "../config/firebase";
 import {
@@ -16,13 +19,21 @@ import {
   updateDoc,
   writeBatch,
   serverTimestamp,
+  addDoc,
+  collection,
 } from "firebase/firestore";
+import { Platform } from "react-native";
+import Constants from "expo-constants";
+import { excluirDadosDoUsuario } from "../utils/excluirDadosDoUsuario";
 
 import * as WebBrowser from "expo-web-browser";
 import { gerarAvatarPadrao } from "../utils/avatar";
 WebBrowser.maybeCompleteAuthSession();
 
 const AuthContext = createContext();
+
+// "Login recente" exigido pelo Firebase para excluir a conta de login.
+const LOGIN_RECENTE_MS = 5 * 60 * 1000;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null); // Firebase Auth
@@ -343,6 +354,59 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ===================================================
+  // 🔥 Excluir conta (exigência do Google Play / LGPD)
+  // ===================================================
+  // 1. Confirma a identidade ANTES de apagar qualquer coisa — o Firebase só
+  //    deixa excluir a conta de login com um login recente; confirmar no
+  //    começo evita apagar os dados e falhar no fim (conta pela metade).
+  //    - e-mail/senha: confere a senha;
+  //    - Google: o fluxo OAuth só existe na tela de login, então exige que
+  //      o último login tenha sido há pouco (mesmo critério do Firebase).
+  // 2. Grava o motivo (opcional, ANÔNIMO — motivosExclusao); falha aqui não
+  //    impede a exclusão.
+  // 3. Apaga os dados (excluirDadosDoUsuario) e, por último, a conta de login.
+  //    onAuthStateChanged leva o app de volta para o login.
+  const excluirConta = async ({ senha, motivo, detalhe }) => {
+    const usuario = auth.currentUser;
+    if (!usuario) throw new Error("Usuário não autenticado.");
+
+    const provedor = usuario.providerData?.[0]?.providerId;
+    if (provedor === "password") {
+      try {
+        await reauthenticateWithCredential(
+          usuario,
+          EmailAuthProvider.credential(usuario.email, senha || "")
+        );
+      } catch (err) {
+        const senhaErrada = ["auth/wrong-password", "auth/invalid-credential", "auth/missing-password"]
+          .includes(err?.code);
+        throw new Error(senhaErrada ? "SENHA_INCORRETA" : err?.message || "Falha ao confirmar a senha.");
+      }
+    } else {
+      const ultimoLogin = new Date(usuario.metadata?.lastSignInTime || 0).getTime();
+      if (Date.now() - ultimoLogin > LOGIN_RECENTE_MS) throw new Error("REQUER_LOGIN_RECENTE");
+    }
+
+    if (motivo || detalhe) {
+      try {
+        await addDoc(collection(db, "motivosExclusao"), {
+          motivo: motivo || "nao_informado",
+          ...(detalhe ? { detalhe: detalhe.slice(0, 1000) } : {}),
+          criadoEm: serverTimestamp(),
+          versaoApp: Constants.expoConfig?.version || "",
+          plataforma: Platform.OS,
+        });
+      } catch (err) {
+        console.warn("Motivo da exclusão não foi gravado:", err?.message);
+      }
+    }
+
+    await excluirDadosDoUsuario(db, usuario.uid, profile?.documento);
+    await deleteUser(usuario);
+    setProfile(null);
+  };
+
+  // ===================================================
   // 🔥 Login Google — recebe o id_token já obtido pelo fluxo OAuth
   // ===================================================
   // 🔹 `AuthSession.startAsync` (usado antes) não existe mais no
@@ -375,6 +439,7 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
+        excluirConta,
         signInWithGoogleCredential,
         carregarPerfil, // 🔥 agora está no contexto
         atualizarPerfil,
