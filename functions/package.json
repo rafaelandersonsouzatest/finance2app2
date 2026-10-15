@@ -10,7 +10,8 @@
     "serve": "firebase emulators:start --only auth,firestore,functions",
     "shell": "firebase functions:shell",
     "logs": "firebase functions:log",
-    "test": "jest --runInBand"
+    "test": "jest --runInBand",
+    "test:regras": "firebase emulators:exec --only firestore --project demo-regras \"jest --runInBand --testPathIgnorePatterns=/node_modules/ --testPathPatterns=regras\""
   },
   "dependencies": {
     "firebase-admin": "^14.2.0",
@@ -18,6 +19,7 @@
   },
   "devDependencies": {
     "@babel/preset-env": "^7.29.7",
+    "@firebase/rules-unit-testing": "^5.0.2",
     "jest": "^30.4.2"
   }
 }

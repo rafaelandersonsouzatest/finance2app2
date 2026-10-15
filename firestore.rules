@@ -22,9 +22,22 @@ service cloud.firestore {
     // sem login, porque a checagem acontece antes da conta existir; "list"
     // (consultar a coleção inteira) não é liberado em nenhum lugar, então não
     // é possível descobrir CPFs que não sejam informados de antemão.
+    //
+    // Criação: só no momento do cadastro da PRÓPRIA conta, e só com o CPF/CNPJ
+    // do próprio perfil — o cadastro (useAuth.js, register) grava o perfil e
+    // a reserva no mesmo lote, então: o perfil não existia antes do lote
+    // (!exists), passa a existir com ele (existsAfter) e o `documento` dele é
+    // exatamente o ID da reserva. Antes, qualquer usuário logado podia
+    // reservar o CPF de outra pessoa e bloquear o cadastro dela. Risco
+    // residual aceito: alguém criar várias contas (um e-mail cada) para
+    // reservar vários CPFs.
     match /documentosCadastrados/{docId} {
       allow get: if true;
-      allow create: if request.auth != null;
+      allow create: if request.auth != null
+                    && !exists(/databases/$(database)/documents/users/$(request.auth.uid))
+                    && existsAfter(/databases/$(database)/documents/users/$(request.auth.uid))
+                    && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.documento == docId
+                    && request.resource.data.keys().hasOnly(['reservado']);
       allow update, delete: if false;
     }
 

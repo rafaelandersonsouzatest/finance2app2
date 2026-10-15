@@ -221,3 +221,26 @@ desenho técnico completo.
 | Fase 5 — Premium | O modelo de dados já reserva espaço para `limite`, `bandeira`, `cashback`, `anuidade`, `programa de pontos` (não implementados nesta sprint) — candidatos naturais a diferenciação de tier quando os planos pagos forem definidos (ex.: número de cartões cadastrados, alertas de fatura). |
 | Fase 6 — IA | `cartaoId` estável é a mesma chave que reconhecimento de padrão de gasto por cartão (ex.: "esse cartão você usa mais para Lazer") precisaria — sem ela, esse tipo de recurso ficaria refém de comparação de texto frágil, mesmo raciocínio já registrado para `categoriaId` acima. |
 | Nova fase a considerar (Open Finance, seção Product Discovery) | Um cartão cadastrado com identidade própria (nome, banco, cor, vencimento) é a estrutura de dados natural para receber, no futuro, uma importação automática de fatura por Open Finance — não implementado, só uma base que não precisaria ser redesenhada quando essa fase for avaliada. |
+
+## Ideias registradas para depois (2026-10-14)
+
+Anotadas a pedido do usuário — **não iniciar sem alinhar**.
+
+- **Visão: app de organização pessoal/familiar com módulos** — Finanças vira um módulo; outros
+  candidatos: hábitos, informações das crianças, lista de tarefas, lista de compras. Recomendação
+  registrada: publicar primeiro o que existe e acrescentar módulos um por vez; priorizar módulos que
+  se **conectem às finanças** (mesada, gastos por filho, lista de compras que vira gasto, divisão do
+  casal) — é o diferencial frente aos apps de organização familiar já existentes. Decidir **nome do
+  app** mais amplo que "Financeiro" antes da publicação na loja. Navegação precisará de uma "casa"
+  com os módulos.
+- **Módulos escolhíveis** — a pessoa escolhe quais módulos aparecem (simplicidade). Baixar módulos
+  sob demanda não é viável (lojas restringem código novo baixado depois; e o ganho de espaço seria
+  mínimo — telas pesam dezenas de KB; dados de um módulo só existem se ele for usado).
+- **Notificações + badge no ícone** — locais (ex.: vencimento amanhã, sem servidor; já previsto
+  como "lembrete local de vencimento") e push (ex.: Colaboração; precisa de servidor/serviço do
+  Expo). Número no ícone: iOS mostra o número; Android depende do aparelho (número ou bolinha).
+  `expo-notifications` tem parte nativa → APK novo.
+- **Registrar sem abrir o app** — em ordem de custo: (1) atalhos no ícone (segurar o ícone →
+  "Novo gasto"), (2) ações na notificação ("Marcar como pago"), (3) widget na tela inicial (iOS
+  exige Swift e não permite digitar no widget — abriria o formulário). Sugestão: atalhos primeiro.
+  Todos com parte nativa → APK novo.
