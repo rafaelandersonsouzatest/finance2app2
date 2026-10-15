@@ -244,3 +244,30 @@ Anotadas a pedido do usuário — **não iniciar sem alinhar**.
   "Novo gasto"), (2) ações na notificação ("Marcar como pago"), (3) widget na tela inicial (iOS
   exige Swift e não permite digitar no widget — abriria o formulário). Sugestão: atalhos primeiro.
   Todos com parte nativa → APK novo.
+
+## Publicação na loja — o que já foi levantado (2026-10-15)
+
+Anotado para quando a publicação for retomada — **não iniciar sem alinhar**.
+
+- **App da loja = ambiente `meu-app`** (projeto Firebase `fincanceapp-rafael`). `rafael` e convidados
+  (`christian`) ficam como ambientes de teste; `marina` fora das publicações.
+- **Decisões que travam o resto** (permanentes ou quase): nome do app (ligado à ideia de organização
+  familiar), e-mail de contato do app, identificador do pacote (`package` — **não muda depois do
+  primeiro envio**; hoje `com.rafael.anderson.souza.meuapp`).
+- **Técnico (rápido)**: perfil `producao` no `eas.json` gerando AAB, channel próprio da loja (testar
+  antes de chegar aos usuários), `versionCode` automático; cópia de segurança da chave de assinatura
+  (`eas credentials`) — a chave já é de produção, gerada pela EAS (a antiga preocupação com
+  `debug.keystore` deixou de existir com a remoção da pasta `android/`). Versão interna (`app.json`)
+  igualada ao número do Sobre no build.
+- **Google Play**: conta de desenvolvedor (US$ 25); contas pessoais novas exigem **teste fechado com
+  12+ testadores por 14 dias** (confirmar regra vigente); ficha, capturas, classificação etária,
+  "Segurança dos dados", URL de política de privacidade e de exclusão de conta (Firebase Hosting do
+  projeto), conta de teste para o revisor. App Store depois (US$ 99/ano, TestFlight).
+- **Dados dos testadores**:
+  - quem usa o APK (`meu-app`) **não precisa de nada** — a loja usa o mesmo banco; basta entrar com a
+    mesma conta;
+  - quem usa o ambiente de convidados (`financeapp-christian`) pode ser trazido com uma **migração
+    única**: contas via `firebase auth:export`/`auth:import` (mantém senhas e UIDs) + script copiando
+    `users/{uid}/**` e as reservas de CPF. Cuidados: pessoa com conta nos dois bancos (escolher ou
+    juntar), conflito de reserva de CPF, e fazer **uma vez só, perto da publicação**, com o ambiente de
+    teste congelado.
