@@ -151,9 +151,10 @@ Antes de implementar qualquer alteração, avaliar se ela deve ser acompanhada p
 
 Ver `PROJECT_STATUS.md` para a lista completa e `ARQUITETURA.md` para o porquê de cada uma.
 Resumo rápido — regras práticas para não reintroduzir um bug já corrigido:
-- `firestore.rules` existe e está versionado (cobre `users/{uid}` + `documentosCadastrados`),
-  mas **ainda não foi publicado** no Firebase — não assumir que o banco está protegido em
-  produção até a publicação acontecer.
+- `firestore.rules` está **publicado nos 4 projetos Firebase** (desde 2026-10-14/15). Toda coleção
+  nova precisa de regra correspondente — senão o app recebe "sem permissão" em produção. Testes
+  das regras: `cd functions && npm run test:regras` (emulador local, nunca o banco real); publicar:
+  `firebase deploy --only firestore:rules --project <id> --account rafael.anderson42@gmail.com`.
 - O "Modo Família" (`tenants/{tenantId}`) não está conectado a nenhuma tela — não tratar como
   funcional. A infraestrutura de Membros (`useMembros.js` e as telas que a usam) é diferente:
   está funcional hoje, com escopo correto por usuário (não é o mesmo scaffolding morto do
