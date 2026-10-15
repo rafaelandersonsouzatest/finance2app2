@@ -6,7 +6,7 @@
 export const CHANGELOG = [
   {
     data: '2026-10-15',
-    texto: 'No iPhone, o app não trava mais depois de salvar, editar ou excluir um lançamento. Cores do app revisadas e padronizadas.',
+    texto: 'Agora dá para excluir a sua conta em Menu → Conta. No iPhone, o app não trava mais depois de salvar, editar ou excluir.',
   },
   {
     data: '2026-10-10',
