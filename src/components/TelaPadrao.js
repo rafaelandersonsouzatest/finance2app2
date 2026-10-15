@@ -17,6 +17,7 @@ import MonthYearPicker from '../components/MonthYearPicker';
 import ModalCriacao from '../components/ModalCriacao';
 import ModalEdicao from '../components/ModalEdicao';
 import ModalDetalhes from './ModalDetalhes';
+import { useTrocaDeModal } from '../hooks/useTrocaDeModal';
 import ToggleVisibilidade from '../components/ToggleVisibilidade';
 import { vibrarLeve, vibrarSucesso, vibrarAlerta, vibrarMedio } from '../utils/haptics';
 import FabMenu from '../components/FabMenu';
@@ -84,6 +85,10 @@ export default function TelaPadrao({
   const [modalEdicaoVisivel, setModalEdicaoVisivel] = useState(false);
   const [modalDetalhesVisivel, setModalDetalhesVisivel] = useState(false);
   const [itemSelecionado, setItemSelecionado] = useState(null);
+  // 🔹 Detalhes → Edição/Histórico e Edição → confirmação de exclusão: o
+  // próximo modal só abre depois que o atual terminou de sair (no iPhone,
+  // abrir os dois juntos travava o app — ver hooks/useTrocaDeModal.js).
+  const { abrirDepoisDeFechar, aoTerminarDeFechar } = useTrocaDeModal();
 
   const {
     selectedMonth,
@@ -113,7 +118,16 @@ export default function TelaPadrao({
   const handleAbrirEdicao = () => {
     vibrarLeve();
     setModalDetalhesVisivel(false);
-    setModalEdicaoVisivel(true);
+    abrirDepoisDeFechar(() => setModalEdicaoVisivel(true));
+  };
+
+  // Histórico abre no lugar dos detalhes (não por cima deles).
+  const handleAbrirHistoricoDosDetalhes = () => {
+    if (!onHistoryPress || !itemSelecionado) return;
+    const item = itemSelecionado;
+    setModalDetalhesVisivel(false);
+    setItemSelecionado(null);
+    abrirDepoisDeFechar(() => onHistoryPress(item));
   };
 
   const handleSalvarEdicao = (itemAtualizado) => {
@@ -134,9 +148,12 @@ export default function TelaPadrao({
   const handleExcluir = () => {
     vibrarAlerta();
     if (!itemSelecionado?.id) return;
-    onDelete(itemSelecionado);
+    const item = itemSelecionado;
     setModalEdicaoVisivel(false);
     setItemSelecionado(null);
+    // `onDelete` abre a confirmação "Excluir?" na tela — só depois que a
+    // edição saiu.
+    abrirDepoisDeFechar(() => onDelete(item));
   };
 
   const handleSalvarCriacao = (novoItem) => {
@@ -639,12 +656,8 @@ const renderHeader = () => (
   onEditPress={handleAbrirEdicao}
   item={itemSelecionado}
   tipo={tipo}
-  // 👇 AQUI ESTÁ A CORREÇÃO
-  onHistoryPress={() => {
-    if (onHistoryPress && itemSelecionado) {
-      onHistoryPress(itemSelecionado);
-    }
-  }}
+  onHistoryPress={handleAbrirHistoricoDosDetalhes}
+  onDismiss={aoTerminarDeFechar}
 />
 
       {tipo !== 'investimento' && (
@@ -659,6 +672,7 @@ const renderHeader = () => (
           item={itemSelecionado}
           tipo={tipo}
           titulo={`Editar ${tipo}`}
+          onDismiss={aoTerminarDeFechar}
         />
       )}
     </SafeAreaView>

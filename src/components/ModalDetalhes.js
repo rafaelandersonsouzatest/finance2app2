@@ -171,6 +171,9 @@ export default function ModalDetalhes({
   onGerenciarDivisao,
   mostrarIconeCompartilhado = false,
   statusDivisaoTexto,
+  // Chamado quando o modal terminou de sair da tela (iOS) — ver
+  // hooks/useTrocaDeModal.js.
+  onDismiss,
 }) {
   // Recuo da barra de navegação do sistema: o modal é translúcido e vai até
   // a borda de baixo da tela (mesma regra do AreaFormulario/UserMenu).
@@ -609,6 +612,7 @@ export default function ModalDetalhes({
         animationType="slide"
         transparent
         onRequestClose={onClose}
+        onDismiss={onDismiss}
       >
         <View style={globalStyles.modalOverlay}>
           <View style={[globalStyles.modalContainer, { paddingBottom: 20 + insets.bottom }]}>
@@ -672,13 +676,15 @@ export default function ModalDetalhes({
             </ScrollView>
           </View>
         </View>
-      </Modal>
 
-      <AlertaModal
-        visible={alerta.visivel}
-        onClose={() => setAlerta({ visivel: false })}
-        {...alerta}
-      />
+        {/* Aviso DENTRO do modal: no iPhone, um modal ao lado de outro aberto
+            não aparece e trava a tela (ver hooks/useTrocaDeModal.js). */}
+        <AlertaModal
+          visible={alerta.visivel}
+          onClose={() => setAlerta({ visivel: false })}
+          {...alerta}
+        />
+      </Modal>
     </>
   );
 }

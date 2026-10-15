@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import ModalRN from 'react-native-modal';
 import AreaFormulario from './AreaFormulario';
+import { useTrocaDeModal } from '../hooks/useTrocaDeModal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../styles/colors';
 import { globalStyles } from '../styles/globalStyles';
@@ -36,6 +37,10 @@ const ModalCriacao = ({
   const [bloquearFechamento, setBloquearFechamento] = useState(false);
   const [valores, setValores] = useState({});
   const [alerta, setAlerta] = useState({ visivel: false });
+  // 🔹 O aviso "Sucesso!" só abre depois que o formulário terminou de sair da
+  // tela: no iPhone, abrir os dois juntos travava o app (ver
+  // hooks/useTrocaDeModal.js).
+  const { abrirDepoisDeFechar, aoTerminarDeFechar } = useTrocaDeModal();
   const [modoCalculo, setModoCalculo] = useState(null);
   const {
         texto: valorTexto,
@@ -295,14 +300,16 @@ useEffect(() => {
           mensagem = 'Item salvo com sucesso!';
       }
 
-          setAlerta({
-            visivel: true,
-            titulo: 'Sucesso!',
-            mensagem,
-            icone: 'check-circle-outline',
-            corIcone: colors.balance,
-            textoBotao: 'Entendi',
-          });
+          abrirDepoisDeFechar(() =>
+            setAlerta({
+              visivel: true,
+              titulo: 'Sucesso!',
+              mensagem,
+              icone: 'check-circle-outline',
+              corIcone: colors.balance,
+              textoBotao: 'Entendi',
+            })
+          );
 
           setValores(getValoresIniciais());
         };
@@ -845,6 +852,7 @@ return (
       isVisible={visivel}
       onBackdropPress={() => { if (!bloquearFechamento) aoFechar(); }}
       onBackButtonPress={() => { if (!bloquearFechamento) aoFechar(); }} // Android
+      onDismiss={aoTerminarDeFechar}
       useNativeDriver
       hideModalContentWhileAnimating
       propagateSwipe={false}
@@ -890,13 +898,28 @@ return (
           </AreaFormulario>
         </View>
       </View>
+
+      {/* Com o formulário aberto (ex.: "Campos obrigatórios"), o aviso é
+          desenhado DENTRO dele — no iPhone, um modal ao lado de outro aberto
+          não aparece e trava a tela. */}
+      {visivel && (
+        <AlertaModal
+          visible={alerta.visivel}
+          onClose={() => setAlerta({ visivel: false })}
+          {...alerta}
+        />
+      )}
     </ModalRN>
 
-    <AlertaModal
-      visible={alerta.visivel}
-      onClose={() => setAlerta({ visivel: false })}
-      {...alerta}
-    />
+    {/* Com o formulário fechado (ex.: "Sucesso!" depois de salvar), o aviso
+        fica fora dele — senão sumiria junto com o formulário. */}
+    {!visivel && (
+      <AlertaModal
+        visible={alerta.visivel}
+        onClose={() => setAlerta({ visivel: false })}
+        {...alerta}
+      />
+    )}
   </>
 );
 

@@ -22,6 +22,7 @@ export default function ModalParcelasAdiantamento({
   aoFechar,
   parcelasFuturas = [],
   aoConfirmar, // 👈 agora vem de fora, via useAdiantamento
+  onDismiss, // modal terminou de sair da tela (iOS) — ver hooks/useTrocaDeModal.js
 }) {
   const [selecionadas, setSelecionadas] = useState([]);
   const [usarDataAtual, setUsarDataAtual] = useState(true);
@@ -105,7 +106,7 @@ export default function ModalParcelasAdiantamento({
   };
 
   return (
-    <Modal statusBarTranslucent navigationBarTranslucent visible={!!visivel} transparent animationType="fade" onRequestClose={aoFechar}>
+    <Modal statusBarTranslucent navigationBarTranslucent visible={!!visivel} transparent animationType="fade" onRequestClose={aoFechar} onDismiss={onDismiss}>
       <View style={globalStyles.fullScreenModalOverlay}>
         <View style={[globalStyles.managementModalContainer, { maxHeight: '85%' }]}>
           <View style={globalStyles.managementModalHeader}>

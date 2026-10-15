@@ -180,6 +180,12 @@ Resumo rápido — regras práticas para não reintroduzir um bug já corrigido:
   (`src/components/AreaFormulario.js`) e o `<Modal>` precisa de `statusBarTranslucent
   navigationBarTranslucent` — nunca `KeyboardAvoidingView`/`avoidKeyboard` próprios nem
   `ScrollView` solta. Conteúdo que já é `FlatList` usa `rolavel={false}`.
+- **Nunca abrir um modal enquanto outro está aberto ou fechando, a não ser que o segundo seja
+  desenhado DENTRO do primeiro** (filho na árvore). No iPhone isso deixa uma camada invisível que
+  trava todos os toques (o app continua vivo, só não responde). Para trocar de modal (formulário →
+  "Sucesso!", detalhes → edição/histórico, edição → confirmar exclusão) usar
+  `useTrocaDeModal` (`src/hooks/useTrocaDeModal.js`): fecha o atual, `abrirDepoisDeFechar(...)` e
+  `onDismiss={aoTerminarDeFechar}` no modal que fecha. Android não tem o problema — testar no iPhone.
 - **Teste de teclado/modal no Expo Go não garante o APK** — já enganou uma vez (ver
   `PROJECT_STATUS.md` seção 24). Mudança de layout com teclado se valida no APK.
 - O ambiente `meu-app` (APK) usa `runtimeVersion: {policy: "fingerprint"}` (`app.config.js`); os

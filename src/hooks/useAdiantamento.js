@@ -5,6 +5,7 @@ import { db } from '../config/firebase';
 import { useAuth } from '../auth/useAuth';
 import { getBasePath } from '../utils/firestorePaths';
 import { colors } from '../styles/colors';
+import { useTrocaDeModal } from './useTrocaDeModal';
 
 // =========================================================
 // 🔹 Recebe as funções de antecipação já prontas (`anteciparParcelasCartao`/
@@ -19,6 +20,9 @@ export const useAdiantamento = (collectionName, { anteciparParcelasCartao, antec
   const [parcelasFuturas, setParcelasFuturas] = useState([]);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
+  // Aviso de resultado só depois que a janela de antecipação saiu da tela
+  // (no iPhone, abrir os dois juntos travava o app — ver useTrocaDeModal.js).
+  const { abrirDepoisDeFechar, aoTerminarDeFechar } = useTrocaDeModal();
 
   const [alerta, setAlerta] = useState({
     visivel: false,
@@ -90,32 +94,30 @@ export const useAdiantamento = (collectionName, { anteciparParcelasCartao, antec
         await anteciparParcelasEmprestimo(idsSelecionados, dataPagamento, valorComDesconto);
       }
 
-      setAlerta({
-        visivel: true,
-        titulo: 'Parcelas Antecipadas',
-        mensagem: 'As parcelas selecionadas foram antecipadas com sucesso!',
-        icone: 'check-circle-outline',
-        corIcone: colors.balance,
-        botoes: [
-          {
-            texto: 'OK',
-            onPress: () => {
-              setAlerta({ visivel: false });
-              setModalVisivel(false);
-            },
-          },
-        ],
-      });
+      setModalVisivel(false);
+      abrirDepoisDeFechar(() =>
+        setAlerta({
+          visivel: true,
+          titulo: 'Parcelas Antecipadas',
+          mensagem: 'As parcelas selecionadas foram antecipadas com sucesso!',
+          icone: 'check-circle-outline',
+          corIcone: colors.balance,
+          botoes: [{ texto: 'OK', onPress: () => setAlerta({ visivel: false }) }],
+        })
+      );
     } catch (err) {
       console.error('Erro ao antecipar parcelas:', err);
-      setAlerta({
-        visivel: true,
-        titulo: 'Erro',
-        mensagem: 'Não foi possível antecipar as parcelas. Tente novamente.',
-        icone: 'alert-circle-outline',
-        corIcone: colors.error,
-        botoes: [{ texto: 'OK', onPress: () => setAlerta({ visivel: false }) }],
-      });
+      setModalVisivel(false);
+      abrirDepoisDeFechar(() =>
+        setAlerta({
+          visivel: true,
+          titulo: 'Erro',
+          mensagem: 'Não foi possível antecipar as parcelas. Tente novamente.',
+          icone: 'alert-circle-outline',
+          corIcone: colors.error,
+          botoes: [{ texto: 'OK', onPress: () => setAlerta({ visivel: false }) }],
+        })
+      );
     } finally {
       setLoading(false);
     }
@@ -133,6 +135,7 @@ export const useAdiantamento = (collectionName, { anteciparParcelasCartao, antec
     iniciarAdiantamento,
     confirmarAdiantamento,
     fecharModalAdiantamento: fecharModal,
+    aoTerminarDeFecharAdiantamento: aoTerminarDeFechar,
     alerta,
     setAlerta,
   };

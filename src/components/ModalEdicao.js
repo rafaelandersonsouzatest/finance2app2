@@ -228,7 +228,9 @@ const CamposModal = memo(({ tipo, valores, atualizarCampo, marcarComoPago, parce
 // ==========================================================
 // 🔹 COMPONENTE PRINCIPAL DO MODAL
 // ==========================================================
-export default function ModalEdicao({ visivel, aoFechar, aoSalvar, aoExcluir, item, tipo, titulo, buscarParcelasDaCompra }) {
+// `onDismiss`: chamado quando o modal terminou de sair da tela (iOS) — ver
+// hooks/useTrocaDeModal.js.
+export default function ModalEdicao({ visivel, aoFechar, aoSalvar, aoExcluir, item, tipo, titulo, buscarParcelasDaCompra, onDismiss }) {
   const [valores, setValores] = useState({});
   const { categorias } = useCategorias();
   const { membros } = useMembros();
@@ -419,6 +421,7 @@ return (
     isVisible={visivel}
     onBackdropPress={aoFechar}
     onBackButtonPress={aoFechar}
+    onDismiss={onDismiss}
     animationIn="slideInUp"
     animationOut="slideOutDown"
     hideModalContentWhileAnimating

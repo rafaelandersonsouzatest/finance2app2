@@ -16,6 +16,7 @@ export default function ModalGerarPendentes({
   gerando = false,
   onConfirmar,
   onClose,
+  onDismiss, // modal terminou de sair da tela (iOS) — ver hooks/useTrocaDeModal.js
 }) {
   const [selecionados, setSelecionados] = useState([]);
 
@@ -45,7 +46,7 @@ export default function ModalGerarPendentes({
   const isEntrada = tipo === 'entrada';
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} onDismiss={onDismiss}>
       <View style={styles.overlay}>
         <View style={styles.container}>
           <View style={styles.cabecalho}>

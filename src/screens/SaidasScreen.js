@@ -14,6 +14,7 @@ import AlertaModal from '../components/AlertaModal';
 import { globalStyles } from '../styles/globalStyles';
 import { colors } from '../styles/colors';
 import ModalDetalhes from '../components/ModalDetalhes';
+import { useTrocaDeModal } from '../hooks/useTrocaDeModal';
 import ModalEdicao from '../components/ModalEdicao';
 import ModalHistoricoParcelas from '../components/ModalHistoricoParcelas';
 import ModalEditorParcelas from '../components/ModalEditorParcelas';
@@ -287,6 +288,7 @@ export default function SaidasScreen() {
   iniciarAdiantamento,
   confirmarAdiantamento,
   fecharModalAdiantamento,
+  aoTerminarDeFecharAdiantamento,
   alerta: alertaAdiantamento,
   setAlerta: setAlertaAdiantamento,
 } = useAdiantamento(abaAtiva === 'cartoes' ? 'cartoes' : 'emprestimos', {
@@ -300,6 +302,7 @@ export default function SaidasScreen() {
   const [alerta, setAlerta] = useState({ visivel: false, titulo: '', mensagem: '', botoes: [] });
   const [itemSelecionado, setItemSelecionado] = useState(null);
   const [modalDetalhesVisivel, setModalDetalhesVisivel] = useState(false);
+  const { abrirDepoisDeFechar, aoTerminarDeFechar } = useTrocaDeModal();
   const [modalEdicaoVisivel, setModalEdicaoVisivel] = useState(false);
   const [historicoModalVisivel, setHistoricoModalVisivel] = useState(false);
   const [itemHistorico, setItemHistorico] = useState(null);
@@ -636,9 +639,26 @@ const handleExcluir = (itemParam) => {
     setModalDetalhesVisivel(true);
   };
 
+  // 🔹 Modais abertos a partir dos detalhes/edição (edição, histórico,
+  // compartilhar, gerenciar divisão, confirmação de exclusão) só abrem
+  // depois que o atual terminou de sair — no iPhone, abrir os dois juntos
+  // travava o app (ver hooks/useTrocaDeModal.js).
   const handleAbrirEdicao = () => {
     setModalDetalhesVisivel(false);
-    setModalEdicaoVisivel(true);
+    abrirDepoisDeFechar(() => setModalEdicaoVisivel(true));
+  };
+
+  // Histórico aberto pelo botão dos detalhes: abre no lugar deles.
+  const handleAbrirHistoricoDosDetalhes = () => {
+    const item = itemSelecionado;
+    if (!item) return;
+    setModalDetalhesVisivel(false);
+    abrirDepoisDeFechar(() => handleAbrirHistorico(item));
+  };
+
+  const handleExcluirDaEdicao = () => {
+    const item = itemSelecionado;
+    abrirDepoisDeFechar(() => handleExcluir(item));
   };
 
   // 🔹 Extraído para ser reaproveitado tanto pelo botão "Histórico" do
@@ -655,7 +675,7 @@ const handleExcluir = (itemParam) => {
     if (!item) return;
     setGastoParaCompartilhar(item);
     setModalDetalhesVisivel(false);
-    setModalCompartilharVisivel(true);
+    abrirDepoisDeFechar(() => setModalCompartilharVisivel(true));
   };
 
   const handleConfirmarCompartilhar = async (cotas) => {
@@ -672,7 +692,7 @@ const handleExcluir = (itemParam) => {
   // antiga seção "Compartilhado com" que vivia dentro do ModalDetalhes.
   const handleAbrirGerenciarDivisao = () => {
     setModalDetalhesVisivel(false);
-    setModalGerenciarVisivel(true);
+    abrirDepoisDeFechar(() => setModalGerenciarVisivel(true));
   };
 
   // Cancelar um convite individual ainda pendente (seção 11.1/11.3) —
@@ -964,7 +984,8 @@ tipo={
     ? 'emprestimo'
     : 'cartao'
 }
-  onHistoryPress={() => handleAbrirHistorico(itemSelecionado)}
+  onHistoryPress={handleAbrirHistoricoDosDetalhes}
+  onDismiss={aoTerminarDeFechar}
   onSharePress={
     colaboracaoDisponivel && abaAtiva === 'gastos' ? handleAbrirCompartilhar : undefined
   }
@@ -983,7 +1004,8 @@ tipo={
   visivel={modalEdicaoVisivel}
   aoFechar={() => setModalEdicaoVisivel(false)}
   aoSalvar={handleEditar}
-  aoExcluir={() => handleExcluir()}
+  aoExcluir={handleExcluirDaEdicao}
+  onDismiss={aoTerminarDeFechar}
   item={itemSelecionado}
 tipo={
   abaAtiva === 'gastos'
@@ -1058,6 +1080,7 @@ tipo={
         aoFechar={fecharModalAdiantamento}
         parcelasFuturas={parcelasParaAdiantar}
         aoConfirmar={confirmarAdiantamento}
+        onDismiss={aoTerminarDeFecharAdiantamento}
       />
 
       <ModalCompartilharDespesa

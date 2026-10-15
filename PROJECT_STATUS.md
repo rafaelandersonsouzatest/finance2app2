@@ -1076,3 +1076,26 @@ teclado cobria os modais e não dava para ver o que era digitado.
   cartão/membro) ficavam com o fim atrás da barra de navegação — ganharam o mesmo recuo
   (`insets.bottom`) e barras translúcidas. Gerenciar cartões/categorias ficaram de fora de
   propósito: o botão "+" deles (`useFabPosition`) já soma a barra.
+
+## 25. iPhone travando depois de salvar/excluir: troca de modais (🟡 implementado em 2026-10-15, aguardando teste no iPhone)
+
+- **Sintoma** (testado em iPhone, publicado e em dev, com regras antigas e novas do Firestore):
+  depois de salvar um lançamento, excluir, ou tocar em "Ver linha do tempo" nos detalhes, a tela
+  para de responder a toques (só a barra de abas funciona). O app continua vivo — uma exclusão
+  feita pelo Android aparece no iPhone travado. Android nunca teve o problema.
+- **Diagnóstico** (testes isolados com o usuário): abrir/fechar um modal sozinho funciona; atualizar
+  a lista sem modal funciona; trava sempre que **um modal abre outro modal "ao lado"** enquanto o
+  primeiro está aberto ou fechando (formulário fechando + aviso "Sucesso!", detalhes + histórico,
+  edição fechando + confirmação "Excluir?"). O iOS só apresenta uma janela modal por vez a partir
+  da tela; o segundo pedido é recusado em silêncio e sobra uma camada invisível que engole os toques.
+  Provavelmente existe desde sempre no iPhone — ninguém tinha lançado nada pelo iPhone antes.
+  **Não tem relação com as regras do Firestore** (reproduz no `meu-app`, ainda com as regras antigas).
+- **Correção**: hook `useTrocaDeModal` — no iOS, o próximo modal só abre depois do `onDismiss` do
+  atual (rede de segurança de 1 s); no Android abre na hora. Aplicado em: aviso de sucesso do
+  `ModalCriacao`; detalhes → edição / histórico / compartilhar / gerenciar divisão; edição →
+  confirmação de exclusão (`TelaPadrao` e `SaidasScreen`); Gerar do Mês → aviso; antecipação →
+  aviso; seletores de cartão/membro → "Outro..." / "Gerenciar...". Avisos que aparecem com o modal
+  aberto (validação do formulário, avisos dos detalhes) passaram a ser desenhados DENTRO dele.
+- Mudança pequena de comportamento: o histórico (e a janela de "Outro cartão/pessoa") abre **no
+  lugar** da janela anterior, não por cima — ao fechar, volta para a tela, não para os detalhes.
+- **A testar além dos 7 casos**: resumo do cartão (aba Cartões) → "Antecipar" de uma compra.

@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import Modal from "react-native-modal";
 import AreaFormulario from "./AreaFormulario";
+import { useTrocaDeModal } from "../hooks/useTrocaDeModal";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useMembros } from "../hooks/useMembros";
 import { globalStyles } from "../styles/globalStyles";
@@ -49,6 +50,7 @@ export const MembroSelect = ({
   // Recuo da barra de navegação do sistema: o modal é translúcido e vai até
   // a borda de baixo da tela (mesma regra do AreaFormulario/UserMenu).
   const insets = useSafeAreaInsets();
+  const { abrirDepoisDeFechar, aoTerminarDeFechar } = useTrocaDeModal();
   // 🔹 Fonte única de membros (mesma usada pela tela de administração) —
   // MembroSelect não acessa o Firestore diretamente.
   const { membros } = useMembros();
@@ -173,6 +175,7 @@ export const MembroSelect = ({
       <Modal statusBarTranslucent navigationBarTranslucent
         isVisible={modalVisivel}
         onBackdropPress={fecharModal}
+        onDismiss={aoTerminarDeFechar}
         style={{ justifyContent: "flex-end", margin: 0 }}
       >
         <View style={[globalStyles.modalContainer, { paddingBottom: 20 + insets.bottom }]}>
@@ -212,7 +215,12 @@ export const MembroSelect = ({
               <View>
                 <TouchableOpacity
                   style={[globalStyles.listItem, { flexDirection: "row", alignItems: "center" }]}
-                  onPress={abrirOutraPessoa}
+                  onPress={() => {
+                    // Lista fecha antes da janela do nome abrir (iPhone: ver
+                    // hooks/useTrocaDeModal.js).
+                    setModalVisivel(false);
+                    abrirDepoisDeFechar(abrirOutraPessoa);
+                  }}
                 >
                   <MaterialIcons name="person-outline" size={22} color={colors.textSecondary} />
                   <Text style={[globalStyles.listItemTitle, { marginLeft: 8, color: colors.textSecondary }]}>
@@ -227,7 +235,7 @@ export const MembroSelect = ({
                 <TouchableOpacity
                   onPress={() => {
                     setModalVisivel(false);
-                    abrirGerenciar();
+                    abrirDepoisDeFechar(abrirGerenciar);
                   }}
                   style={{ alignItems: "center", paddingVertical: 14 }}
                 >

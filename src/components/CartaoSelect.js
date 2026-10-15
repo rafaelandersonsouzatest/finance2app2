@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, FlatList, TextInput } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Modal from 'react-native-modal';
 import AreaFormulario from './AreaFormulario';
+import { useTrocaDeModal } from '../hooks/useTrocaDeModal';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useCarteira } from '../hooks/useCarteira';
 import { globalStyles } from '../styles/globalStyles';
@@ -32,6 +33,7 @@ export const CartaoSelect = ({
   // Recuo da barra de navegação do sistema: o modal é translúcido e vai até
   // a borda de baixo da tela (mesma regra do AreaFormulario/UserMenu).
   const insets = useSafeAreaInsets();
+  const { abrirDepoisDeFechar, aoTerminarDeFechar } = useTrocaDeModal();
   const { cartoesCadastrados } = useCarteira();
   const cartoesAtivos = cartoesCadastrados.filter((c) => c.ativo !== false);
 
@@ -125,6 +127,7 @@ export const CartaoSelect = ({
       <Modal statusBarTranslucent navigationBarTranslucent
         isVisible={modalVisivel}
         onBackdropPress={fecharModal}
+        onDismiss={aoTerminarDeFechar}
         style={{ justifyContent: 'flex-end', margin: 0 }}
       >
         <View style={[globalStyles.modalContainer, { maxHeight: '80%' }, { paddingBottom: 20 + insets.bottom }]}>
@@ -152,7 +155,12 @@ export const CartaoSelect = ({
               <View>
                 <TouchableOpacity
                   style={[globalStyles.listItem, { flexDirection: 'row', alignItems: 'center' }]}
-                  onPress={abrirOutro}
+                  onPress={() => {
+                    // Lista fecha antes da janela do nome abrir (iPhone: ver
+                    // hooks/useTrocaDeModal.js).
+                    setModalVisivel(false);
+                    abrirDepoisDeFechar(abrirOutro);
+                  }}
                 >
                   <MaterialCommunityIcons name="credit-card-outline" size={22} color={colors.textSecondary} />
                   <Text style={[globalStyles.listItemTitle, { marginLeft: 8, color: colors.textSecondary }]}>
@@ -163,7 +171,7 @@ export const CartaoSelect = ({
                 <TouchableOpacity
                   onPress={() => {
                     setModalVisivel(false);
-                    abrirGerenciar();
+                    abrirDepoisDeFechar(abrirGerenciar);
                   }}
                   style={{ alignItems: 'center', paddingVertical: 14 }}
                 >

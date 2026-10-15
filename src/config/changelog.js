@@ -5,6 +5,10 @@
 // listar toda mudança interna/técnica).
 export const CHANGELOG = [
   {
+    data: '2026-10-15',
+    texto: 'No iPhone, o app não trava mais depois de salvar, editar ou excluir um lançamento. Cores do app revisadas e padronizadas.',
+  },
+  {
     data: '2026-10-10',
     texto: 'Formulários agora sobem de verdade quando o teclado abre também no app instalado (APK), e o fim das janelas não fica mais atrás dos botões de navegação do celular. No Android, é preciso instalar o APK novo uma vez.',
   },

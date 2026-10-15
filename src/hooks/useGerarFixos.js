@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { colors } from '../styles/colors';
+import { useTrocaDeModal } from './useTrocaDeModal';
 
 /**
  * Fluxo do botão "Gerar do Mês" (entradas ou gastos), compartilhado por
@@ -15,6 +16,9 @@ export function useGerarFixos(listarModelosPendentes, gerarFixosDoMes, setAlerta
   const [pendentes, setPendentes] = useState([]);
   const [modalVisivel, setModalVisivel] = useState(false);
   const [gerando, setGerando] = useState(false);
+  // Aviso de resultado só depois que a lista de pendentes saiu da tela (no
+  // iPhone, abrir os dois juntos travava o app — ver useTrocaDeModal.js).
+  const { abrirDepoisDeFechar, aoTerminarDeFechar } = useTrocaDeModal();
 
   const isEntrada = tipo === 'entrada';
   const textoTipo = isEntrada ? 'entradas' : 'gastos';
@@ -70,10 +74,10 @@ export function useGerarFixos(listarModelosPendentes, gerarFixosDoMes, setAlerta
     setGerando(false);
     setModalVisivel(false);
 
-    if (status === 'NADA_PENDENTE') return alertaNadaPendente();
-    if (status !== 'SUCESSO') return alertaErro();
+    if (status === 'NADA_PENDENTE') return abrirDepoisDeFechar(alertaNadaPendente);
+    if (status !== 'SUCESSO') return abrirDepoisDeFechar(alertaErro);
 
-    mostrarAlerta({
+    abrirDepoisDeFechar(() => mostrarAlerta({
       titulo: 'Sucesso!',
       mensagem:
         quantidade === 1
@@ -81,7 +85,7 @@ export function useGerarFixos(listarModelosPendentes, gerarFixosDoMes, setAlerta
           : `${quantidade} ${isEntrada ? 'entradas foram geradas' : 'gastos foram gerados'} para este mês.`,
       icone: 'check-circle-outline',
       corIcone: colors.balance,
-    });
+    }));
   };
 
   return {
@@ -93,6 +97,7 @@ export function useGerarFixos(listarModelosPendentes, gerarFixosDoMes, setAlerta
       gerando,
       onConfirmar: confirmar,
       onClose: () => !gerando && setModalVisivel(false),
+      onDismiss: aoTerminarDeFechar,
     },
   };
 }
