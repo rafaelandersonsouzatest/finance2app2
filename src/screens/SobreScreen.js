@@ -8,7 +8,9 @@ import { CHANGELOG } from '../config/changelog';
 
 export default function SobreScreen() {
   const nomeApp = Constants.expoConfig?.name || 'Financeiro';
-  const versao = Constants.expoConfig?.version || '—';
+  // Número de publicação (changelog.js) — a versão interna do app.json só muda
+  // em build novo; ver o comentário no topo de changelog.js.
+  const versao = CHANGELOG[0]?.versao || Constants.expoConfig?.version || '—';
 
   // Updates.createdAt só existe quando o app já baixou uma atualização OTA
   // (fica null no Expo Go e na primeira abertura de um APK recém-instalado,

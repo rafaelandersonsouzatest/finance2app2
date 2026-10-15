@@ -189,6 +189,10 @@ Resumo rápido — regras práticas para não reintroduzir um bug já corrigido:
   `onDismiss={aoTerminarDeFechar}` no modal que fecha. Android não tem o problema — testar no iPhone.
 - **Teste de teclado/modal no Expo Go não garante o APK** — já enganou uma vez (ver
   `PROJECT_STATUS.md` seção 24). Mudança de layout com teclado se valida no APK.
+- **Número de versão:** o que o usuário vê no Sobre é o `versao` da primeira entrada de
+  `src/config/changelog.js` (MAIOR.MENOR.CORREÇÃO) — a cada publicação, entrada nova com o número
+  seguinte. **Não mudar `version` no `app.json`** fora de um build novo: ela entra na etiqueta
+  automática do `meu-app` e o APK instalado para de receber atualizações.
 - O ambiente `meu-app` (APK) usa `runtimeVersion: {policy: "fingerprint"}` (`app.config.js`); os
   demais usam `sdkVersion` (exigido pelo Expo Go). Entrou biblioteca com parte nativa → a
   etiqueta do `meu-app` muda sozinha → **gerar APK novo antes de publicar**; o APK antigo para de

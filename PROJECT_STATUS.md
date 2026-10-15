@@ -5,6 +5,12 @@
 
 ## 0. Releases publicadas (EAS Update / OTA)
 
+> **Numeração (desde 2026-10-15):** o número que o usuário vê no Sobre vem de `src/config/changelog.js`
+> (`versao`, MAIOR.MENOR.CORREÇÃO). As releases abaixo anotadas como **0.N** correspondem a **1.N** no app
+> (0.10.0 = **1.10.0**, a primeira com o número visível). Daqui para frente, a tabela usa o mesmo número do
+> Sobre. A versão interna (`version` no `app.json`) continua `1.0.0` e só muda em build novo — ver
+> comentário no topo de `changelog.js`.
+
 | Release | Data | Commit | Apps | Branch |
 |---|---|---|---|---|
 | **0.2.0** — Hub do Usuário, Agenda Financeira e Perfil | 2026-07-28 | `63b5375` | `meu-app`, `rafael`, `christian` | `main` |
