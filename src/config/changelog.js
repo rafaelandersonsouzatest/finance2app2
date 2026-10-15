@@ -15,6 +15,11 @@
 // (APK/loja). Ver PROJECT_STATUS.md seção 0.
 export const CHANGELOG = [
   {
+    versao: '1.10.1',
+    data: '2026-10-15',
+    texto: 'No iPhone, os botões "Valor Total" e "Valor da Parcela" (novo empréstimo e nova compra no cartão) voltaram a funcionar.',
+  },
+  {
     versao: '1.10.0',
     data: '2026-10-15',
     texto: 'Agora dá para excluir a sua conta em Menu → Conta. No iPhone, o app não trava mais depois de salvar, editar ou excluir. Cores do app revisadas e padronizadas.',

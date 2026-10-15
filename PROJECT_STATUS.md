@@ -211,13 +211,12 @@ Registrado em 2026-07-28, por decisão explícita do usuário: o produto ainda e
   depois da publicação, quando o tema virar prioridade.
 
 ### Backlog — avisos do modo de desenvolvimento (levantamento de 2026-10-14)
-- **ProgressBarAndroid / Clipboard / SafeAreaView / PushNotificationIOS "extracted/deprecated"**:
-  o app não usa nenhum (o `SafeAreaView` em uso já é do `react-native-safe-area-context`). Quem
-  dispara é o Expo (`metroImportAll` em carregamento dinâmico/recarga copia o `react-native`
-  inteiro e passa pelos getters descontinuados) — problema conhecido desde o SDK 54
-  (expo/expo#39544). Só em dev. Opção pendente: `LogBox.ignoreLogs` para essas 4 mensagens
-  (paliativo) + checagem no guardião de que nenhum arquivo importa esses componentes do
-  `react-native`.
+- ~~**ProgressBarAndroid / Clipboard / SafeAreaView / PushNotificationIOS "extracted/deprecated"**~~ ✅
+  **Causa real achada em 2026-10-15** (a anotação anterior culpava o Expo): `import('react-native')`
+  dinâmico nos botões "Valor Total / Valor da Parcela" do `ModalCriacao` (empréstimo e cartão) — o
+  `importAll` copiava o react-native inteiro e passava pelos getters descontinuados. No iPhone o mesmo
+  import falhava no toque e **os botões não respondiam**. Removido (a `LayoutAnimation` que ele pedia
+  já não funciona na nova arquitetura); `src/__tests__/padroesProibidos.test.js` impede a volta.
 - **"Cannot read property reload of undefined"**: o Fast Refresh do Expo chama
   `location.reload()` (só existe no navegador) quando precisa recarregar o app inteiro — ex.:
   depois de editar `colors.js`. Só em dev; a recarga falha e o app fica com o código antigo até

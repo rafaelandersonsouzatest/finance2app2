@@ -478,9 +478,10 @@ useEffect(() => {
                             key={modo}
                             activeOpacity={0.8}
                             onPress={() => {
-                              import('react-native').then(({ LayoutAnimation }) =>
-                                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
-                              );
+                              // Sem import('react-native') dinâmico aqui: no iPhone ele falhava no
+                              // toque e o botão não respondia (e copiava o react-native inteiro,
+                              // gerando os avisos de componentes descontinuados no modo dev). A
+                              // animação (LayoutAnimation) já não funciona na nova arquitetura.
                               setModoCalculo(modo);
                             }}
                             style={{
@@ -664,9 +665,10 @@ useEffect(() => {
           key={modo}
           activeOpacity={0.8}
           onPress={() => {
-            import('react-native').then(({ LayoutAnimation }) =>
-              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
-            );
+            // Sem import('react-native') dinâmico aqui: no iPhone ele falhava no
+            // toque e o botão não respondia (e copiava o react-native inteiro,
+            // gerando os avisos de componentes descontinuados no modo dev). A
+            // animação (LayoutAnimation) já não funciona na nova arquitetura.
             setModoCalculo(modo);
           }}
           style={{
